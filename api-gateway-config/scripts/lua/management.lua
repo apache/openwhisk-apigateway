@@ -1,4 +1,5 @@
 local cjson = require "cjson"
+local redis = require "lib/redis"
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
@@ -57,20 +58,19 @@ function _M.addRoute()
     local redisKey, namespace, gatewayPath = parseRequestURI(requestURI)
     
     -- Open connection to redis or use one from connection pool
-    local red = initRedis(REDIS_HOST, REDIS_PORT)
+    local red = redis.init(REDIS_HOST, REDIS_PORT, ngx)
     
-    local routeObj = generateRouteObj(red, redisKey, gatewayMethod, backendUrl, backendMethod, policies)
-    createRedisRoute(red, redisKey, "route", routeObj)
+    local routeObj = redis.generateRouteObj(red, redisKey, gatewayMethod, backendUrl, backendMethod, policies, ngx)
+    redis.createRoute(red, redisKey, "route", routeObj, ngx)
     createRouteConf(namespace, gatewayPath, routeObj, backendUrl)
 
     -- Add current redis connection in the ngx_lua cosocket connection pool
-    closeRedis(red)
+    redis.close(red, ngx)
 
     ngx.status = 200
     ngx.say(routeObj)
     ngx.exit(ngx.status)
 end
-
 
 --- Get route from redis 
 --
@@ -84,9 +84,9 @@ function _M.getRoute()
     local redisKey = parseRequestURI(requestURI)
     
     -- Initialize and connect to redis
-    local red = initRedis(REDIS_HOST, REDIS_PORT)
+    local red = redis.init(REDIS_HOST, REDIS_PORT, ngx)
     
-    local routeObj = getRedisRoute(red, redisKey, "route")
+    local routeObj = redis.getRoute(red, redisKey, "route", ngx)
     if routeObj == nil then
         ngx.status = 404
         ngx.say("Route doesn't exist.")
@@ -94,7 +94,7 @@ function _M.getRoute()
     end
 
     -- Add current redis connection in the ngx_lua cosocket connection pool
-    closeRedis(red)
+    redis.close(red, ngx)
 
     ngx.status = 200
     ngx.say(routeObj)
@@ -111,16 +111,16 @@ function _M.deleteRoute()
     local redisKey, namespace, gatewayPath = parseRequestURI(requestURI)
 
     -- Initialize and connect to redis
-    local red = initRedis(REDIS_HOST, REDIS_PORT)
+    local red = redis.init(REDIS_HOST, REDIS_PORT, ngx)
 
     -- Return if route doesn't exist
-    deleteRedisRoute(red, redisKey, "route")
+    redis.deleteRoute(red, redisKey, "route", ngx)
     
     -- Delete conf file
     os.execute(concatStrings({"rm -f ", BASE_CONF_DIR, namespace, "/", gatewayPath, ".conf"}))
     
     -- Add current redis connection in the ngx_lua cosocket connection pool
-    closeRedis(red)
+    redis.close(red, ngx)
 
     ngx.status = 200
     ngx.say("Route deleted.")
@@ -163,23 +163,6 @@ function _M.unsubscribe()
 end
 
 
---- Initialize and connect to Redis
-function initRedis(host, port)
-    local redis = require "resty.redis"
-    local red   = redis:new()
-    red:set_timeout(1000)
-    
-    -- Connect to Redis server
-    local connect, err = red:connect(host, port)
-    if not connect then
-        ngx.status(500)
-        ngx.say("Failed to connect to redis: " .. err)
-        ngx.exit(ngx.status)
-    end
-
-    return red
-end
-
 --- Parse the request uri to get the redisKey, namespace, and gatewayPath
 -- @param requestURI
 -- @return redisKey, namespace, gatewayPath
@@ -209,111 +192,6 @@ function parseRequestURI(requestURI)
 
     local redisKey = concatStrings({prefix, ":", namespace, ":", gatewayPath})
     return redisKey, namespace, gatewayPath
-end
-
---- Generate Redis object for route
--- @param red
--- @param key
--- @param gatewayMethod
--- @param backendUrl
--- @param backendMethod
--- @param policies
-function generateRouteObj(red, key, gatewayMethod, backendUrl, backendMethod, policies)
-    local routeObj = getRedisRoute(red, key, "route")
-    if routeObj == nil then
-        local newRoute = {
-	        [gatewayMethod] = {
-                backendUrl    = backendUrl,
-                backendMethod = backendMethod,
-                policies      = policies
-            }
-        }
-        return cjson.encode(newRoute)
-    else
-        local decoded = cjson.decode(routeObj)
-        decoded[gatewayMethod] = {
-            backendUrl    = backendUrl,
-            backendMethod = backendMethod,
-            policies      = policies
-        }
-        return cjson.encode(decoded)
-    end
-end
-
---- Create/update route in redis
--- @param red
--- @param key
--- @param field
--- @param routeObj
-function createRedisRoute(red, key, field, routeObj)
-    -- Add/update route to redis
-    local ok, err = red:hset(key, field, routeObj)
-    if not ok then
-        ngx.status(500)
-        ngx.say("Failed adding Route to redis: " .. err)
-        ngx.exit(ngx.status)
-    end
-end
-
---- Get route in redis
--- @param red
--- @param key
--- @param field
--- @return routeObj
-function getRedisRoute(red, key, field)
-    local routeObj, err = red:hget(key, field)
-    if not routeObj then
-        ngx.status(500)
-        ngx.say("Error getting route: ", err)
-        ngx.exit(ngx.statis)
-    end
-   
-    -- return nil if route doesn't exist
-    if routeObj == ngx.null then
-        return nil
-    end
-
-    -- Get routeObj from redis using redisKey
-    local args = ngx.req.get_uri_args()
-    local requestVerb = nil
-    for k, v in pairs(args) do 
-        if k == "verb" then
-            requestVerb = v
-        end
-    end
-
-    if requestVerb == nil then 
-        return routeObj
-    else
-        routeObj = cjson.decode(routeObj)
-        return cjson.encode(routeObj[requestVerb]) 
-    end
-end
-
---- Delete route int redis
--- @param red
--- @param key
--- @param field
-function deleteRedisRoute(red, key, field)
-    local routeObj, err = red:hget(key, field)
-    if not routeObj then
-        ngx.status(500)
-        ngx.say("Error deleting route: ", err)
-        ngx.exit(ngx.status)
-    end
-    
-    if routeObj == ngx.null then
-        ngx.status(404)
-        ngx.say("Route doesn't exist.")
-        ngx.exit(ngx.status)
-    end
-
-    local ok, err = red:del(key)
-    if not ok then
-        ngx.status(500)
-        ngx.say("Error deleing route: ", err)
-        ngx.exit(ngx.status)
-    end
 end
 
 --- Create/overwrite Nginx Conf file for given route
@@ -348,34 +226,6 @@ function createRouteConf(namespace, gatewayPath, routeObj, backendUrl)
     file:close()
 end
 
---- Initialize and connect to Redis
-function initRedis(host, port)
-    local redis = require "resty.redis"
-    local red   = redis:new()
-    red:set_timeout(1000)
-
-    -- Connect to Redis server
-    local connect, err = red:connect(host, port)
-    if not connect then
-        ngx.status(500)
-        ngx.say("Failed to connect to redis: " .. err)
-        ngx.exit(ngx.status)
-    else
-        return red
-    end
-end
-
---- Add current redis connection in the ngx_lua cosocket connection pool
--- @param red
-function closeRedis(red)
-    -- put it into the connection pool of size 100, with 10 seconds max idle time
-    local ok, err = red:set_keepalive(10000, 100)
-    if not ok then
-        ngx.status(500)
-        ngx.say("failed to set keepalive: ", err)
-        ngx.exit(ngx.status)
-    end
-end
 
 --- Convert JSON body to Lua table using the cjson module
 -- @param args
