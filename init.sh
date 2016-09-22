@@ -54,6 +54,8 @@ function start_zmq_adaptor()
 # keep the zmq adaptor running using a simple loop
 while true; do zmq_pid=$(ps aux | grep api-gateway-zmq-adaptor | grep -v grep) || ( echo "Restarting api-gateway-zmq-adaptor" && start_zmq_adaptor ); sleep 60; done &
 
+echo " ... starting management interface"
+node /var/gateway-mgmt &> /var/log/apigateway-mgmt.log &
 
 echo "Starting api-gateway ..."
 if [ "${debug_mode}" == "true" ]; then

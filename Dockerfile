@@ -11,7 +11,7 @@ RUN apk update \
     && apk add gcc tar libtool zlib jemalloc jemalloc-dev perl \ 
     make musl-dev openssl-dev pcre-dev g++ zlib-dev curl python \
     perl-test-longstring perl-list-moreutils perl-http-message \
-    geoip-dev
+    geoip-dev nodejs
 
 ENV ZMQ_VERSION 4.0.5
 ENV CZMQ_VERSION 2.2.0
@@ -181,6 +181,16 @@ RUN echo " ... installing lua-resty-iputils..." \
     && export INSTALL=${_prefix}/api-gateway/bin/resty-install \
     && $INSTALL -d ${LUA_LIB_DIR}/resty \
     && $INSTALL lib/resty/*.lua ${LUA_LIB_DIR}/resty/ \
+    && rm -rf /tmp/api-gateway
+
+ENV SHA1_LUA_VERSION 0.5.0
+RUN echo " ... installing sha1.lua ... " \
+    && mkdir -p /tmp/api-gateway \
+    && curl -k -L https://github.com/kikito/sha1.lua/archive/v${SHA1_LUA_VERSION}.tar.gz -o /tmp/api-gateway/sha1.lua-${SHA1_LUA_VERSION}.tar.gz \
+    && tar -xf /tmp/api-gateway/sha1.lua-${SHA1_LUA_VERSION}.tar.gz -C /tmp/api-gateway/ \
+    && export LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
+    && cd /tmp/api-gateway/sha1.lua-${SHA1_LUA_VERSION} \
+    && cp sha1.lua ${LUA_LIB_DIR} \
     && rm -rf /tmp/api-gateway
 
 ENV CONFIG_SUPERVISOR_VERSION 1.0.0
@@ -366,6 +376,15 @@ COPY api-gateway-config /etc/api-gateway
 RUN adduser -S nginx-api-gateway \
     && addgroup -S nginx-api-gateway
 ONBUILD COPY api-gateway-config /etc/api-gateway
+
+COPY management /var/gateway-mgmt
+ONBUILD COPY management /var/gateway-mgmt
+RUN mkdir /etc/api-gateway/managed_confs \
+    && echo " ... installing node dependencies" \
+    && cd /var/gateway-mgmt \
+    && npm install
+
+EXPOSE 80 8080 8423
 
 
 ENTRYPOINT ["/etc/init-container.sh"]

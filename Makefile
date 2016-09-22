@@ -12,6 +12,12 @@ docker-ssh:
 docker-run:
 	docker run --rm --name="apigateway" -p 80:80 -p 5000:5000 adobeapiplatform/apigateway:latest ${DOCKER_ARGS}
 
+.PHONY: docker-run-mgmt
+docker-run-mgmt:
+	docker run --rm --name="apigateway" -p 80:80 -p 5000:5000 -p 9000:9000 \
+		-e REDIS_HOST=${REDIS_HOST} -e REDIS_PORT=${REDIS_PORT} \
+		adobeapiplatform/apigateway:latest
+
 .PHONY: docker-debug
 docker-debug:
 	#Volumes directories must be under your Users directory
