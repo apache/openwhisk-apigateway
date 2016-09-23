@@ -1,6 +1,7 @@
 local cjson    = require "cjson"
 local redis    = require "lib/redis"
 local filemgmt = require "lib/filemgmt" 
+local utils    = require "lib/utils"
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
@@ -64,7 +65,7 @@ function _M.addRoute()
     
     local routeObj = redis.generateRouteObj(red, redisKey, gatewayMethod, backendUrl, backendMethod, policies, ngx)
     redis.createRoute(red, redisKey, "route", routeObj, ngx)
-    filemgmt.createRouteConf(BASE_CONF_DIR, namespace, gatewayPath, routeObj, backendUrl)
+    filemgmt.createRouteConf(BASE_CONF_DIR, namespace, gatewayPath, routeObj)
 
     -- Add current redis connection in the ngx_lua cosocket connection pool
     redis.close(red, ngx)
@@ -180,7 +181,7 @@ function parseRequestURI(requestURI)
         ngx.exit(ngx.status)
     end
 
-    local redisKey = concatStrings({prefix, ":", namespace, ":", gatewayPath})
+    local redisKey = utils.concatStrings({prefix, ":", namespace, ":", gatewayPath})
     return redisKey, namespace, gatewayPath
 end
 
@@ -196,20 +197,9 @@ function convertJSONBody(args)
             table.insert(jsonStringList, "=" .. value)
         end
     end
-    return cjson.decode(concatStrings(jsonStringList))
+    return cjson.decode(utils.concatStrings(jsonStringList))
 end
 
---- Concatenate a list of strings into a single string. This is more efficient than concatenating
--- strings together with "..", which creates a new string every time
--- @param list List of strings to concatenate
--- @return concatenated string
-function concatStrings(list)
-    local t = {}
-    for k,v in ipairs(list) do
-        t[#t+1] = tostring(v)
-    end
-    return table.concat(t)
-end
 
 
 return _M
