@@ -1,13 +1,15 @@
-local cjson = require "cjson"
-local redis = require "lib/redis"
+local cjson    = require "cjson"
+local redis    = require "lib/redis"
+local filemgmt = require "lib/filemgmt" 
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
 
 local BASE_CONF_DIR = "/etc/api-gateway/managed_confs/"
 
-local _M = {}
+local subscribed = false
 
+local _M = {}
 
 --- Add/update a route to redis and create/update an nginx conf file given PUT JSON body
 -- 
@@ -62,7 +64,7 @@ function _M.addRoute()
     
     local routeObj = redis.generateRouteObj(red, redisKey, gatewayMethod, backendUrl, backendMethod, policies, ngx)
     redis.createRoute(red, redisKey, "route", routeObj, ngx)
-    createRouteConf(namespace, gatewayPath, routeObj, backendUrl)
+    filemgmt.createRouteConf(BASE_CONF_DIR, namespace, gatewayPath, routeObj, backendUrl)
 
     -- Add current redis connection in the ngx_lua cosocket connection pool
     redis.close(red, ngx)
@@ -101,7 +103,6 @@ function _M.getRoute()
     ngx.exit(ngx.status)
 end
 
-
 --- Delete route from redis
 -- 
 -- DELETE http://0.0.0.0:9000/routes/<namespace>/<url-encoded-route>
@@ -117,7 +118,7 @@ function _M.deleteRoute()
     redis.deleteRoute(red, redisKey, "route", ngx)
     
     -- Delete conf file
-    os.execute(concatStrings({"rm -f ", BASE_CONF_DIR, namespace, "/", gatewayPath, ".conf"}))
+    filemgmt.deleteRouteConf(BASE_CONF_DIR, namespace, gatewayPath)
     
     -- Add current redis connection in the ngx_lua cosocket connection pool
     redis.close(red, ngx)
@@ -128,38 +129,27 @@ function _M.deleteRoute()
 end
 
 --- Subscribe to redis
-function _M.subscribe() 
+-- 
+-- GET http://0.0.0.0:9000/subscribe
+--
+function _M.subscribe()
     -- Initialize and connect to redis
-    local red = initRedis(REDIS_HOST, REDIS_PORT)
-
-    local ok, err = red:subscribe("routes")
-    if not ok then
-        ngx.say("subscribe error: ", err)
-        return
-    end
-    ngx.say("Subscribed to channel routes")
-    while(true) do
-        res, err = red:read_reply()
-        if not res then
-            ngx.say("Failed to read reply: ", err)
-        else
-            ngx.say(cjson.encode(res))
-        end
-    end
+    local red = redis.init(REDIS_HOST, REDIS_PORT, ngx)
+    redis.subscribe(red, ngx)
 end
 
 --- Unsusbscribe to redis
+--
+-- GET http://0.0.0.0:9000/unsubscribe
+--
 function _M.unsubscribe()
     -- Initialize and connect to redis
-    local red = initRedis(REDIS_HOST, REDIS_PORT)
+    local red = redis.init(REDIS_HOST, REDIS_PORT, ngx)
+    redis.unsubscribe(red, ngx)
 
-    local ok, err = red:unsubscribe("routes")
-    if not ok then
-        ngx.say("unsubscribe error: ", err)
-        return
-    end
-    ngx.say(ok)
+    ngx.status = 200
     ngx.say("Unsusbscribed to channel routes")
+    ngx.exit(ngx.status)
 end
 
 
@@ -193,39 +183,6 @@ function parseRequestURI(requestURI)
     local redisKey = concatStrings({prefix, ":", namespace, ":", gatewayPath})
     return redisKey, namespace, gatewayPath
 end
-
---- Create/overwrite Nginx Conf file for given route
--- @param namespace
--- @param gatewayPath
--- @param routeObj
--- @param backendUrl
-function createRouteConf(namespace, gatewayPath, routeObj, backendUrl)
-    -- Set rotue headers and mapping by calling routing.processCall()
-    local outgoingRoute = concatStrings({"\t",   "access_by_lua '",                       "\n",
-                                         "\t\t", "local routing = require \"routing\"",   "\n",
-                                         "\t\t", "local whisk   = require \"whisk\"",     "\n",
-                                         "\t\t", "routing.processCall({", routeObj, "})", "\n",
-                                         "\t",   "';",                                    "\n"})
-
-    -- set proxy_pass with upstream
-    local proxyPass = concatStrings({"\tproxy_pass ", backendUrl, ";\n"})
-
-    -- Add to endpoint conf file
-    os.execute(concatStrings({"mkdir -p ", BASE_CONF_DIR, namespace}))
-    local file, err = io.open(concatStrings({BASE_CONF_DIR, namespace, "/", gatewayPath, ".conf"}), "w")
-    if not file then
-        ngx.status(500)
-        ngx.say("Error adding to endpoint conf file: " .. err)
-        ngx.exit(ngx.status)
-    end
-    local location = concatStrings({"location /api/", namespace, "/", gatewayPath, " {\n",
-                                    outgoingRoute,
-                                    proxyPass,
-                                    "}\n"})
-    file:write(location .. "\n")
-    file:close()
-end
-
 
 --- Convert JSON body to Lua table using the cjson module
 -- @param args
