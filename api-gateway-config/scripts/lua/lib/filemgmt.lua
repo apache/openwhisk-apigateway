@@ -1,4 +1,5 @@
 local utils = require "lib/utils"
+local cjson = require "cjson"
 
 local _M = {}
 
@@ -8,13 +9,15 @@ local _M = {}
 -- @param gatewayPath
 -- @param routeObj
 function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
+    routeObj = cjson.decode(routeObj)
+    -- TODO: serialize routeObj lua table to string
     local prefix = utils.concatStrings({"\t", "include /etc/api-gateway/conf.d/commons/common-headers.conf;", "\n",
                                         "\t", "set $upstream https://172.17.0.1;", "\n\n"})
     -- Set rotue headers and mapping by calling routing.processCall()
     local outgoingRoute = utils.concatStrings({"\t",   "access_by_lua_block {",                   "\n",
                                                "\t\t", "local routing = require \"routing\"",     "\n",
                                                "\t\t", "local whisk   = require \"whisk\"",       "\n",
-                                               "\t\t", "routing.processCall({'", routeObj, "'})", "\n",
+                                               "\t\t", "routing.processCall(", routeObj, ")", "\n",
                                                "\t",   "}",                                       "\n"})
 
     -- set proxy_pass with upstream

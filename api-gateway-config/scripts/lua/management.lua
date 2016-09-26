@@ -72,7 +72,10 @@ function _M.addRoute()
     redis.close(red, ngx)
 
     ngx.status = 200
-    ngx.say(routeObj)
+    local managedUrlObj = {
+        managedUrl = utils.concatStrings({"http://0.0.0.0/api/", namespace, "/", gatewayPath})
+    }
+    ngx.say(cjson.encode(managedUrlObj))
     ngx.exit(ngx.status)
 end
 
