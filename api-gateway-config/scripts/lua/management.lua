@@ -2,6 +2,7 @@ local cjson    = require "cjson"
 local redis    = require "lib/redis"
 local filemgmt = require "lib/filemgmt" 
 local utils    = require "lib/utils"
+local logger   = require "lib/logger"
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
@@ -55,6 +56,7 @@ function _M.addRoute()
         ngx.say("Error: \"backendURL\" missing from request body.")
         ngx.exit(ngx.status)
     end
+    logger.debug(backendURL);
     -- Use gatewayMethod by default or usebackendMethod if specified
     local backendMethod = decoded and decoded.backendMethod or gatewayMethod
 

@@ -1,8 +1,8 @@
 --- @module mapping
 local mapping = {}
 
-local logger = require("logger")
-local json = require("json")
+local logger = require "lib/logger"
+local cjson = require "cjson"
 
 local body = nil
 local query = nil
@@ -124,7 +124,7 @@ function transformAllParams(s, d)
 end
 
 function finalize()
-  local bodyJson = json.convertLuaTable(body)
+  local bodyJson = cjson.encode(body)
   ngx.req.set_body_data(bodyJson)
   ngx.req.set_uri_args(query)
 end

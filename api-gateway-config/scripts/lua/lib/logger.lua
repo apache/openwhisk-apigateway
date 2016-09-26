@@ -6,7 +6,7 @@ function logger.err(s)
 end
 
 function logger.debug(s)
-  ngx.log(ngx.DEBUG, s)
+  print(s)
 end
 
 return logger

@@ -12,4 +12,33 @@ function _Utils.concatStrings(list)
     return table.concat(t)
 end
 
+function serializeTable(t)
+  local tt = '{'
+  local first = true
+  for k, v in pairs(t) do
+    if first == false then
+      tt = tt .. ', '
+    else
+      first = false
+    end
+    if type(k) == 'string' then
+      tt = tt .. tostring(k) .. ' = '
+    end
+    if type(v) == 'table' then
+      print('found table')
+      tt = tt .. serializeTable(v)
+    elseif type(v) == 'string' then
+      print('did not find table: ' .. tostring(k) .. '; ' .. tostring(v))
+      tt = tt .. '"' .. tostring(v) .. '"'
+    else
+      print('did not find table: ' .. tostring(k) .. '; ' .. tostring(v))
+      tt = tt .. tostring(v)
+    end
+  end
+  tt = tt .. '}'
+  return tt
+end
+
+_Utils.serializeTable = serializeTable
+
 return _Utils

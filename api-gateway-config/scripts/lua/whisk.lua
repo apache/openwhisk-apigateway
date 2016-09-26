@@ -1,7 +1,7 @@
 --- @module whisk
 local whisk = {}
 
-local logger = require("logger")
+local logger = require "lib/logger"
 
 function whisk.preprocess()
   whisk.addHeader("Content-Type", "application/json")

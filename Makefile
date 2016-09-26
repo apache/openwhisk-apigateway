@@ -2,21 +2,21 @@ DOCKER_TAG ?= snapshot-`date +'%Y%m%d-%H%M'`
 DOCKER_REGISTRY ?= ''
 
 docker:
-	docker build -t adobeapiplatform/apigateway .
+	docker build -t apicgw/apigateway .
 
 .PHONY: docker-ssh
 docker-ssh:
-	docker run -ti --entrypoint='bash' adobeapiplatform/apigateway:latest
+	docker run -ti --entrypoint='bash' apicgw/apigateway:latest
 
 .PHONY: docker-run
 docker-run:
-	docker run --rm --name="apigateway" -p 80:80 -p 5000:5000 adobeapiplatform/apigateway:latest ${DOCKER_ARGS}
+	docker run --rm --name="apigateway" -p 80:80 -p 5000:5000 apicgw/apigateway:latest ${DOCKER_ARGS}
 
 .PHONY: docker-run-mgmt
 docker-run-mgmt:
 	docker run --rm --name="apigateway" -p 80:80 -p 5000:5000 -p 9000:9000 \
 		-e REDIS_HOST=${REDIS_HOST} -e REDIS_PORT=${REDIS_PORT} -e REDIS_PASS=${REDIS_PASS} \
-		adobeapiplatform/apigateway:latest
+		apicgw/apigateway:latest
 
 .PHONY: docker-debug
 docker-debug:
@@ -28,7 +28,7 @@ docker-debug:
 			-p 80:80 -p 5000:5000 \
 			-e "LOG_LEVEL=info" -e "DEBUG=true" \
 			-v ${HOME}/tmp/apiplatform/apigateway/api-gateway-config/:/etc/api-gateway \
-			adobeapiplatform/apigateway:latest ${DOCKER_ARGS}
+			apicgw/apigateway:latest ${DOCKER_ARGS}
 
 .PHONY: docker-reload
 docker-reload:
@@ -58,6 +58,6 @@ docker-compose:
 
 .PHONY: docker-push
 docker-push:
-	docker tag -f adobeapiplatform/apigateway $(DOCKER_REGISTRY)/adobeapiplatform/apigateway:$(DOCKER_TAG)
-	docker push $(DOCKER_REGISTRY)/adobeapiplatform/apigateway:$(DOCKER_TAG)
+	docker tag -f apicgw/apigateway $(DOCKER_REGISTRY)/apicgw/apigateway:$(DOCKER_TAG)
+	docker push $(DOCKER_REGISTRY)/apicgw/apigateway:$(DOCKER_TAG)
 

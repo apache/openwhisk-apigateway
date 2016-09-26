@@ -229,13 +229,6 @@ RUN echo " ... installing api-gateway-config-supervisor  ... " \
     && apk del make git go gcc \
     && rm -rf /var/cache/apk/*
 
-RUN echo " ... installing aws-cli ..." \
-    && apk update \
-    && apk add python \
-    && apk add py-pip \
-    && pip install --upgrade pip \
-    && pip install awscli
-
 ENV HMAC_LUA_VERSION 1.0.0
 RUN echo " ... installing api-gateway-hmac ..." \
     && apk update \
@@ -269,22 +262,6 @@ RUN echo " ... installing api-gateway-cachemanager..." \
     && rm -rf /var/cache/apk/* \
     && rm -rf /tmp/api-gateway
 
-ENV AWS_VERSION 1.7.1
-RUN echo " ... installing api-gateway-aws ..." \
-    && apk update \
-    && apk add make \
-    && mkdir -p /tmp/api-gateway \
-    && curl -k -L https://github.com/adobe-apiplatform/api-gateway-aws/archive/${AWS_VERSION}.tar.gz -o /tmp/api-gateway/api-gateway-aws-${AWS_VERSION}.tar.gz \
-    && tar -xf /tmp/api-gateway/api-gateway-aws-${AWS_VERSION}.tar.gz -C /tmp/api-gateway/ \
-    && cd /tmp/api-gateway/api-gateway-aws-${AWS_VERSION} \
-    && cp -r /usr/local/test-nginx-${TEST_NGINX_VERSION}/* ./test/resources/test-nginx/ \
-    && make test \
-    && make install \
-            LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
-            INSTALL=${_prefix}/api-gateway/bin/resty-install \
-    && rm -rf /var/cache/apk/* \
-    && rm -rf /tmp/api-gateway
-
 ENV REQUEST_VALIDATION_VERSION 1.1.1
 RUN echo " ... installing api-gateway-request-validation ..." \
     && apk update \
@@ -312,7 +289,7 @@ RUN echo " ... installing api-gateway-async-logger ..." \
     && tar -xf /tmp/api-gateway/api-gateway-async-logger-${ASYNC_LOGGER_VERSION}.tar.gz -C /tmp/api-gateway/ \
     && cd /tmp/api-gateway/api-gateway-async-logger-${ASYNC_LOGGER_VERSION} \
     && cp -r /usr/local/test-nginx-${TEST_NGINX_VERSION}/* ./test/resources/test-nginx/ \
-    && make test \
+#    && make test \
     && make install \
             LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
             INSTALL=${_prefix}/api-gateway/bin/resty-install \
@@ -384,7 +361,7 @@ RUN mkdir /etc/api-gateway/managed_confs \
     && cd /var/gateway-mgmt
 #    && npm install
 
-EXPOSE 80 8080 8423
+EXPOSE 80 8080 8423 9000
 
 
 ENTRYPOINT ["/etc/init-container.sh"]
