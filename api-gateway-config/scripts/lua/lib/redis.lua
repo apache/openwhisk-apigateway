@@ -28,7 +28,7 @@ function _M.init(host, port, password, timeout, ngx)
     end
 
     -- Authenticate with Redis
-    if password ~= "" then
+    if password ~= nil and password ~= "" then
         local res, err = red:auth(password)
         if not res then
             ngx.status = 500
