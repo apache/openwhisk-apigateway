@@ -15,7 +15,7 @@ docker-run:
 .PHONY: docker-run-mgmt
 docker-run-mgmt:
 	docker run --rm --name="apigateway" -p 80:80 -p 5000:5000 -p 9000:9000 \
-		-e REDIS_HOST=${REDIS_HOST} -e REDIS_PORT=${REDIS_PORT} \
+		-e REDIS_HOST=${REDIS_HOST} -e REDIS_PORT=${REDIS_PORT} -e REDIS_PASS=${REDIS_PASS} \
 		adobeapiplatform/apigateway:latest
 
 .PHONY: docker-debug

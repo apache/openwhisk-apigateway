@@ -381,8 +381,8 @@ COPY management /var/gateway-mgmt
 ONBUILD COPY management /var/gateway-mgmt
 RUN mkdir /etc/api-gateway/managed_confs \
     && echo " ... installing node dependencies" \
-    && cd /var/gateway-mgmt \
-    && npm install
+    && cd /var/gateway-mgmt
+#    && npm install
 
 EXPOSE 80 8080 8423
 

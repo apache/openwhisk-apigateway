@@ -5,6 +5,7 @@ local utils    = require "lib/utils"
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
+local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local BASE_CONF_DIR = "/etc/api-gateway/managed_confs/"
 
@@ -61,7 +62,7 @@ function _M.addRoute()
     local redisKey, namespace, gatewayPath = parseRequestURI(requestURI)
     
     -- Open connection to redis or use one from connection pool
-    local red = redis.init(REDIS_HOST, REDIS_PORT, 1000, ngx)
+    local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
     
     local routeObj = redis.generateRouteObj(red, redisKey, gatewayMethod, backendUrl, backendMethod, policies, ngx)
     redis.createRoute(red, redisKey, "route", routeObj, ngx)
@@ -87,7 +88,7 @@ function _M.getRoute()
     local redisKey = parseRequestURI(requestURI)
     
     -- Initialize and connect to redis
-    local red = redis.init(REDIS_HOST, REDIS_PORT, 1000, ngx)
+    local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
     
     local routeObj = redis.getRoute(red, redisKey, "route", ngx)
     if routeObj == nil then
@@ -113,7 +114,7 @@ function _M.deleteRoute()
     local redisKey, namespace, gatewayPath = parseRequestURI(requestURI)
 
     -- Initialize and connect to redis
-    local red = redis.init(REDIS_HOST, REDIS_PORT, 1000, ngx)
+    local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
 
     -- Return if route doesn't exist
     redis.deleteRoute(red, redisKey, "route", ngx)
@@ -135,7 +136,7 @@ end
 --
 function _M.subscribe()
     -- Initialize and connect to redis
-    local red = redis.init(REDIS_HOST, REDIS_PORT, 60000, ngx)
+    local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 60000, ngx)
     redis.subscribe(red, ngx)
 end
 
@@ -145,7 +146,7 @@ end
 --
 function _M.unsubscribe()
     -- Initialize and connect to redis
-    local red = redis.init(REDIS_HOST, REDIS_PORT, 1000, ngx)
+    local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
     redis.unsubscribe(red, ngx)
 
     ngx.status = 200

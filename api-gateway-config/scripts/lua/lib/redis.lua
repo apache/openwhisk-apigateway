@@ -11,9 +11,10 @@ local _M = {}
 --- Initialize and connect to Redis
 -- @param host
 -- @param port
+-- @param password
 -- @param timeout
 -- @param ngx
-function _M.init(host, port, timeout, ngx)
+function _M.init(host, port, password, timeout, ngx)
     local redis = require "resty.redis"
     local red   = redis:new()
     red:set_timeout(timeout)
@@ -24,6 +25,16 @@ function _M.init(host, port, timeout, ngx)
         ngx.status = 500
         ngx.say("Failed to connect to redis: " .. err)
         ngx.exit(ngx.status)
+    end
+
+    -- Authenticate with Redis
+    if password ~= "" then
+        local res, err = red:auth(password)
+        if not res then
+            ngx.status = 500
+            ngx.say("Failed to authenticate: " .. err)
+            ngx.exit(ngx.status)
+        end
     end
 
     return red
