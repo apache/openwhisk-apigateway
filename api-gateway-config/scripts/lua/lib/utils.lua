@@ -61,7 +61,7 @@ function serializeTable(t)
       logger.debug(concatStrings({'did not find table: ', tostring(k), '; ', tostring(v)}))
       tt[#tt+1] = concatStrings({'"', tostring(v), '"'})
     else
-      logger.debug(concatStrings({'did not find table: ' .. tostring(k) .. '; ' .. tostring(v)}))
+      logger.debug(concatStrings({'did not find table: ', tostring(k), '; ', tostring(v)}))
       tt[#tt+1] = tostring(v)
     end
   end

@@ -35,7 +35,8 @@ local _M = {}
 function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
     routeObj = utils.serializeTable(cjson.decode(routeObj))
     local prefix = utils.concatStrings({"\t", "include /etc/api-gateway/conf.d/commons/common-headers.conf;", "\n",
-                                        "\t", "set $upstream https://172.17.0.1;", "\n\n"})
+                                        "\t", "set $upstream https://172.17.0.1;", "\n",
+                                        "\t", "set $namespace ", namespace, ";\n\n"})
     -- Set route headers and mapping by calling routing.processCall()
     local outgoingRoute = utils.concatStrings({"\t",   "access_by_lua_block {",                   "\n",
                                                "\t\t", "local routing = require \"routing\"",     "\n",
@@ -50,7 +51,7 @@ function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
     local file, err = io.open(utils.concatStrings({baseConfDir, namespace, "/", gatewayPath, ".conf"}), "w")
     if not file then
         ngx.status(500)
-        ngx.say("Error adding to endpoint conf file: " .. err)
+        ngx.say(utils.concatStrings({"Error adding to endpoint conf file: ", err}))
         ngx.exit(ngx.status)
     end
     local location = utils.concatStrings({"location /api/", namespace, "/", gatewayPath, " {\n",
@@ -58,7 +59,7 @@ function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
                                           outgoingRoute,
                                           proxyPass,
                                           "}\n"})
-    file:write(location .. "\n")
+    file:write(utils.concatStrings({location, "\n"}))
     file:close()
 end
 

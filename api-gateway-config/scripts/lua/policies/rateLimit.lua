@@ -20,24 +20,40 @@
 
 --- @module rateLimit
 -- Process a rateLimit object, setting the rate and interval to the request
-
-local redis    = require "lib/redis"
+-- @author David Green (greend)
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
 local REDIS_PASS = os.getenv("REDIS_PASS")
+local request = require "lib/resty/limit/req"
+local utils = require "lib/utils"
+local logger = require "lib/logger"
 
-local logger = require("logger")
-local request = require "resty.rate.limit"
+local _M = {}
 
 function limit(obj)
+  local i = 60 / obj.interval
+  local r = i * obj.rate
+  r = utils.concatStrings({tostring(r), 'r/m'})
+  logger.debug(utils.concatStrings({'Limiting using rate: ', r}))
+  logger.debug(utils.concatStrings({'Limiting using interval: ', obj.interval}))
+  logger.debug(utils.concatStrings({'Limiting using redis config host: ' , REDIS_HOST, '; port: ', REDIS_PORT, '; pass:', REDIS_PASS}))
 
-  request.limit ({ key = ngx.var.namespace,
-                  rate = obj.rate,
-                  interval = obj.interval,
-                  log_level = ngx.NOTICE,
-                  redis_config = { host = REDIS_HOST, port = REDIS_PORT, timeout = 1, pool_size = 100 },
-                  whitelisted_api_keys = {} })
-
+  local config = {
+    key = ngx.var.namespace,
+    zone = 'rateLimiting',
+    rate = r,
+    interval = obj.interval,
+    log_level = ngx.NOTICE,
+    rds = { host = REDIS_HOST, port = REDIS_PORT }
+  }
+  local ok = request.limit (config)
+  if not ok then
+    logger.err('Rate limit exceeded. Sending 429')
+    ngx.exit(429)
+  end
 end
 
+_M.limit = limit
+
+return _M

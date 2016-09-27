@@ -26,6 +26,7 @@
 local mapping = require "policies/mapping"
 local rateLimit = require "policies/rateLimit"
 local logger = require "lib/logger"
+local utils = require "lib/utils"
 local url = require "url"
 local cjson = require "cjson"
 
@@ -45,26 +46,26 @@ function processCall(obj)
   local found = false
   for k, v in pairs(obj) do
     if k == verb then
-      logger.debug( 'found verb: ' .. k)
-      logger.debug( 'found backendUrl: ' .. v.backendUrl)
+      logger.debug(utils.concatStrings({'found verb: ', k}))
+      logger.debug(utils.concatStrings({'found backendUrl: ', v.backendUrl}))
       local u = url.parse(v.backendUrl)
       ngx.req.set_uri(u.path)
-      ngx.var.upstream = u.scheme .. '://' .. u.host
-      logger.debug('upstream: ' .. ngx.var.upstream)
+      ngx.var.upstream = utils.concatStrings({u.scheme, '://', u.host})
+      logger.debug(utils.concatStrings({'upstream: ', ngx.var.upstream}))
       if v.backendMethod ~= nil then
-        logger.debug('Setting a backend method: ' .. v.backendMethod)
+        logger.debug(utils.concatStrings({'Setting a backend method: ', v.backendMethod}))
         setVerb(v.backendMethod)
       end
       parsePolicies(v.policies)
       found = true
       break
     else
-      logger.debug( 'verb not found: ' .. k)
+      logger.debug(utils.concatStrings({'verb not found: ', k}))
     end
   end
   if found == false then
-    logger.debug( 'Finished loop without finding.')
-    ngx.say("Whoops. Verb not supported.")
+    logger.debug('Finished loop without finding.')
+    ngx.say('Whoops. Verb not supported.')
     ngx.exit(404)
   end
 end
@@ -86,11 +87,11 @@ end
 --- Given a verb, transforms the backend request to use that method
 -- @param v Verb to set on the backend request
 function setVerb(v)
-  if (string.lower(v) == "post") then
+  if (string.lower(v) == 'post') then
     ngx.req.set_method(ngx.HTTP_POST)
-  elseif (string.lower(v) == "put") then
+  elseif (string.lower(v) == 'put') then
     ngx.req.set_method(ngx.HTTP_PUT)
-  elseif (string.lower(v) == "delete") then
+  elseif (string.lower(v) == 'delete') then
     ngx.req.set_method(ngx.HTTP_DELETE)
   else
     ngx.req.set_method(ngx.HTTP_GET)

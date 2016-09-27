@@ -165,6 +165,7 @@ end
 --
 function _M.subscribe()
     -- Initialize and connect to redis
+    logger.debug(utils.concatStrings({'Subscribing to Redis with host: ' , REDIS_HOST, '; port: ', REDIS_PORT, '; pass:', REDIS_PASS}))
     local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 60000, ngx)
     redis.subscribe(red, ngx)
 end
@@ -175,6 +176,7 @@ end
 --
 function _M.unsubscribe()
     -- Initialize and connect to redis
+    logger.debug(utils.concatStrings({'Unsubscribing to Redis with host: ' , REDIS_HOST, '; port: ', REDIS_PORT, '; pass:', REDIS_PASS}))
     local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
     redis.unsubscribe(red, ngx)
 
@@ -221,10 +223,10 @@ function convertJSONBody(args)
     local decoded = nil
     local jsonStringList = {}
     for key, value in pairs(args) do
-	table.insert(jsonStringList, key)
+    table.insert(jsonStringList, key)
         -- Handle case where the "=" character is inside any of the strings in the json body
         if(value ~= true) then
-            table.insert(jsonStringList, "=" .. value)
+            table.insert(jsonStringList, utils.concatStrings({"=", value}))
         end
     end
     return cjson.decode(utils.concatStrings(jsonStringList))

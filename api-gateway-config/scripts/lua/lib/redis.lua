@@ -47,7 +47,7 @@ function _M.init(host, port, password, timeout, ngx)
     local connect, err = red:connect(host, port)
     if not connect then
         ngx.status = 500
-        ngx.say("Failed to connect to redis: " .. err)
+        ngx.say(utils.concatStrings({"Failed to connect to redis: ", err}))
         ngx.exit(ngx.status)
     end
 
@@ -56,7 +56,7 @@ function _M.init(host, port, password, timeout, ngx)
         local res, err = red:auth(password)
         if not res then
             ngx.status = 500
-            ngx.say("Failed to authenticate: " .. err)
+            ngx.say(utils.concatStrings({"Failed to authenticate: ", err}))
             ngx.exit(ngx.status)
         end
     end
@@ -118,7 +118,7 @@ function _M.createRoute(red, key, field, routeObj, ngx)
     local ok, err = red:hset(key, field, routeObj)
     if not ok then
         ngx.status = 500
-        ngx.say("Failed adding Route to redis: " .. err)
+        ngx.say(utils.concatStrings({"Failed adding Route to redis: ", err}))
         ngx.exit(ngx.status)
     end
 end
@@ -238,8 +238,8 @@ function subscribe(red)
             local routeObj = _M.getRoute(red, redisKey, "route", ngx)            
             _M.createRoute(red, redisKey, "route", routeObj, ngx)
             filemgmt.createRouteConf(BASE_CONF_DIR, namespace, gatewayPath, routeObj)
-            ngx.say(redisKey .. " updated")
-            ngx.log(ngx.INFO, redisKey .. " updated")
+            ngx.say(utils.concatStrings({redisKey, " updated"}))
+            ngx.log(ngx.INFO, utils.concatStrings({redisKey, " updated"}))
             ngx.flush(true)
             
             local ok, err = red:psubscribe("__keyspace@0__:routes:*:*")
