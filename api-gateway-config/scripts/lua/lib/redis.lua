@@ -22,9 +22,10 @@
 --
 -- @author Alex Song (songs)
 
-local cjson    = require "cjson"
+local cjson = require "cjson"
 local filemgmt = require "lib/filemgmt"
-local utils    = require "lib/utils"
+local utils = require "lib/utils"
+local logger = require "lib/logger"
 
 local BASE_CONF_DIR = "/etc/api-gateway/managed_confs/"
 
@@ -85,16 +86,19 @@ end
 -- @param backendMethod
 -- @param policies
 -- @param ngx
-function _M.generateRouteObj(red, key, gatewayMethod, backendUrl, backendMethod, policies, ngx)
+function _M.generateRouteObj(red, key, gatewayMethod, backendUrl, backendMethod, policies, security, ngx)
     local routeObj = _M.getRoute(red, key, "route", ngx)
     if routeObj == nil then
         local newRoute = {
-	        [gatewayMethod] = {
+            [gatewayMethod] = {
                 backendUrl    = backendUrl,
                 backendMethod = backendMethod,
-                policies      = policies
+                policies      = policies,
             }
         }
+        if security then
+          newRoute[gatewayMethod].security = security
+        end
         return cjson.encode(newRoute)
     else
         local decoded = cjson.decode(routeObj)
@@ -103,6 +107,9 @@ function _M.generateRouteObj(red, key, gatewayMethod, backendUrl, backendMethod,
             backendMethod = backendMethod,
             policies      = policies
         }
+        if security then
+          decoded[gatewayMethod].security = security
+        end
         return cjson.encode(decoded)
     end
 end
@@ -208,6 +215,7 @@ function subscribe(red)
     while true do
         local res, err = red:read_reply()
         if not res then
+
             if err ~= "timeout" then
                 ngx.say("Read reply error: ", err)
                 ngx.exit(ngx.status)

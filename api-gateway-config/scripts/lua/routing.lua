@@ -23,12 +23,14 @@
 -- @author Cody Walker (cmwalker)
 
 
-local mapping = require "policies/mapping"
-local rateLimit = require "policies/rateLimit"
 local logger = require "lib/logger"
 local utils = require "lib/utils"
 local url = require "url"
 local cjson = require "cjson"
+-- load policies
+local security = require "policies/security"
+local mapping = require "policies/mapping"
+local rateLimit = require "policies/rateLimit"
 
 local _M = {}
 
@@ -48,6 +50,11 @@ function processCall(obj)
     if k == verb then
       logger.debug(utils.concatStrings({'found verb: ', k}))
       logger.debug(utils.concatStrings({'found backendUrl: ', v.backendUrl}))
+      -- Check if auth is required
+      if (v.security and v.security.type == 'apikey') then
+        logger.debug('This route has security enabled')
+        security.processAPIKey()
+      end
       local u = url.parse(v.backendUrl)
       ngx.req.set_uri(u.path)
       ngx.var.upstream = utils.concatStrings({u.scheme, '://', u.host})

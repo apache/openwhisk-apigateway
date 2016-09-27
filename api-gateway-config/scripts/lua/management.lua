@@ -22,11 +22,11 @@
 -- Defines and exposes a lightweight API management to create and remove routes in the running API Gateway
 -- @author Alex Song (songs)
 
-local cjson    = require "cjson"
-local redis    = require "lib/redis"
+local cjson = require "cjson"
+local redis = require "lib/redis"
 local filemgmt = require "lib/filemgmt" 
-local utils    = require "lib/utils"
-local logger   = require "lib/logger"
+local utils = require "lib/utils"
+local logger = require "lib/logger"
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
@@ -46,7 +46,10 @@ local _M = {}
 --      "gatewayMethod": "GET", 
 --      "backendURL": "http://openwhisk.ng.bluemix.net/guest/action?blocking=true", 
 --      "backendMethod": "POST", 
---      "policies": []
+--      "policies": [],
+--      "security": {
+--        "type": "apikey"
+--      }
 --  }
 --
 function _M.addRoute()
@@ -74,6 +77,7 @@ function _M.addRoute()
         ngx.say("Error: \"policies\" missing from request body.")
         ngx.exit(ngx.status)
     end
+    local security = decoded.security
     local backendUrl = decoded.backendURL
     if not backendUrl then
         ngx.status = 400
@@ -90,7 +94,7 @@ function _M.addRoute()
     -- Open connection to redis or use one from connection pool
     local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
     
-    local routeObj = redis.generateRouteObj(red, redisKey, gatewayMethod, backendUrl, backendMethod, policies, ngx)
+    local routeObj = redis.generateRouteObj(red, redisKey, gatewayMethod, backendUrl, backendMethod, policies, security, ngx)
     redis.createRoute(red, redisKey, "route", routeObj, ngx)
     filemgmt.createRouteConf(BASE_CONF_DIR, namespace, gatewayPath, routeObj)
 
@@ -168,6 +172,7 @@ function _M.subscribe()
     logger.debug(utils.concatStrings({'Subscribing to Redis with host: ' , REDIS_HOST, '; port: ', REDIS_PORT, '; pass:', REDIS_PASS}))
     local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 60000, ngx)
     redis.subscribe(red, ngx)
+    ngx.exit(200)
 end
 
 --- Unsusbscribe to redis
@@ -181,7 +186,7 @@ function _M.unsubscribe()
     redis.unsubscribe(red, ngx)
 
     ngx.status = 200
-    ngx.say("Unsusbscribed to channel routes")
+    ngx.say("Unsubscribed to channel routes")
     ngx.exit(ngx.status)
 end
 
