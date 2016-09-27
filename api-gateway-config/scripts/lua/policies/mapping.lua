@@ -1,14 +1,39 @@
+-- Copyright (c) 2016 IBM. All rights reserved.
+--
+--   Permission is hereby granted, free of charge, to any person obtaining a
+--   copy of this software and associated documentation files (the "Software"),
+--   to deal in the Software without restriction, including without limitation
+--   the rights to use, copy, modify, merge, publish, distribute, sublicense,
+--   and/or sell copies of the Software, and to permit persons to whom the
+--   Software is furnished to do so, subject to the following conditions:
+--
+--   The above copyright notice and this permission notice shall be included in
+--   all copies or substantial portions of the Software.
+--
+--   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+--   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+--   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+--   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+--   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+--   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+--   DEALINGS IN THE SOFTWARE.
+
 --- @module mapping
-local mapping = {}
+-- Process mapping object, turning implementation details into request transformations
 
 local logger = require "lib/logger"
+local utils = require "lib/utils"
 local cjson = require "cjson"
+
+local _M = {}
 
 local body = nil
 local query = nil
 local headers = nil
 
-function mapping.processMap(map)
+--- Implementation for the mapping policy.
+-- @param map The mapping object that contains details about request tranformations
+function processMap(map)
   getRequestParams()
   for k, v in pairs(map) do
     if v.action == "insert" then
@@ -18,12 +43,13 @@ function mapping.processMap(map)
     elseif v.action == "transform" then
       transformParam(v)
     else
-      logger.err('Map action not recognized. Skipping... ' .. v.action)
+      logger.err(utils.concatStrings({'Map action not recognized. Skipping... ', v.action}))
     end
   end
   finalize()
 end
 
+--- Get request body, params, and headers from incoming requests
 function getRequestParams()
   body =  ngx.req.get_body_data()
   if body == nil then
@@ -33,8 +59,10 @@ function getRequestParams()
   headers = ngx.resp.get_headers()
 end
 
+--- Insert parameter value to header, body, or query params into request
+-- @param m Parameter value to add to request
 function insertParam(m)
-  logger.debug('in add param; to: ' .. m.to.name .. '|' .. m.to.location);
+  logger.debug(utils.concatStrings({'in add param; to: ', m.to.name, '|', m.to.location}))
   local v = nil
   local k = m.to.name
   if m.from.value ~= nil then
@@ -56,8 +84,10 @@ function insertParam(m)
   end
 end
 
+--- Remove parameter value to header, body, or query params from request
+-- @param m Parameter value to remove from request
 function removeParam(m)
-  logger.debug('in remove param; to: ' .. m.from.name .. '|' .. m.from.location);
+  logger.debug(utils.concatStrings({'in remove param; to: ', m.from.name, '|', m.from.location}));
   if m.from.location == "header" then
     removeHeader(m.from.name)
   elseif m.from.location == "query" then
@@ -67,8 +97,10 @@ function removeParam(m)
   end
 end
 
+--- Move parameter value from one location to another in the request
+-- @param m Parameter value to move within request
 function transformParam(m)
-  logger.debug('in transform param; from: ' .. m.from.name .. '|' .. m.from.location .. '; to: ' .. m.to.name .. '|' .. m.to.location)
+  logger.debug(utils.concatStrings({'in transform param; from: ', m.from.name, '|', m.from.location, '; to: ', m.to.name, '|', m.to.location}))
   if m.from.name == '*' then
     transformAllParams(m.from.location, m.to.location)
   else
@@ -77,11 +109,16 @@ function transformParam(m)
   end
 end
 
+--- Function to handle wildcarding in the transform process.
+-- If the value in the from object is '*', this function will pull all values from the incoming request
+-- and move them to the location provided in the to object
+-- @param s The source object from which we pull all parameters
+-- @param d The destination object that we will move all found parameters to.
 function transformAllParams(s, d)
   if s == 'query' then
     logger.debug('transforming all query params')
     for k, v in pairs(query) do
-      logger.debug('transform param: ' .. k)
+      logger.debug(utils.concatStrings({'transform param: ', k}))
       local t = {}
       t.from = {}
       t.from.name = k
@@ -95,7 +132,7 @@ function transformAllParams(s, d)
   elseif s == 'header' then
     logger.debug('transforming all header params')
     for k, v in pairs(headers) do
-      logger.debug('transform param: ' .. k)
+      logger.debug(utils.concatStrings({'transform param: ', k}))
       local t = {}
       t.from = {}
       t.from.name = k
@@ -109,7 +146,7 @@ function transformAllParams(s, d)
   elseif s == 'body' then
     logger.debug('transforming all body params')
     for k, v in pairs(body) do
-      logger.debug('transform param: ' .. k)
+      logger.debug(utils.concatStrings({'transform param: ', k}))
       local t = {}
       t.from = {}
       t.from.name = k
@@ -153,4 +190,6 @@ function removeBody(k)
   body[k] = nil
 end
 
-return mapping
+_M.processMap = processMap
+
+return _M

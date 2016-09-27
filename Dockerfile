@@ -193,6 +193,16 @@ RUN echo " ... installing sha1.lua ... " \
     && cp sha1.lua ${LUA_LIB_DIR} \
     && rm -rf /tmp/api-gateway
 
+ENV NETURL_LUA_VERSION 0.9-1
+RUN echo " ... installing neturl.lua ... " \
+    && mkdir -p /tmp/api-gateway \
+    && curl -k -L https://github.com/golgote/neturl/archive/${NETURL_LUA_VERSION}.tar.gz -o /tmp/api-gateway/neturl.lua-${NETURL_LUA_VERSION}.tar.gz \
+    && tar -xf /tmp/api-gateway/neturl.lua-${NETURL_LUA_VERSION}.tar.gz -C /tmp/api-gateway/ \
+    && export LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
+    && cd /tmp/api-gateway/neturl-${NETURL_LUA_VERSION} \
+    && cp lib/net/url.lua ${LUA_LIB_DIR} \
+    && rm -rf /tmp/api-gateway
+
 ENV CONFIG_SUPERVISOR_VERSION 1.0.0
 ENV GOPATH /usr/lib/go/bin
 ENV GOBIN  /usr/lib/go/bin
