@@ -36,7 +36,8 @@ function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
     routeObj = utils.serializeTable(cjson.decode(routeObj))
     local prefix = utils.concatStrings({"\t", "include /etc/api-gateway/conf.d/commons/common-headers.conf;", "\n",
                                         "\t", "set $upstream https://172.17.0.1;", "\n",
-                                        "\t", "set $namespace ", namespace, ";\n\n"})
+                                        "\t", "set $namespace ", namespace, ";\n",
+                                        "\t", "set $gatewayPath ", gatewayPath, ";\n\n"})
     -- Set route headers and mapping by calling routing.processCall()
     local outgoingRoute = utils.concatStrings({"\t",   "access_by_lua_block {",                   "\n",
                                                "\t\t", "local routing = require \"routing\"",     "\n",
