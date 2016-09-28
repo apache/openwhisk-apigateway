@@ -51,7 +51,7 @@ function processCall(obj)
       logger.debug(utils.concatStrings({'found verb: ', k}))
       logger.debug(utils.concatStrings({'found backendUrl: ', v.backendUrl}))
       -- Check if auth is required
-      if (v.security and v.security.type == 'apikey') then
+      if (v.security and string.lower(v.security.type) == 'apikey') then
         logger.debug('This route has security enabled')
         security.processAPIKey()
       end

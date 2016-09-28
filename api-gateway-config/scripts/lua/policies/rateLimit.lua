@@ -38,15 +38,23 @@ function limit(obj)
   logger.debug(utils.concatStrings({'Limiting using rate: ', r}))
   logger.debug(utils.concatStrings({'Limiting using interval: ', obj.interval}))
   logger.debug(utils.concatStrings({'Limiting using redis config host: ' , REDIS_HOST, '; port: ', REDIS_PORT, '; pass:', REDIS_PASS}))
+  local k
+   if obj.field == 'namespace' then
+     k = ngx.var.namespace
+   elseif obj.field == 'apikey' then
+     k = utils.concatStrings({ngx.var.namespace, '_', ngx.var['http_x_api_key']})
+   elseif obj.field == 'route' then
+     k = utils.concatStrings({ngx.var.namespace, '_', ngx.var.gatewayPath})
+   end
 
   local config = {
-    key = ngx.var.namespace,
-    zone = 'rateLimiting',
-    rate = r,
-    interval = obj.interval,
-    log_level = ngx.NOTICE,
-    rds = { host = REDIS_HOST, port = REDIS_PORT }
-  }
+     key = k,
+     zone = 'rateLimiting',
+     rate = r,
+     interval = obj.interval,
+     log_level = ngx.NOTICE,
+     rds = { host = REDIS_HOST, port = REDIS_PORT }
+   }
   local ok = request.limit (config)
   if not ok then
     logger.err('Rate limit exceeded. Sending 429')
