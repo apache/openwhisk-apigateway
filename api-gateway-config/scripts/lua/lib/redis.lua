@@ -245,7 +245,7 @@ function subscribe(red)
 
             local routeObj = _M.getRoute(red, redisKey, "route", ngx)            
             _M.createRoute(red, redisKey, "route", routeObj, ngx)
-            filemgmt.createRouteConf(BASE_CONF_DIR, namespace, gatewayPath, routeObj)
+            filemgmt.createRouteConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath), routeObj)
             ngx.say(utils.concatStrings({redisKey, " updated"}))
             ngx.log(ngx.INFO, utils.concatStrings({redisKey, " updated"}))
             ngx.flush(true)

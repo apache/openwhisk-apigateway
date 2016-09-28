@@ -51,11 +51,10 @@ function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
     os.execute(utils.concatStrings({"mkdir -p ", baseConfDir, namespace}))
     local file, err = io.open(utils.concatStrings({baseConfDir, namespace, "/", gatewayPath, ".conf"}), "w")
     if not file then
-        ngx.status(500)
         ngx.say(utils.concatStrings({"Error adding to endpoint conf file: ", err}))
-        ngx.exit(ngx.status)
+        ngx.exit(500)
     end
-    local location = utils.concatStrings({"location /api/", namespace, "/", gatewayPath, " {\n",
+    local location = utils.concatStrings({"location /api/", namespace, "/", ngx.unescape_uri(gatewayPath), " {\n",
                                           prefix,
                                           outgoingRoute,
                                           proxyPass,

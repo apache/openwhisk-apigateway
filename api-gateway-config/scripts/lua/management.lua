@@ -218,7 +218,7 @@ function parseRequestURI(requestURI)
         ngx.exit(ngx.status)
     end
 
-    local redisKey = utils.concatStrings({prefix, ":", namespace, ":", gatewayPath})
+    local redisKey = utils.concatStrings({prefix, ":", namespace, ":", ngx.unescape_uri(gatewayPath)})
     return redisKey, namespace, gatewayPath
 end
 
