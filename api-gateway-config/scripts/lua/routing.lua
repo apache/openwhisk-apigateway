@@ -53,7 +53,13 @@ function processCall(obj)
       -- Check if auth is required
       if (v.security and string.lower(v.security.type) == 'apikey') then
         logger.debug('This route has security enabled')
-        security.processAPIKey()
+        local h = v.security.header
+        if h == nil then
+          h = 'http_x_api_key'
+        else
+          h = utils.concatStrings({'http_', h})
+        end
+        security.processAPIKey(h:gsub("-", "_"))
       end
       local u = url.parse(v.backendUrl)
       ngx.req.set_uri(u.path)

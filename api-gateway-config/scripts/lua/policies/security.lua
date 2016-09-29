@@ -43,9 +43,9 @@ function validateAPIKey(namespace ,apiKey)
   return exists == 1
 end
 
-function processAPIKey()
+function processAPIKey(h)
   local namespace = ngx.var.namespace
-  local apiKey = ngx.var['http_x_api_key']
+  local apiKey = ngx.var[h]
   logger.debug(utils.concatStrings({'Processing apikey: ', apiKey, 'for namespace: ', namespace}))
   if not apiKey then
     logger.err('No x-api-key passed. Sending 401')
