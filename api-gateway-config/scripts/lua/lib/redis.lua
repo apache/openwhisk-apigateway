@@ -203,6 +203,7 @@ function _M.subscribe(redisSubClient, redisGetClient, ngx)
         ngx.say("Subscribe error: ", err)
         ngx.exit(ngx.status)
     end
+
     ngx.say("Subscribed to redis and listening for key changes...")
     ngx.flush(true)
 
@@ -241,10 +242,17 @@ function subscribe(redisSubClient, redisGetClient, ngx)
             end
 
             local routeObj = _M.getRoute(redisGetClient, redisKey, "route", ngx)
-            filemgmt.createRouteConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath), routeObj)
 
-            ngx.say(utils.concatStrings({redisKey, " updated"}))
-            ngx.log(ngx.INFO, utils.concatStrings({redisKey, " updated"}))
+            if routeObj == nil then
+                filemgmt.deleteRouteConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath))
+                ngx.say(utils.concatStrings({redisKey, " deleted"}))
+                ngx.log(ngx.INFO, utils.concatStrings({redisKey, " deleted"}))
+            else
+                filemgmt.createRouteConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath), routeObj)
+                ngx.say(utils.concatStrings({redisKey, " updated"}))
+                ngx.log(ngx.INFO, utils.concatStrings({redisKey, " updated"}))
+            end
+
             ngx.flush(true)
         end
     end
@@ -263,7 +271,6 @@ function _M.unsubscribe(red, ngx)
 
     _M.close(red, ngx)
 
-    subscribed = false
     ngx.say("Unsubscribed from redis")
     ngx.exit(ngx.status)
 end
