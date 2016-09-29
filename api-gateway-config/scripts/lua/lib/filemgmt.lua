@@ -39,10 +39,10 @@ function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
                                         "\t", "set $namespace ", namespace, ";\n",
                                         "\t", "set $gatewayPath ", gatewayPath, ";\n\n"})
     -- Set route headers and mapping by calling routing.processCall()
-    local outgoingRoute = utils.concatStrings({"\t",   "access_by_lua_block {",                   "\n",
-                                               "\t\t", "local routing = require \"routing\"",     "\n",
+    local outgoingRoute = utils.concatStrings({"\t",   "access_by_lua_block {", "\n",
+                                               "\t\t", "local routing = require \"routing\"","\n",
                                                "\t\t", "routing.processCall(", routeObj, ")", "\n",
-                                               "\t",   "}",                                       "\n"})
+                                               "\t",   "}", "\n"})
 
     -- set proxy_pass with upstream
     local proxyPass = utils.concatStrings({"\tproxy_pass $upstream; \n"})
@@ -51,8 +51,9 @@ function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
     os.execute(utils.concatStrings({"mkdir -p ", baseConfDir, namespace}))
     local file, err = io.open(utils.concatStrings({baseConfDir, namespace, "/", gatewayPath, ".conf"}), "w")
     if not file then
+        ngx.status = 500
         ngx.say(utils.concatStrings({"Error adding to endpoint conf file: ", err}))
-        ngx.exit(500)
+        ngx.exit(ngx.status)
     end
     local location = utils.concatStrings({"location /api/", namespace, "/", ngx.unescape_uri(gatewayPath), " {\n",
                                           prefix,

@@ -102,10 +102,13 @@ function _M.addRoute()
     redis.close(red, ngx)
 
     ngx.status = 200
+    ngx.header.content_type = "application/json; charset=utf-8"
     local managedUrlObj = {
         managedUrl = utils.concatStrings({"http://0.0.0.0/api/", namespace, "/", gatewayPath})
     }
-    ngx.say(cjson.encode(managedUrlObj))
+    local managedUrlObj = cjson.encode(managedUrlObj)
+    managedUrlObj = managedUrlObj:gsub("\\", "")
+    ngx.say(managedUrlObj)
     ngx.exit(ngx.status)
 end
 
@@ -118,7 +121,7 @@ end
 -- 
 function _M.getRoute()
     local requestURI = string.gsub(ngx.var.request_uri, "?.*", "")
-    local redisKey = parseRequestURI(requestURI)
+    local redisKey, namespace, gatewayPath = parseRequestURI(requestURI)
     
     -- Initialize and connect to redis
     local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
@@ -134,7 +137,13 @@ function _M.getRoute()
     redis.close(red, ngx)
 
     ngx.status = 200
-    ngx.say(routeObj)
+    ngx.header.content_type = "application/json; charset=utf-8"
+    local managedUrlObj = {
+        managedUrl = utils.concatStrings({"http://0.0.0.0/api/", namespace, "/", gatewayPath})
+    }
+    local managedUrlObj = cjson.encode(managedUrlObj)
+    managedUrlObj = managedUrlObj:gsub("\\", "")
+    ngx.say(managedUrlObj)
     ngx.exit(ngx.status)
 end
 
