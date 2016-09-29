@@ -24,7 +24,7 @@
 
 local cjson = require "cjson"
 local redis = require "lib/redis"
-local filemgmt = require "lib/filemgmt" 
+local filemgmt = require "lib/filemgmt"
 local utils = require "lib/utils"
 local logger = require "lib/logger"
 
@@ -34,18 +34,16 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local BASE_CONF_DIR = "/etc/api-gateway/managed_confs/"
 
-local subscribed = false
-
 local _M = {}
 
 --- Add/update a route to redis and create/update an nginx conf file given PUT JSON body
--- 
+--
 -- PUT http://0.0.0.0:9000/routes/<namespace>/<url-encoded-route>
 -- Example PUT JSON body:
--- { 
---      "gatewayMethod": "GET", 
---      "backendURL": "http://openwhisk.ng.bluemix.net/guest/action?blocking=true", 
---      "backendMethod": "POST", 
+-- {
+--      "gatewayMethod": "GET",
+--      "backendURL": "http://openwhisk.ng.bluemix.net/guest/action?blocking=true",
+--      "backendMethod": "POST",
 --      "policies": [],
 --      "security": {
 --        "type": "apikey"
@@ -90,10 +88,10 @@ function _M.addRoute()
 
     local requestURI = string.gsub(ngx.var.request_uri, "?.*", "")
     local redisKey, namespace, gatewayPath = parseRequestURI(requestURI)
-    
+
     -- Open connection to redis or use one from connection pool
     local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
-    
+
     local routeObj = redis.generateRouteObj(red, redisKey, gatewayMethod, backendUrl, backendMethod, policies, security, ngx)
     redis.createRoute(red, redisKey, "route", routeObj, ngx)
     filemgmt.createRouteConf(BASE_CONF_DIR, namespace, gatewayPath, routeObj)
@@ -112,20 +110,20 @@ function _M.addRoute()
     ngx.exit(ngx.status)
 end
 
---- Get route from redis 
+--- Get route from redis
 --
 -- Use optional query parameter, verb, to specify the verb of the route to get
 -- Default behavior is to get all the verbs for that route
 --
 -- GET http://0.0.0.0:9000/routes/<namespace>/<url-encoded-route>?verb="<verb>"
--- 
+--
 function _M.getRoute()
     local requestURI = string.gsub(ngx.var.request_uri, "?.*", "")
     local redisKey, namespace, gatewayPath = parseRequestURI(requestURI)
-    
+
     -- Initialize and connect to redis
     local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
-    
+
     local routeObj = redis.getRoute(red, redisKey, "route", ngx)
     if routeObj == nil then
         ngx.status = 404
@@ -148,7 +146,7 @@ function _M.getRoute()
 end
 
 --- Delete route from redis
--- 
+--
 -- DELETE http://0.0.0.0:9000/routes/<namespace>/<url-encoded-route>
 --
 function _M.deleteRoute()
@@ -160,27 +158,29 @@ function _M.deleteRoute()
 
     -- Return if route doesn't exist
     redis.deleteRoute(red, redisKey, "route", ngx)
-    
+
     -- Delete conf file
     filemgmt.deleteRouteConf(BASE_CONF_DIR, namespace, gatewayPath)
-    
+
     -- Add current redis connection in the ngx_lua cosocket connection pool
     redis.close(red, ngx)
 
     ngx.status = 200
     ngx.say("Route deleted.")
-    ngx.exit(ngx.status) 
+    ngx.exit(ngx.status)
 end
 
 --- Subscribe to redis
--- 
+--
 -- GET http://0.0.0.0:9000/subscribe
 --
 function _M.subscribe()
     -- Initialize and connect to redis
     logger.debug(utils.concatStrings({'Subscribing to Redis with host: ' , REDIS_HOST, '; port: ', REDIS_PORT, '; pass:', REDIS_PASS}))
-    local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 60000, ngx)
-    redis.subscribe(red, ngx)
+    local redisSubClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 600000, ngx)
+    local redisGetClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
+    redis.subscribe(redisSubClient, redisGetClient, ngx)
+
     ngx.exit(200)
 end
 

@@ -29,8 +29,6 @@ local logger = require "lib/logger"
 
 local BASE_CONF_DIR = "/etc/api-gateway/managed_confs/"
 
-local subscribed = false
-
 local _M = {}
 
 --- Initialize and connect to Redis
@@ -43,7 +41,7 @@ function _M.init(host, port, password, timeout, ngx)
     local redis = require "resty.redis"
     local red   = redis:new()
     red:set_timeout(timeout)
-    
+
     -- Connect to Redis server
     local connect, err = red:connect(host, port)
     if not connect then
@@ -143,7 +141,7 @@ function _M.getRoute(red, key, field, ngx)
         ngx.say("Error getting route: ", err)
         ngx.exit(ngx.status)
     end
-   
+
     -- return nil if route doesn't exist
     if routeObj == ngx.null then
         return nil
@@ -152,17 +150,17 @@ function _M.getRoute(red, key, field, ngx)
     -- Get routeObj from redis using redisKey
     local args = ngx.req.get_uri_args()
     local requestVerb = nil
-    for k, v in pairs(args) do 
+    for k, v in pairs(args) do
         if k == "verb" then
             requestVerb = v
         end
     end
 
-    if requestVerb == nil then 
+    if requestVerb == nil then
         return routeObj
     else
         routeObj = cjson.decode(routeObj)
-        return cjson.encode(routeObj[requestVerb]) 
+        return cjson.encode(routeObj[requestVerb])
     end
 end
 
@@ -178,7 +176,7 @@ function _M.deleteRoute(red, key, field, ngx)
         ngx.say("Error deleting route: ", err)
         ngx.exit(ngx.status)
     end
-    
+
     if routeObj == ngx.null then
         ngx.status = 404
         ngx.say("Route doesn't exist.")
@@ -195,27 +193,32 @@ end
 
 
 --- Subscribe to redis
--- @param red
+-- @param redisSubClient the redis client that is listening for the redis key changes
+-- @param redisGetClient the redis client that gets the changed route to update the conf file
 -- @param ngx
-function _M.subscribe(red, ngx)
-    ngx.say("Subscribed to redis and listening for key changes...")
-    ngx.flush(true)
-    subscribe(red)
-    
-    ngx.exit(ngx.status)
-end
-
-function subscribe(red) 
-    local ok, err = red:psubscribe("__keyspace@0__:routes:*:*")
+function _M.subscribe(redisSubClient, redisGetClient, ngx)
+    local ok, err = redisSubClient:psubscribe("__keyspace@0__:routes:*:*")
     if not ok then
         ngx.status = 500
         ngx.say("Subscribe error: ", err)
         ngx.exit(ngx.status)
     end
-    while true do
-        local res, err = red:read_reply()
-        if not res then
+    ngx.say("Subscribed to redis and listening for key changes...")
+    ngx.flush(true)
 
+    subscribe(redisSubClient, redisGetClient, ngx)
+    ngx.exit(ngx.status)
+end
+
+--- Subscribe helper method
+-- Starts a while loop that listens for key changes in redis
+-- @param redisSubClient the redis client that is listening for the redis key changes
+-- @param redisGetClient the redis client that gets the changed route to update the conf file
+-- @param ngx
+function subscribe(redisSubClient, redisGetClient, ngx)
+    while true do
+        local res, err = redisSubClient:read_reply()
+        if not res then
             if err ~= "timeout" then
                 ngx.say("Read reply error: ", err)
                 ngx.exit(ngx.status)
@@ -236,28 +239,16 @@ function subscribe(red)
                 end
                 index = index + 1
             end
-            local ok, err = red:punsubscribe("__keyspace@0__:routes:*:*")
-            if not ok then
-                ngx.status = 500
-                ngx.say("Unsubscribe error: ", err)
-                ngx.exit(ngx.status)
-            end
 
-            local routeObj = _M.getRoute(red, redisKey, "route", ngx)            
+            local routeObj = _M.getRoute(redisGetClient, redisKey, "route", ngx)
             filemgmt.createRouteConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath), routeObj)
+
             ngx.say(utils.concatStrings({redisKey, " updated"}))
             ngx.log(ngx.INFO, utils.concatStrings({redisKey, " updated"}))
             ngx.flush(true)
-            
-            local ok, err = red:psubscribe("__keyspace@0__:routes:*:*")
-            if not ok then
-                ngx.status = 500
-                ngx.say("Subscribe error: ", err)
-                ngx.exit(ngx.status)
-            end
         end
     end
-    ngx.exit(ngx.status) 
+    ngx.exit(ngx.status)
 end
 
 
@@ -271,7 +262,7 @@ function _M.unsubscribe(red, ngx)
     end
 
     _M.close(red, ngx)
-    
+
     subscribed = false
     ngx.say("Unsubscribed from redis")
     ngx.exit(ngx.status)
