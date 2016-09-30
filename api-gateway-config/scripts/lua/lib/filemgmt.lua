@@ -36,18 +36,16 @@ local _M = {}
 -- @return fileLocation location of created/updated conf file
 function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
   routeObj = utils.serializeTable(cjson.decode(routeObj))
-  local prefix = utils.concatStrings({"\t", "include /etc/api-gateway/conf.d/commons/common-headers.conf;", "\n",
-                                      "\t", "set $upstream https://172.17.0.1;", "\n",
-                                      "\t", "set $namespace ", namespace, ";\n",
-                                      "\t", "set $gatewayPath ", gatewayPath, ";\n\n"})
+  local prefix = utils.concatStrings({"\tinclude /etc/api-gateway/conf.d/commons/common-headers.conf;\n",
+                                      "\tset $upstream https://172.17.0.1;\n",
+                                      "\tset $namespace ", namespace, ";\n",
+                                      "\tset $gatewayPath ", gatewayPath, ";\n\n"})
   -- Set route headers and mapping by calling routing.processCall()
-  local outgoingRoute = utils.concatStrings({"\t",   "access_by_lua_block {", "\n",
-                                             "\t\t", "local routing = require \"routing\"","\n",
-                                             "\t\t", "routing.processCall(", routeObj, ")", "\n",
-                                             "\t",   "}", "\n"})
-
-  -- set proxy_pass with upstream
-  local proxyPass = utils.concatStrings({"\tproxy_pass $upstream; \n"})
+  local outgoingRoute = utils.concatStrings({"\taccess_by_lua_block {\n",
+                                             "\t\tlocal routing = require \"routing\"\n",
+                                             "\t\trouting.processCall(", routeObj, ")\n",
+                                             "\t}\n\n",
+                                             "\tproxy_pass $upstream;\n"})
 
   -- Add to endpoint conf file
   os.execute(utils.concatStrings({"mkdir -p ", baseConfDir, namespace}))
@@ -61,9 +59,8 @@ function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
   local location = utils.concatStrings({"location /api/", namespace, "/", ngx.unescape_uri(gatewayPath), " {\n",
                                         prefix,
                                         outgoingRoute,
-                                        proxyPass,
                                         "}\n"})
-  file:write(utils.concatStrings({location, "\n"}))
+  file:write(location)
   file:close()
 
   -- reload nginx to refresh conf files
