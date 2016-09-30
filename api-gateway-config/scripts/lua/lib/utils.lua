@@ -55,13 +55,10 @@ function serializeTable(t)
       tt[#tt+1] = concatStrings({tostring(k), ' = '})
     end
     if type(v) == 'table' then
-      logger.debug('found table')
       tt[#tt+1] = serializeTable(v)
     elseif type(v) == 'string' then
-      logger.debug(concatStrings({'did not find table: ', tostring(k), '; ', tostring(v)}))
       tt[#tt+1] = concatStrings({'"', tostring(v), '"'})
     else
-      logger.debug(concatStrings({'did not find table: ', tostring(k), '; ', tostring(v)}))
       tt[#tt+1] = tostring(v)
     end
   end

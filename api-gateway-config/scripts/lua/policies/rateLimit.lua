@@ -35,9 +35,6 @@ function limit(obj)
   local i = 60 / obj.interval
   local r = i * obj.rate
   r = utils.concatStrings({tostring(r), 'r/m'})
-  logger.debug(utils.concatStrings({'Limiting using rate: ', r}))
-  logger.debug(utils.concatStrings({'Limiting using interval: ', obj.interval}))
-  logger.debug(utils.concatStrings({'Limiting using redis config host: ' , REDIS_HOST, '; port: ', REDIS_PORT, '; pass:', REDIS_PASS}))
   local k
    if obj.field == 'namespace' then
      k = ngx.var.namespace

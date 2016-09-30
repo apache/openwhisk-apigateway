@@ -38,7 +38,6 @@ function validateAPIKey(namespace ,apiKey)
 
   local k = utils.concatStrings({'subscriptions:', tostring(namespace), ':', tostring(apiKey)})
   local exists, err = red:exists(k)
-  logger.debug(utils.concatStrings({'Got exists back from redis for key ', k, ': ', tostring(exists)}))
 
   return exists == 1
 end
@@ -46,7 +45,6 @@ end
 function processAPIKey(h)
   local namespace = ngx.var.namespace
   local apiKey = ngx.var[h]
-  logger.debug(utils.concatStrings({'Processing apikey: ', apiKey, 'for namespace: ', namespace}))
   if not apiKey then
     logger.err('No x-api-key passed. Sending 401')
     ngx.exit(401)

@@ -62,7 +62,6 @@ end
 --- Insert parameter value to header, body, or query params into request
 -- @param m Parameter value to add to request
 function insertParam(m)
-  logger.debug(utils.concatStrings({'in add param; to: ', m.to.name, '|', m.to.location}))
   local v = nil
   local k = m.to.name
   if m.from.value ~= nil then
@@ -87,7 +86,6 @@ end
 --- Remove parameter value to header, body, or query params from request
 -- @param m Parameter value to remove from request
 function removeParam(m)
-  logger.debug(utils.concatStrings({'in remove param; to: ', m.from.name, '|', m.from.location}));
   if m.from.location == "header" then
     removeHeader(m.from.name)
   elseif m.from.location == "query" then
@@ -100,7 +98,6 @@ end
 --- Move parameter value from one location to another in the request
 -- @param m Parameter value to move within request
 function transformParam(m)
-  logger.debug(utils.concatStrings({'in transform param; from: ', m.from.name, '|', m.from.location, '; to: ', m.to.name, '|', m.to.location}))
   if m.from.name == '*' then
     transformAllParams(m.from.location, m.to.location)
   else
@@ -116,9 +113,7 @@ end
 -- @param d The destination object that we will move all found parameters to.
 function transformAllParams(s, d)
   if s == 'query' then
-    logger.debug('transforming all query params')
     for k, v in pairs(query) do
-      logger.debug(utils.concatStrings({'transform param: ', k}))
       local t = {}
       t.from = {}
       t.from.name = k
@@ -130,9 +125,7 @@ function transformAllParams(s, d)
       removeParam(t)
     end
   elseif s == 'header' then
-    logger.debug('transforming all header params')
     for k, v in pairs(headers) do
-      logger.debug(utils.concatStrings({'transform param: ', k}))
       local t = {}
       t.from = {}
       t.from.name = k
@@ -144,9 +137,7 @@ function transformAllParams(s, d)
       removeParam(t)
     end
   elseif s == 'body' then
-    logger.debug('transforming all body params')
     for k, v in pairs(body) do
-      logger.debug(utils.concatStrings({'transform param: ', k}))
       local t = {}
       t.from = {}
       t.from.name = k

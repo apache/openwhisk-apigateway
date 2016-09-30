@@ -48,11 +48,8 @@ function processCall(obj)
   local found = false
   for k, v in pairs(obj) do
     if k == verb then
-      logger.debug(utils.concatStrings({'found verb: ', k}))
-      logger.debug(utils.concatStrings({'found backendUrl: ', v.backendUrl}))
       -- Check if auth is required
       if (v.security and string.lower(v.security.type) == 'apikey') then
-        logger.debug('This route has security enabled')
         local h = v.security.header
         if h == nil then
           h = 'http_x_api_key'
@@ -64,20 +61,15 @@ function processCall(obj)
       local u = url.parse(v.backendUrl)
       ngx.req.set_uri(u.path)
       ngx.var.upstream = utils.concatStrings({u.scheme, '://', u.host})
-      logger.debug(utils.concatStrings({'upstream: ', ngx.var.upstream}))
       if v.backendMethod ~= nil then
-        logger.debug(utils.concatStrings({'Setting a backend method: ', v.backendMethod}))
         setVerb(v.backendMethod)
       end
       parsePolicies(v.policies)
       found = true
       break
-    else
-      logger.debug(utils.concatStrings({'verb not found: ', k}))
     end
   end
   if found == false then
-    logger.debug('Finished loop without finding.')
     ngx.say('Whoops. Verb not supported.')
     ngx.exit(404)
   end
@@ -88,10 +80,8 @@ end
 function parsePolicies(obj)
   for k, v in pairs (obj) do
     if v.type == 'reqMapping' then
-      logger.debug('Found a request mapping')
       mapping.processMap(v.value)
     elseif v.type == 'rateLimit' then
-      logger.debug('Found a rate limit policy')
       rateLimit.limit(v.value)
     end
   end
