@@ -1,0 +1,2 @@
+ext.dockerImageName = 'apic/apigateway'
+apply from: '../../gradle/docker.gradle'

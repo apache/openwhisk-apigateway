@@ -11,7 +11,7 @@ RUN apk update \
     && apk add gcc tar libtool zlib jemalloc jemalloc-dev perl \ 
     make musl-dev openssl-dev pcre-dev g++ zlib-dev curl python \
     perl-test-longstring perl-list-moreutils perl-http-message \
-    geoip-dev
+    geoip-dev nodejs
 
 ENV ZMQ_VERSION 4.0.5
 ENV CZMQ_VERSION 2.2.0
@@ -183,6 +183,26 @@ RUN echo " ... installing lua-resty-iputils..." \
     && $INSTALL lib/resty/*.lua ${LUA_LIB_DIR}/resty/ \
     && rm -rf /tmp/api-gateway
 
+ENV SHA1_LUA_VERSION 0.5.0
+RUN echo " ... installing sha1.lua ... " \
+    && mkdir -p /tmp/api-gateway \
+    && curl -k -L https://github.com/kikito/sha1.lua/archive/v${SHA1_LUA_VERSION}.tar.gz -o /tmp/api-gateway/sha1.lua-${SHA1_LUA_VERSION}.tar.gz \
+    && tar -xf /tmp/api-gateway/sha1.lua-${SHA1_LUA_VERSION}.tar.gz -C /tmp/api-gateway/ \
+    && export LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
+    && cd /tmp/api-gateway/sha1.lua-${SHA1_LUA_VERSION} \
+    && cp sha1.lua ${LUA_LIB_DIR} \
+    && rm -rf /tmp/api-gateway
+
+ENV NETURL_LUA_VERSION 0.9-1
+RUN echo " ... installing neturl.lua ... " \
+    && mkdir -p /tmp/api-gateway \
+    && curl -k -L https://github.com/golgote/neturl/archive/${NETURL_LUA_VERSION}.tar.gz -o /tmp/api-gateway/neturl.lua-${NETURL_LUA_VERSION}.tar.gz \
+    && tar -xf /tmp/api-gateway/neturl.lua-${NETURL_LUA_VERSION}.tar.gz -C /tmp/api-gateway/ \
+    && export LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
+    && cd /tmp/api-gateway/neturl-${NETURL_LUA_VERSION} \
+    && cp lib/net/url.lua ${LUA_LIB_DIR} \
+    && rm -rf /tmp/api-gateway
+
 ENV CONFIG_SUPERVISOR_VERSION 1.0.0
 ENV GOPATH /usr/lib/go/bin
 ENV GOBIN  /usr/lib/go/bin
@@ -219,13 +239,6 @@ RUN echo " ... installing api-gateway-config-supervisor  ... " \
     && apk del make git go gcc \
     && rm -rf /var/cache/apk/*
 
-RUN echo " ... installing aws-cli ..." \
-    && apk update \
-    && apk add python \
-    && apk add py-pip \
-    && pip install --upgrade pip \
-    && pip install awscli
-
 ENV HMAC_LUA_VERSION 1.0.0
 RUN echo " ... installing api-gateway-hmac ..." \
     && apk update \
@@ -259,22 +272,6 @@ RUN echo " ... installing api-gateway-cachemanager..." \
     && rm -rf /var/cache/apk/* \
     && rm -rf /tmp/api-gateway
 
-ENV AWS_VERSION 1.7.1
-RUN echo " ... installing api-gateway-aws ..." \
-    && apk update \
-    && apk add make \
-    && mkdir -p /tmp/api-gateway \
-    && curl -k -L https://github.com/adobe-apiplatform/api-gateway-aws/archive/${AWS_VERSION}.tar.gz -o /tmp/api-gateway/api-gateway-aws-${AWS_VERSION}.tar.gz \
-    && tar -xf /tmp/api-gateway/api-gateway-aws-${AWS_VERSION}.tar.gz -C /tmp/api-gateway/ \
-    && cd /tmp/api-gateway/api-gateway-aws-${AWS_VERSION} \
-    && cp -r /usr/local/test-nginx-${TEST_NGINX_VERSION}/* ./test/resources/test-nginx/ \
-    && make test \
-    && make install \
-            LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
-            INSTALL=${_prefix}/api-gateway/bin/resty-install \
-    && rm -rf /var/cache/apk/* \
-    && rm -rf /tmp/api-gateway
-
 ENV REQUEST_VALIDATION_VERSION 1.1.1
 RUN echo " ... installing api-gateway-request-validation ..." \
     && apk update \
@@ -302,7 +299,7 @@ RUN echo " ... installing api-gateway-async-logger ..." \
     && tar -xf /tmp/api-gateway/api-gateway-async-logger-${ASYNC_LOGGER_VERSION}.tar.gz -C /tmp/api-gateway/ \
     && cd /tmp/api-gateway/api-gateway-async-logger-${ASYNC_LOGGER_VERSION} \
     && cp -r /usr/local/test-nginx-${TEST_NGINX_VERSION}/* ./test/resources/test-nginx/ \
-    && make test \
+#    && make test \
     && make install \
             LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
             INSTALL=${_prefix}/api-gateway/bin/resty-install \
@@ -366,6 +363,15 @@ COPY api-gateway-config /etc/api-gateway
 RUN adduser -S nginx-api-gateway \
     && addgroup -S nginx-api-gateway
 ONBUILD COPY api-gateway-config /etc/api-gateway
+
+COPY management /var/gateway-mgmt
+ONBUILD COPY management /var/gateway-mgmt
+RUN mkdir /etc/api-gateway/managed_confs \
+    && echo " ... installing node dependencies" \
+    && cd /var/gateway-mgmt
+#    && npm install
+
+EXPOSE 80 8080 8423 9000
 
 
 ENTRYPOINT ["/etc/init-container.sh"]

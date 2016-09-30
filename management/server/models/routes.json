@@ -1,0 +1,30 @@
+{
+  "name": "routes",
+  "base": "PersistedModel",
+  "idInjection": true,
+  "options": {
+    "validateUpsert": true
+  },
+  "properties": {
+    "route": {
+      "type": "string",
+      "required": true
+    },
+    "verb": {
+      "type": "object",
+      "required": true
+    },
+    "namespace": {
+      "type": "string",
+      "required": true
+    },
+    "apiKey": {
+      "type": "string",
+      "required": false
+    }
+  },
+  "validations": [],
+  "relations": {},
+  "acls": [],
+  "methods": {}
+}
