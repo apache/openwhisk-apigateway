@@ -23,6 +23,7 @@
 -- @author Alex Song (songs)
 
 local utils = require "lib/utils"
+local logger = require "lib/logger"
 local cjson = require "cjson"
 
 local _M = {}
@@ -32,6 +33,7 @@ local _M = {}
 -- @param namespace
 -- @param gatewayPath
 -- @param routeObj
+-- @return fileLocation location of created/updated conf file
 function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
     routeObj = utils.serializeTable(cjson.decode(routeObj))
     local prefix = utils.concatStrings({"\t", "include /etc/api-gateway/conf.d/commons/common-headers.conf;", "\n",
@@ -49,7 +51,8 @@ function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
 
     -- Add to endpoint conf file
     os.execute(utils.concatStrings({"mkdir -p ", baseConfDir, namespace}))
-    local file, err = io.open(utils.concatStrings({baseConfDir, namespace, "/", gatewayPath, ".conf"}), "w")
+    local fileLocation = utils.concatStrings({baseConfDir, namespace, "/", gatewayPath, ".conf"})
+    local file, err = io.open(fileLocation, "w")
     if not file then
         ngx.status = 500
         ngx.say(utils.concatStrings({"Error adding to endpoint conf file: ", err}))
@@ -62,11 +65,26 @@ function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
                                           "}\n"})
     file:write(utils.concatStrings({location, "\n"}))
     file:close()
+
+    -- reload nginx to refresh conf files
+    os.execute("/usr/local/sbin/nginx -s reload")
+
+    return fileLocation
 end
 
+
 --- Delete Ngx conf file for given route
+-- @param baseConfDir
+-- @param namespace
+-- @param gatewayPath
+-- @return fileLocation location of deleted conf file
 function _M.deleteRouteConf(baseConfDir, namespace, gatewayPath)
-    os.execute(utils.concatStrings({"rm -f ", baseConfDir, namespace, "/", gatewayPath, ".conf"}))
+    local fileLocation = utils.concatStrings({baseConfDir, namespace, "/", gatewayPath, ".conf"})
+    os.execute(utils.concatStrings({"rm -f ", fileLocation}))
+    -- reload nginx to refresh conf files
+    os.execute("/usr/local/sbin/nginx -s reload")
+
+    return fileLocation
 end
 
 return _M

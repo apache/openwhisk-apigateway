@@ -20,7 +20,7 @@
 
 --- @module logger
 -- Module to handle logging in a single place
--- @author Cody Walker (cmwalker)
+-- @author Cody Walker (cmwalker), Alex Song (songs)
 
 local _M = {}
 
@@ -34,6 +34,10 @@ end
 -- @param s String to write to debug stream
 function _M.debug(s)
   print(s)
+end
+
+function _M.info(s)
+    os.execute("echo \"" .. s .. "\"")
 end
 
 return _M

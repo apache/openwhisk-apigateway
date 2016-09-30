@@ -244,13 +244,15 @@ function subscribe(redisSubClient, redisGetClient, ngx)
             local routeObj = _M.getRoute(redisGetClient, redisKey, "route", ngx)
 
             if routeObj == nil then
-                filemgmt.deleteRouteConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath))
-                ngx.say(utils.concatStrings({redisKey, " deleted"}))
-                ngx.log(ngx.INFO, utils.concatStrings({redisKey, " deleted"}))
+                local fileLocation = filemgmt.deleteRouteConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath))
+                logger.info(utils.concatStrings({redisKey, " deleted"}))
+                logger.info(utils.concatStrings({"Deleted file: ", fileLocation}))
+                ngx.say(utils.concatStrings({"Deleted file: ", fileLocation}))
             else
-                filemgmt.createRouteConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath), routeObj)
-                ngx.say(utils.concatStrings({redisKey, " updated"}))
-                ngx.log(ngx.INFO, utils.concatStrings({redisKey, " updated"}))
+                local fileLocation = filemgmt.createRouteConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath), routeObj)
+                logger.info(utils.concatStrings({redisKey, " updated"}))
+                logger.info(utils.concatStrings({"Updated file: ", fileLocation}))
+                ngx.say(utils.concatStrings({"Updated file: ", fileLocation}))
             end
 
             ngx.flush(true)
