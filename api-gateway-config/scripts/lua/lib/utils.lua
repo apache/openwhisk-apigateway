@@ -31,11 +31,11 @@ local _Utils = {}
 -- @param list List of strings to concatenate
 -- @return concatenated string
 function concatStrings(list)
-    local t = {}
-    for k,v in ipairs(list) do
-        t[#t+1] = tostring(v)
-    end
-    return table.concat(t)
+  local t = {}
+  for k,v in ipairs(list) do
+    t[#t+1] = tostring(v)
+  end
+  return table.concat(t)
 end
 
 --- Serializes a lua table, returning a string representation of the table.

@@ -37,7 +37,7 @@ function _M.debug(s)
 end
 
 function _M.info(s)
-    os.execute("echo \"" .. s .. "\"")
+  os.execute("echo \"" .. s .. "\"")
 end
 
 return _M
