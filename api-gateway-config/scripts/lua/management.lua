@@ -51,37 +51,6 @@ local _M = {}
 --  }
 --
 function _M.addRoute()
-<<<<<<< ade4c22b7b6d010e4b9b476792ee865c8ad2c247
-  -- Read in the PUT JSON Body
-  ngx.req.read_body()
-  local args = ngx.req.get_post_args()
-  if not args then
-    ngx.status = 400
-    ngx.say("Error: missing request body")
-    ngx.exit(ngx.status)
-  end
-  -- Convert json into Lua table
-  local decoded = convertJSONBody(args)
-
-  -- Error handling for correct fields in the request body
-  local gatewayMethod = decoded.gatewayMethod
-  if not gatewayMethod then
-    ngx.status = 400
-    ngx.say("Error: \"gatewayMethod\" missing from request body.")
-    ngx.exit(ngx.status)
-  end
-  local policies = decoded.policies
-  if not policies then
-    ngx.status = 400
-    ngx.say("Error: \"policies\" missing from request body.")
-    ngx.exit(ngx.status)
-  end
-  local security = decoded.security
-  local backendUrl = decoded.backendURL
-  if not backendUrl then
-    ngx.status = 400
-    ngx.say("Error: \"backendURL\" missing from request body.")
-=======
     -- Read in the PUT JSON Body
     ngx.req.read_body()
     local args = ngx.req.get_post_args()
@@ -137,10 +106,8 @@ function _M.addRoute()
     local managedUrlObj = cjson.encode(managedUrlObj)
     managedUrlObj = managedUrlObj:gsub("\\", "")
     ngx.say(managedUrlObj)
->>>>>>> remove debug statements
     ngx.exit(ngx.status)
   end
-  logger.debug(backendURL);
   -- Use gatewayMethod by default or usebackendMethod if specified
   local backendMethod = decoded and decoded.backendMethod or gatewayMethod
 
@@ -246,24 +213,13 @@ end
 -- GET http://0.0.0.0:9000/unsubscribe
 --
 function _M.unsubscribe()
-<<<<<<< ade4c22b7b6d010e4b9b476792ee865c8ad2c247
   -- Initialize and connect to redis
-  logger.debug(utils.concatStrings({'Unsubscribing to Redis with host: ' , REDIS_HOST, '; port: ', REDIS_PORT, '; pass:', REDIS_PASS}))
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
   redis.unsubscribe(red, ngx)
 
   ngx.status = 200
   ngx.say("Unsubscribed to channel routes")
   ngx.exit(ngx.status)
-=======
-    -- Initialize and connect to redis
-    local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
-    redis.unsubscribe(red, ngx)
-
-    ngx.status = 200
-    ngx.say("Unsubscribed to channel routes")
-    ngx.exit(ngx.status)
->>>>>>> remove debug statements
 end
 
 
