@@ -51,61 +51,35 @@ local _M = {}
 --  }
 --
 function _M.addRoute()
-    -- Read in the PUT JSON Body
-    ngx.req.read_body()
-    local args = ngx.req.get_post_args()
-    if not args then
-        ngx.status = 400
-        ngx.say("Error: missing request body")
-        ngx.exit(ngx.status)
-    end
-    -- Convert json into Lua table
-    local decoded = convertJSONBody(args)
+  -- Read in the PUT JSON Body
+  ngx.req.read_body()
+  local args = ngx.req.get_post_args()
+  if not args then
+    ngx.status = 400
+    ngx.say("Error: missing request body")
+    ngx.exit(ngx.status)
+  end
+  -- Convert json into Lua table
+  local decoded = convertJSONBody(args)
 
-    -- Error handling for correct fields in the request body
-    local gatewayMethod = decoded.gatewayMethod
-    if not gatewayMethod then
-        ngx.status = 400
-        ngx.say("Error: \"gatewayMethod\" missing from request body.")
-        ngx.exit(ngx.status)
-    end
-    local policies = decoded.policies
-    if not policies then
-        ngx.status = 400
-        ngx.say("Error: \"policies\" missing from request body.")
-        ngx.exit(ngx.status)
-    end
-    local security = decoded.security
-    local backendUrl = decoded.backendURL
-    if not backendUrl then
-        ngx.status = 400
-        ngx.say("Error: \"backendURL\" missing from request body.")
-        ngx.exit(ngx.status)
-    end
-    -- Use gatewayMethod by default or usebackendMethod if specified
-    local backendMethod = decoded and decoded.backendMethod or gatewayMethod
-
-    local requestURI = string.gsub(ngx.var.request_uri, "?.*", "")
-    local redisKey, namespace, gatewayPath = parseRequestURI(requestURI)
-
-    -- Open connection to redis or use one from connection pool
-    local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
-
-    local routeObj = redis.generateRouteObj(red, redisKey, gatewayMethod, backendUrl, backendMethod, policies, security, ngx)
-    redis.createRoute(red, redisKey, "route", routeObj, ngx)
-    filemgmt.createRouteConf(BASE_CONF_DIR, namespace, gatewayPath, routeObj)
-
-    -- Add current redis connection in the ngx_lua cosocket connection pool
-    redis.close(red, ngx)
-
-    ngx.status = 200
-    ngx.header.content_type = "application/json; charset=utf-8"
-    local managedUrlObj = {
-        managedUrl = utils.concatStrings({"http://0.0.0.0/api/", namespace, "/", gatewayPath})
-    }
-    local managedUrlObj = cjson.encode(managedUrlObj)
-    managedUrlObj = managedUrlObj:gsub("\\", "")
-    ngx.say(managedUrlObj)
+  -- Error handling for correct fields in the request body
+  local gatewayMethod = decoded.gatewayMethod
+  if not gatewayMethod then
+    ngx.status = 400
+    ngx.say("Error: \"gatewayMethod\" missing from request body.")
+    ngx.exit(ngx.status)
+  end
+  local policies = decoded.policies
+  if not policies then
+    ngx.status = 400
+    ngx.say("Error: \"policies\" missing from request body.")
+    ngx.exit(ngx.status)
+  end
+  local security = decoded.security
+  local backendUrl = decoded.backendURL
+  if not backendUrl then
+    ngx.status = 400
+    ngx.say("Error: \"backendURL\" missing from request body.")
     ngx.exit(ngx.status)
   end
   -- Use gatewayMethod by default or usebackendMethod if specified
@@ -268,7 +242,5 @@ function convertJSONBody(args)
   end
   return cjson.decode(utils.concatStrings(jsonStringList))
 end
-
-
 
 return _M
