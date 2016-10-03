@@ -195,8 +195,10 @@ end
 --- Subscribe to redis
 -- @param redisSubClient the redis client that is listening for the redis key changes
 -- @param redisGetClient the redis client that gets the changed route to update the conf file
+-- @param host redis host
+-- @param port redis port
 -- @param ngx
-function _M.subscribe(redisSubClient, redisGetClient, ngx)
+function _M.subscribe(redisSubClient, redisGetClient, host, port, ngx)
   local ok, err = redisSubClient:psubscribe("__keyspace@0__:routes:*:*")
   if not ok then
     ngx.status = 500
@@ -204,7 +206,7 @@ function _M.subscribe(redisSubClient, redisGetClient, ngx)
     ngx.exit(ngx.status)
   end
 
-  ngx.say("Subscribed to redis and listening for key changes...")
+  ngx.say(utils.concatStrings({"Subscribed to redis at ", host, ":", port, " and listening for key changes..."}))
   ngx.flush(true)
 
   subscribe(redisSubClient, redisGetClient, ngx)
@@ -245,17 +247,13 @@ function subscribe(redisSubClient, redisGetClient, ngx)
 
       if routeObj == nil then
         local fileLocation = filemgmt.deleteRouteConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath))
-        logger.info(utils.concatStrings({redisKey, " deleted"}))
+        logger.info(utils.concatStrings({"Redis key deleted: ", redisKey}))
         logger.info(utils.concatStrings({"Deleted file: ", fileLocation}))
-        ngx.say(utils.concatStrings({"Deleted file: ", fileLocation}))
       else
         local fileLocation = filemgmt.createRouteConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath), routeObj)
-        logger.info(utils.concatStrings({redisKey, " updated"}))
+        logger.info(utils.concatStrings({"Redis key updated: ", redisKey}))
         logger.info(utils.concatStrings({"Updated file: ", fileLocation}))
-        ngx.say(utils.concatStrings({"Updated file: ", fileLocation}))
       end
-
-      ngx.flush(true)
     end
   end
   ngx.exit(ngx.status)

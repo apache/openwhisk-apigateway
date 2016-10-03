@@ -177,7 +177,7 @@ function _M.subscribe()
   -- Initialize and connect to redis
   local redisSubClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 600000, ngx)
   local redisGetClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
-  redis.subscribe(redisSubClient, redisGetClient, ngx)
+  redis.subscribe(redisSubClient, redisGetClient, REDIS_HOST, REDIS_PORT, ngx)
 
   ngx.exit(200)
 end

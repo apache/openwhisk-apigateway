@@ -24,6 +24,8 @@
 debug_mode=${DEBUG}
 log_level=${LOG_LEVEL:-warn}
 marathon_host=${MARATHON_HOST}
+redis_host=${REDIS_HOST}
+redis_port=${REDIS_PORT}
 sleep_duration=${MARATHON_POLL_INTERVAL:-5}
 # location for a remote /etc/api-gateway folder.
 # i.e s3://api-gateway-config
@@ -47,4 +49,10 @@ echo "   ... testing configuration "
 api-gateway -t -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway.conf
 
 echo "   ... using log level: '${log_level}'. Override it with -e 'LOG_LEVEL=<level>' "
-api-gateway -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway.conf -g "daemon off; error_log /dev/stderr ${log_level};"
+api-gateway -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway.conf -g "daemon off; error_log /dev/stderr ${log_level};" &
+
+if [[ -n "${redis_host}" && -n "${redis_port}" ]]; then
+    sleep 1  # sleep until api-gateway is set up
+    curl -s http://0.0.0.0:9000/subscribe # subscribe to redis key changes for routes
+fi
+
