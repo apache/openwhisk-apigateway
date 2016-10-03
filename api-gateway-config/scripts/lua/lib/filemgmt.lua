@@ -35,41 +35,38 @@ local _M = {}
 -- @param routeObj
 -- @return fileLocation location of created/updated conf file
 function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
-    routeObj = utils.serializeTable(cjson.decode(routeObj))
-    local prefix = utils.concatStrings({"\t", "include /etc/api-gateway/conf.d/commons/common-headers.conf;", "\n",
-                                        "\t", "set $upstream https://172.17.0.1;", "\n",
-                                        "\t", "set $namespace ", namespace, ";\n",
-                                        "\t", "set $gatewayPath ", gatewayPath, ";\n\n"})
-    -- Set route headers and mapping by calling routing.processCall()
-    local outgoingRoute = utils.concatStrings({"\t",   "access_by_lua_block {", "\n",
-                                               "\t\t", "local routing = require \"routing\"","\n",
-                                               "\t\t", "routing.processCall(", routeObj, ")", "\n",
-                                               "\t",   "}", "\n"})
+  routeObj = utils.serializeTable(cjson.decode(routeObj))
+  local prefix = utils.concatStrings({"\tinclude /etc/api-gateway/conf.d/commons/common-headers.conf;\n",
+                                      "\tset $upstream https://172.17.0.1;\n",
+                                      "\tset $namespace ", namespace, ";\n",
+                                      "\tset $gatewayPath ", gatewayPath, ";\n\n"})
+  -- Set route headers and mapping by calling routing.processCall()
+  local outgoingRoute = utils.concatStrings({"\taccess_by_lua_block {\n",
+                                             "\t\tlocal routing = require \"routing\"\n",
+                                             "\t\trouting.processCall(", routeObj, ")\n",
+                                             "\t}\n\n",
+                                             "\tproxy_pass $upstream;\n"})
 
-    -- set proxy_pass with upstream
-    local proxyPass = utils.concatStrings({"\tproxy_pass $upstream; \n"})
+  -- Add to endpoint conf file
+  os.execute(utils.concatStrings({"mkdir -p ", baseConfDir, namespace}))
+  local fileLocation = utils.concatStrings({baseConfDir, namespace, "/", gatewayPath, ".conf"})
+  local file, err = io.open(fileLocation, "w")
+  if not file then
+    ngx.status = 500
+    ngx.say(utils.concatStrings({"Error adding to endpoint conf file: ", err}))
+    ngx.exit(ngx.status)
+  end
+  local location = utils.concatStrings({"location /api/", namespace, "/", ngx.unescape_uri(gatewayPath), " {\n",
+                                        prefix,
+                                        outgoingRoute,
+                                        "}\n"})
+  file:write(location)
+  file:close()
 
-    -- Add to endpoint conf file
-    os.execute(utils.concatStrings({"mkdir -p ", baseConfDir, namespace}))
-    local fileLocation = utils.concatStrings({baseConfDir, namespace, "/", gatewayPath, ".conf"})
-    local file, err = io.open(fileLocation, "w")
-    if not file then
-        ngx.status = 500
-        ngx.say(utils.concatStrings({"Error adding to endpoint conf file: ", err}))
-        ngx.exit(ngx.status)
-    end
-    local location = utils.concatStrings({"location /api/", namespace, "/", ngx.unescape_uri(gatewayPath), " {\n",
-                                          prefix,
-                                          outgoingRoute,
-                                          proxyPass,
-                                          "}\n"})
-    file:write(utils.concatStrings({location, "\n"}))
-    file:close()
+  -- reload nginx to refresh conf files
+  os.execute("/usr/local/sbin/nginx -s reload")
 
-    -- reload nginx to refresh conf files
-    os.execute("/usr/local/sbin/nginx -s reload")
-
-    return fileLocation
+  return fileLocation
 end
 
 
@@ -79,12 +76,12 @@ end
 -- @param gatewayPath
 -- @return fileLocation location of deleted conf file
 function _M.deleteRouteConf(baseConfDir, namespace, gatewayPath)
-    local fileLocation = utils.concatStrings({baseConfDir, namespace, "/", gatewayPath, ".conf"})
-    os.execute(utils.concatStrings({"rm -f ", fileLocation}))
-    -- reload nginx to refresh conf files
-    os.execute("/usr/local/sbin/nginx -s reload")
+  local fileLocation = utils.concatStrings({baseConfDir, namespace, "/", gatewayPath, ".conf"})
+  os.execute(utils.concatStrings({"rm -f ", fileLocation}))
+  -- reload nginx to refresh conf files
+  os.execute("/usr/local/sbin/nginx -s reload")
 
-    return fileLocation
+  return fileLocation
 end
 
 return _M
