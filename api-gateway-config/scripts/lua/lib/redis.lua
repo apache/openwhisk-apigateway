@@ -195,10 +195,11 @@ end
 --- Subscribe to redis
 -- @param redisSubClient the redis client that is listening for the redis key changes
 -- @param redisGetClient the redis client that gets the changed route to update the conf file
--- @param host redis host
--- @param port redis port
 -- @param ngx
-function _M.subscribe(redisSubClient, redisGetClient, host, port, ngx)
+function _M.subscribe(redisSubClient, redisGetClient, ngx)
+  -- create conf files for existing routes in redis
+  syncWithRedis(redisGetClient, ngx)
+
   local ok, err = redisSubClient:psubscribe("__keyspace@0__:routes:*:*")
   if not ok then
     ngx.status = 500
@@ -206,11 +207,56 @@ function _M.subscribe(redisSubClient, redisGetClient, host, port, ngx)
     ngx.exit(ngx.status)
   end
 
-  ngx.say(utils.concatStrings({"Subscribed to redis at ", host, ":", port, " and listening for key changes..."}))
+  ngx.say("\nSubscribed to redis and listening for key changes...")
   ngx.flush(true)
 
   subscribe(redisSubClient, redisGetClient, ngx)
   ngx.exit(ngx.status)
+end
+
+--- Sync with redis on startup and create conf files for routes that are already in redis
+-- @param red
+-- @param ngx
+function syncWithRedis(red, ngx)
+  logger.info("\nCreating nginx conf files for existing routes...")
+  local redisKeys, err = red:keys("*")
+  if not redisKeys then
+    ngx.status = 500
+    ngx.say("Sync error: ", err)
+    ngx.exit(ngx.status)
+  end
+
+  -- Find all redis keys with "routes:*:*"
+  local routesExist = false
+  for k, redisKey in pairs(redisKeys) do
+    local index = 1
+    local namespace = ""
+    local gatewayPath = ""
+    for word in string.gmatch(redisKey, '([^:]+)') do
+      if index == 1 then
+        if word ~= "routes" then
+          break
+        else
+          routesExist = true
+          index = index + 1
+        end
+      else
+        if index == 2 then
+          namespace = word
+        elseif index == 3 then
+          gatewayPath = word
+          -- Create new conf file
+          local routeObj = _M.getRoute(red, redisKey, "route", ngx)
+          local fileLocation = filemgmt.createRouteConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath), routeObj)
+          logger.info(utils.concatStrings({"Updated file: ", fileLocation}))
+        end
+        index = index + 1
+      end
+    end
+  end
+  if routesExist == false then
+    logger.info("No existing routes.")
+  end
 end
 
 --- Subscribe helper method

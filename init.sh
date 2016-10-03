@@ -54,5 +54,8 @@ api-gateway -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway.conf -g "
 if [[ -n "${redis_host}" && -n "${redis_port}" ]]; then
     sleep 1  # sleep until api-gateway is set up
     curl -s http://0.0.0.0:9000/subscribe # subscribe to redis key changes for routes
+else
+    echo "REDIS_HOST and/or REDIS_PORT not defined"
 fi
+
 
