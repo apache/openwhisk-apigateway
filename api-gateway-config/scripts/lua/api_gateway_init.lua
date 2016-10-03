@@ -76,9 +76,9 @@ local function initMetricsFactory(parentObject)
     parentObject.metrics = require "metrics.factory"
 end
 
-initValidationFactory(_M)
-initZMQLogger(_M)
-initTrackingFactory(_M)
+--initValidationFactory(_M)
+--initZMQLogger(_M)
+--initTrackingFactory(_M)
 initMetricsFactory(_M)
 -- TODO: test health-check with the new version of Openresty
 -- initRedisHealthCheck()

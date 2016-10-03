@@ -13,36 +13,6 @@ RUN apk update \
     perl-test-longstring perl-list-moreutils perl-http-message \
     geoip-dev nodejs
 
-ENV ZMQ_VERSION 4.0.5
-ENV CZMQ_VERSION 2.2.0
-
-# Installing throttling dependencies
-RUN echo " ... adding throttling support with ZMQ and CZMQ" \
-         && curl -L https://github.com/zeromq/zeromq4-x/archive/v${ZMQ_VERSION}.tar.gz -o /tmp/zeromq.tar.gz \
-         && cd /tmp/ \
-         && tar -xf /tmp/zeromq.tar.gz \
-         && cd /tmp/zeromq*/ \
-         && apk add automake autoconf \
-         && ./autogen.sh \
-         && ./configure --prefix=/usr \
-                        --sysconfdir=/etc \
-                        --mandir=/usr/share/man \
-                        --infodir=/usr/share/info \
-         && make && make install \
-         && curl -L https://github.com/zeromq/czmq/archive/v${CZMQ_VERSION}.tar.gz -o /tmp/czmq.tar.gz \
-         && cd /tmp/ \
-         && tar -xf /tmp/czmq.tar.gz \
-         && cd /tmp/czmq*/ \
-         && ./autogen.sh \
-         && ./configure --prefix=/usr \
-                        --sysconfdir=/etc \
-                        --mandir=/usr/share/man \
-                        --infodir=/usr/share/info \
-         && make && make install \
-         && apk del automake autoconf \
-         && rm -rf /tmp/zeromq* && rm -rf /tmp/czmq* \
-         && rm -rf /var/cache/apk/*
-
 # openresty build
 ENV OPENRESTY_VERSION=1.9.7.3 \
     NAXSI_VERSION=0.53-2 \
@@ -183,16 +153,6 @@ RUN echo " ... installing lua-resty-iputils..." \
     && $INSTALL lib/resty/*.lua ${LUA_LIB_DIR}/resty/ \
     && rm -rf /tmp/api-gateway
 
-ENV SHA1_LUA_VERSION 0.5.0
-RUN echo " ... installing sha1.lua ... " \
-    && mkdir -p /tmp/api-gateway \
-    && curl -k -L https://github.com/kikito/sha1.lua/archive/v${SHA1_LUA_VERSION}.tar.gz -o /tmp/api-gateway/sha1.lua-${SHA1_LUA_VERSION}.tar.gz \
-    && tar -xf /tmp/api-gateway/sha1.lua-${SHA1_LUA_VERSION}.tar.gz -C /tmp/api-gateway/ \
-    && export LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
-    && cd /tmp/api-gateway/sha1.lua-${SHA1_LUA_VERSION} \
-    && cp sha1.lua ${LUA_LIB_DIR} \
-    && rm -rf /tmp/api-gateway
-
 ENV NETURL_LUA_VERSION 0.9-1
 RUN echo " ... installing neturl.lua ... " \
     && mkdir -p /tmp/api-gateway \
@@ -202,115 +162,6 @@ RUN echo " ... installing neturl.lua ... " \
     && cd /tmp/api-gateway/neturl-${NETURL_LUA_VERSION} \
     && cp lib/net/url.lua ${LUA_LIB_DIR} \
     && rm -rf /tmp/api-gateway
-
-ENV HMAC_LUA_VERSION 1.0.0
-RUN echo " ... installing api-gateway-hmac ..." \
-    && apk update \
-    && apk add make \
-    && mkdir -p /tmp/api-gateway \
-    && curl -k -L https://github.com/adobe-apiplatform/api-gateway-hmac/archive/${HMAC_LUA_VERSION}.tar.gz -o /tmp/api-gateway/api-gateway-hmac-${HMAC_LUA_VERSION}.tar.gz \
-    && tar -xf /tmp/api-gateway/api-gateway-hmac-${HMAC_LUA_VERSION}.tar.gz -C /tmp/api-gateway/ \
-    && cd /tmp/api-gateway/api-gateway-hmac-${HMAC_LUA_VERSION} \
-    && cp -r /usr/local/test-nginx-${TEST_NGINX_VERSION}/* ./test/resources/test-nginx/ \
-    && make test \
-    && make install \
-            LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
-            INSTALL=${_prefix}/api-gateway/bin/resty-install \
-    && rm -rf /tmp/api-gateway
-
-ENV CACHE_MANAGER_VERSION 1.0.1
-RUN echo " ... installing api-gateway-cachemanager..." \
-    && apk update \
-    && apk add make \
-    && mkdir -p /tmp/api-gateway \
-    && curl -k -L https://github.com/adobe-apiplatform/api-gateway-cachemanager/archive/${CACHE_MANAGER_VERSION}.tar.gz -o /tmp/api-gateway/api-gateway-cachemanager-${CACHE_MANAGER_VERSION}.tar.gz \
-    && tar -xf /tmp/api-gateway/api-gateway-cachemanager-${CACHE_MANAGER_VERSION}.tar.gz -C /tmp/api-gateway/ \
-    && cd /tmp/api-gateway/api-gateway-cachemanager-${CACHE_MANAGER_VERSION} \
-    && cp -r /usr/local/test-nginx-${TEST_NGINX_VERSION}/* ./test/resources/test-nginx/ \
-    && apk update && apk add redis \
-    && REDIS_SERVER=/usr/bin/redis-server make test \
-    && make install \
-            LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
-            INSTALL=${_prefix}/api-gateway/bin/resty-install \
-    && apk del redis \
-    && rm -rf /var/cache/apk/* \
-    && rm -rf /tmp/api-gateway
-
-ENV REQUEST_VALIDATION_VERSION 1.1.1
-RUN echo " ... installing api-gateway-request-validation ..." \
-    && apk update \
-    && apk add make \
-    && mkdir -p /tmp/api-gateway \
-    && curl -k -L https://github.com/adobe-apiplatform/api-gateway-request-validation/archive/${REQUEST_VALIDATION_VERSION}.tar.gz -o /tmp/api-gateway/api-gateway-request-validation-${REQUEST_VALIDATION_VERSION}.tar.gz \
-    && tar -xf /tmp/api-gateway/api-gateway-request-validation-${REQUEST_VALIDATION_VERSION}.tar.gz -C /tmp/api-gateway/ \
-    && cd /tmp/api-gateway/api-gateway-request-validation-${REQUEST_VALIDATION_VERSION} \
-    && cp -r /usr/local/test-nginx-${TEST_NGINX_VERSION}/* ./test/resources/test-nginx/ \
-    && apk update && apk add redis \
-    && REDIS_SERVER=/usr/bin/redis-server make test \
-    && make install \
-            LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
-            INSTALL=${_prefix}/api-gateway/bin/resty-install \
-    && apk del redis \
-    && rm -rf /var/cache/apk/* \
-    && rm -rf /tmp/api-gateway
-
-ENV ASYNC_LOGGER_VERSION 1.0.1
-RUN echo " ... installing api-gateway-async-logger ..." \
-    && apk update \
-    && apk add make \
-    && mkdir -p /tmp/api-gateway \
-    && curl -k -L https://github.com/adobe-apiplatform/api-gateway-async-logger/archive/${ASYNC_LOGGER_VERSION}.tar.gz -o /tmp/api-gateway/api-gateway-async-logger-${ASYNC_LOGGER_VERSION}.tar.gz \
-    && tar -xf /tmp/api-gateway/api-gateway-async-logger-${ASYNC_LOGGER_VERSION}.tar.gz -C /tmp/api-gateway/ \
-    && cd /tmp/api-gateway/api-gateway-async-logger-${ASYNC_LOGGER_VERSION} \
-    && cp -r /usr/local/test-nginx-${TEST_NGINX_VERSION}/* ./test/resources/test-nginx/ \
-#    && make test \
-    && make install \
-            LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
-            INSTALL=${_prefix}/api-gateway/bin/resty-install \
-    && rm -rf /var/cache/apk/* \
-    && rm -rf /tmp/api-gateway
-
-ENV ZMQ_ADAPTOR_VERSION 0.1.1
-RUN echo " ... installing api-gateway-zmq-adaptor" \
-         && curl -L https://github.com/adobe-apiplatform/api-gateway-zmq-adaptor/archive/${ZMQ_ADAPTOR_VERSION}.tar.gz -o /tmp/api-gateway-zmq-adaptor-${ZMQ_ADAPTOR_VERSION} \
-         && apk update \
-         && apk add check-dev g++ gcc \
-         && cd /tmp/ \
-         && tar -xf /tmp/api-gateway-zmq-adaptor-${ZMQ_ADAPTOR_VERSION} \
-         && cd /tmp/api-gateway-zmq-adaptor-* \
-         && make test \
-         && PREFIX=/usr/local/sbin make install \
-         && rm -rf /tmp/api-gateway-zmq-adaptor-* \
-         && apk del check-dev g++ gcc \
-         && rm -rf /var/cache/apk/*
-
-ENV ZMQ_LOGGER_VERSION 1.0.0
-RUN echo " ... installing api-gateway-zmq-logger ..." \
-        && mkdir -p /tmp/api-gateway \
-        && curl -L https://github.com/adobe-apiplatform/api-gateway-zmq-logger/archive/${ZMQ_LOGGER_VERSION}.tar.gz -o /tmp/api-gateway/api-gateway-zmq-logger-${ZMQ_LOGGER_VERSION}.tar.gz \
-        && tar -xf /tmp/api-gateway/api-gateway-zmq-logger-${ZMQ_LOGGER_VERSION}.tar.gz -C /tmp/api-gateway/ \
-        && cd /tmp/api-gateway/api-gateway-zmq-logger-${ZMQ_LOGGER_VERSION} \
-        && cp -r /usr/local/test-nginx-${TEST_NGINX_VERSION}/* ./test/resources/test-nginx/ \
-        && make test \
-        && make install \
-             LUA_LIB_DIR=/usr/local/api-gateway/lualib \
-             INSTALL=/usr/local/api-gateway/bin/resty-install \
-        && rm -rf /tmp/api-gateway
-
-ENV REQUEST_TRACKING_VERSION 1.0.1
-RUN echo " ... installing api-gateway-request-tracking ..." \
-        && mkdir -p /tmp/api-gateway \
-        && curl -L https://github.com/adobe-apiplatform/api-gateway-request-tracking/archive/${REQUEST_TRACKING_VERSION}.tar.gz -o /tmp/api-gateway/api-gateway-request-tracking-${REQUEST_TRACKING_VERSION}.tar.gz \
-        && tar -xf /tmp/api-gateway/api-gateway-request-tracking-${REQUEST_TRACKING_VERSION}.tar.gz -C /tmp/api-gateway/ \
-        && cd /tmp/api-gateway/api-gateway-request-tracking-${REQUEST_TRACKING_VERSION} \
-        && cp -r /usr/local/test-nginx-${TEST_NGINX_VERSION}/* ./test/resources/test-nginx/ \
-        && apk update && apk add redis \
-        && REDIS_SERVER=/usr/bin/redis-server make test \
-        && make install \
-             LUA_LIB_DIR=/usr/local/api-gateway/lualib \
-             INSTALL=/usr/local/api-gateway/bin/resty-install \
-        && apk del redis \
-        && rm -rf /tmp/api-gateway
 
 RUN \
     curl -L -k -s -o /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 \
@@ -327,13 +178,6 @@ COPY api-gateway-config /etc/api-gateway
 RUN adduser -S nginx-api-gateway \
     && addgroup -S nginx-api-gateway
 ONBUILD COPY api-gateway-config /etc/api-gateway
-
-COPY management /var/gateway-mgmt
-ONBUILD COPY management /var/gateway-mgmt
-RUN mkdir /etc/api-gateway/managed_confs \
-    && echo " ... installing node dependencies" \
-    && cd /var/gateway-mgmt
-#    && npm install
 
 EXPOSE 80 8080 8423 9000
 
