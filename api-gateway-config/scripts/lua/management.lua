@@ -86,7 +86,10 @@ function _M.addRoute()
   local backendMethod = decoded and decoded.backendMethod or gatewayMethod
 
   local requestURI = string.gsub(ngx.var.request_uri, "?.*", "")
-  local redisKey, namespace, gatewayPath = parseRequestURI(requestURI)
+  local list = parseRequestURI(requestURI)
+  local namespace = list[2]
+  local gatewayPath = list[3]
+  local redisKey = utils.concatStrings({list[1], ":", namespace, ":", ngx.unescape_uri(gatewayPath)})
 
   -- Open connection to redis or use one from connection pool
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
@@ -118,7 +121,10 @@ end
 --
 function _M.getRoute()
   local requestURI = string.gsub(ngx.var.request_uri, "?.*", "")
-  local redisKey, namespace, gatewayPath = parseRequestURI(requestURI)
+  local list = parseRequestURI(requestURI)
+  local namespace = list[2]
+  local gatewayPath = list[3]
+  local redisKey = utils.concatStrings({list[1], ":", namespace, ":", ngx.unescape_uri(gatewayPath)})
 
   -- Initialize and connect to redis
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
@@ -150,7 +156,10 @@ end
 --
 function _M.deleteRoute()
   local requestURI = string.gsub(ngx.var.request_uri, "?.*", "")
-  local redisKey, namespace, gatewayPath = parseRequestURI(requestURI)
+  local list = parseRequestURI(requestURI)
+  local namespace = list[2]
+  local gatewayPath = list[3]
+  local redisKey = utils.concatStrings({list[1], ":", namespace, ":", ngx.unescape_uri(gatewayPath)})
 
   -- Initialize and connect to redis
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
@@ -198,36 +207,82 @@ function _M.unsubscribe()
   ngx.exit(ngx.status)
 end
 
+--- Add an apikey/subscription to redis
+-- PUT http://0.0.0.0:9000/subscriptions/<namespace>/<url-encoded-route>/<key>
+--  where list[1] = prefix, list[2] = namespace, list[3] = gatewayPath, list[4] = key
+------ or
+-- PUT http://0.0.0.0:9000/subscriptions/<namespace>/<key>
+-- where list[1] = prefix, list[2] = namespace, list[3] = key
+function _M.addSubscription()
+  local requestURI = string.gsub(ngx.var.request_uri, "?.*", "")
+  local list = parseRequestURI(requestURI)
+  local redisKey
+  if list[4] then
+    redisKey = utils.concatStrings({list[1], ":", list[2], ":", ngx.unescape_uri(list[3]), ":", list[4]})
+  else
+    redisKey = utils.concatStrings({list[1], ":", list[2], ":", list[3]})
+  end
+
+  -- Open connection to redis or use one from connection pool
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
+
+  redis.createSubscription(red, redisKey, ngx)
+
+  -- Add current redis connection in the ngx_lua cosocket connection pool
+  redis.close(red, ngx)
+
+  ngx.status = 200
+  ngx.say("Subscription created.")
+  ngx.exit(ngx.status)
+end
+
+--- Delete apikey/subscription from redis
+-- DELETE http://0.0.0.0:9000/subscriptions/<namespace>/<url-encoded-route>/<key>
+--  where list[1] = prefix, list[2] = namespace, list[3] = gatewayPath, list[4] = key
+------ or
+-- DELETE http://0.0.0.0:9000/subscriptions/<namespace>/<key>
+-- where list[1] = prefix, list[2] = namespace, list[3] = key
+function _M.deleteSubscription()
+  local requestURI = string.gsub(ngx.var.request_uri, "?.*", "")
+  local list = parseRequestURI(requestURI)
+  local redisKey
+  if list[4] then
+    redisKey = utils.concatStrings({list[1], ":", list[2], ":", ngx.unescape_uri(list[3]), ":", list[4]})
+  else
+    redisKey = utils.concatStrings({list[1], ":", list[2], ":", list[3]})
+  end
+
+  -- Initialize and connect to redis
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
+
+  -- Return if subscription doesn't exist
+  redis.deleteSubscription(red, redisKey, ngx)
+
+  -- Add current redis connection in the ngx_lua cosocket connection pool
+  redis.close(red, ngx)
+
+  ngx.status = 200
+  ngx.say("Subscription deleted.")
+  ngx.exit(ngx.status)
+end
+
 
 --- Parse the request uri to get the redisKey, namespace, and gatewayPath
 -- @param requestURI
 -- @return redisKey, namespace, gatewayPath
 function parseRequestURI(requestURI)
-  local index = 0
-  local prefix = nil
-  local namespace = nil
-  local gatewayPath = nil
-  for word in string.gmatch(requestURI, '([^/]+)') do
-    -- word is "routes"
-    if index == 0 then
-      prefix = word
-      -- word is the namespace
-    elseif index == 1 then
-      namespace = word
-      -- the rest is the path
-    elseif index == 2 then
-      gatewayPath = word
-    end
-    index = index + 1
+  local list = {}
+  for i in string.gmatch(requestURI, '([^/]+)') do
+    list[#list + 1] = i
   end
-  if not namespace or not gatewayPath or index > 3 then
+  if not list[1] or not list[2] then
     ngx.status = 400
     ngx.say("Error: Request path should be \"/routes/<namespace>/<url-encoded-route>\"")
     ngx.exit(ngx.status)
   end
 
-  local redisKey = utils.concatStrings({prefix, ":", namespace, ":", ngx.unescape_uri(gatewayPath)})
-  return redisKey, namespace, gatewayPath
+
+  return list  --prefix, namespace, gatewayPath, apiKey
 end
 
 --- Convert JSON body to Lua table using the cjson module

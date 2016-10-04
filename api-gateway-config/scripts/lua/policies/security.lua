@@ -32,26 +32,30 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
-function validateAPIKey(namespace ,apiKey)
+function validateAPIKey(namespace, gatewayPath, apiKey)
   -- Open connection to redis or use one from connection pool
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
 
-  local k = utils.concatStrings({'subscriptions:', tostring(namespace), ':', tostring(apiKey)})
+  local k = utils.concatStrings({'subscriptions:', tostring(namespace), ':', tostring(gatewayPath), ':', tostring(apiKey)})
   local exists, err = red:exists(k)
-
+  if exists == 0 then
+    k = utils.concatStrings({'subscriptions:', tostring(namespace), ':', tostring(apiKey)})
+    exists, err = red:exists(k)
+    end
   return exists == 1
 end
 
 function processAPIKey(h)
   local namespace = ngx.var.namespace
+  local gatewayPath = ngx.var.gatewayPath
   local apiKey = ngx.var[h]
   if not apiKey then
-    logger.err('No x-api-key passed. Sending 401')
+    logger.err('No api-key passed. Sending 401')
     ngx.exit(401)
   end
-  local ok = validateAPIKey(namespace, apiKey)
+  local ok = validateAPIKey(namespace, gatewayPath, apiKey)
   if not ok then
-    logger.err('x-api-key does not match. Sending 401')
+    logger.err('api-key does not match. Sending 401')
     ngx.exit(401)
   end
 end
