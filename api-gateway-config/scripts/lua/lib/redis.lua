@@ -200,6 +200,14 @@ function _M.subscribe(redisSubClient, redisGetClient, ngx)
   -- create conf files for existing routes in redis
   syncWithRedis(redisGetClient, ngx)
 
+  -- enable keyspace notifications
+  local ok, err = redisGetClient:config("set", "notify-keyspace-events", "KEA")
+  if not ok then
+    ngx.status = 500
+    ngx.say("Failed setting notify-keyspace-events: ", err)
+    ngx.exit(ngx.status)
+  end
+
   local ok, err = redisSubClient:psubscribe("__keyspace@0__:routes:*:*")
   if not ok then
     ngx.status = 500
