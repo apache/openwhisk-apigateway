@@ -24,12 +24,14 @@
 local logger = require "lib/logger"
 local utils = require "lib/utils"
 local cjson = require "cjson"
+local url = require "url"
 
 local _M = {}
 
 local body = nil
 local query = nil
 local headers = nil
+local path = nil
 
 --- Implementation for the mapping policy.
 -- @param map The mapping object that contains details about request tranformations
@@ -51,12 +53,14 @@ end
 
 --- Get request body, params, and headers from incoming requests
 function getRequestParams()
-  body =  ngx.req.get_body_data()
-  if body == nil then
-    body = {}
+  ngx.req.read_body()
+  body = ngx.req.get_post_args()
+  if next(body) then
+    body = utils.convertJSONBody(body)
   end
   query = ngx.req.get_uri_args()
-  headers = ngx.resp.get_headers()
+  headers = ngx.req.get_headers()
+  path = ngx.var.uri
 end
 
 --- Insert parameter value to header, body, or query params into request
@@ -72,6 +76,8 @@ function insertParam(m)
     v = query[m.from.name]
   elseif m.from.location == 'body' then
     v = body[m.from.name]
+  elseif m.from.location == 'path' then
+    v = ngx.var[utils.concatStrings({'path_', m.from.name})]
   end
   -- determine to where
   if m.to.location == 'header' then
@@ -80,6 +86,8 @@ function insertParam(m)
     insertQuery(k, v)
   elseif m.to.location == 'body' then
     insertBody(k, v)
+  elseif m.to.location == 'path' then
+    insertPath(k,v)
   end
 end
 
@@ -148,13 +156,24 @@ function transformAllParams(s, d)
       insertParam(t)
       removeParam(t)
     end
+  elseif s == 'path' then
+    for k, v in pairs(path) do
+      local t = {}
+      t.from = {}
+      t.from.name = k
+      t.from.location = s
+      t.to = {}
+      t.to.name = k
+      t.to.location = d
+      insertParam(t)
+      removeParam(t)
+    end
   end
 end
 
 function finalize()
   local bodyJson = cjson.encode(body)
   ngx.req.set_body_data(bodyJson)
-  ngx.req.set_uri_args(query)
 end
 
 function insertHeader(k, v)
@@ -163,10 +182,17 @@ end
 
 function insertQuery(k, v)
   query[k] = v
+  ngx.req.set_uri_args(query)
 end
 
 function insertBody(k, v)
   body[k] = v
+end
+
+function insertPath(k, v)
+  v = ngx.unescape_uri(v)
+  local primedUri = path:gsub("%{(%w*)%}", v)
+  ngx.req.set_uri(primedUri)
 end
 
 function removeHeader(k)

@@ -35,16 +35,18 @@ local _M = {}
 -- @param resourceObj object containing different operations/policies for the resource
 -- @return fileLocation location of created/updated conf file
 function _M.createResourceConf(baseConfDir, tenant, gatewayPath, resourceObj)
+  resourceObj = utils.serializeTable(cjson.decode(resourceObj))
   local decoded = cjson.decode(resourceObj)
-  resourceObj = utils.serializeTable(decoded)
+
   local prefix = utils.concatStrings({"\tinclude /etc/api-gateway/conf.d/commons/common-headers.conf;\n",
                                       "\tset $upstream https://172.17.0.1;\n",
                                       "\tset $tenant ", tenant, ";\n",
-                                      "\tset $gatewayPath ", gatewayPath, ";\n"})
+                                      "\tset $gatewayPath ",  utils.concatStrings({"\"", ngx.unescape_uri(gatewayPath),
+                                      "\""}), ";\n\n"})
   if decoded.apiId ~= nil then
     prefix = utils.concatStrings({prefix, "\tset $apiId ", decoded.apiId, ";\n"})
   end
-  -- Set route headers and mapping by calling routing.processCall()
+  -- Set resource headers and mapping by calling routing.processCall()
   local outgoingResource = utils.concatStrings({"\taccess_by_lua_block {\n",
                                                 "\t\tlocal routing = require \"routing\"\n",
                                                 "\t\trouting.processCall(", resourceObj, ")\n",
@@ -57,7 +59,10 @@ function _M.createResourceConf(baseConfDir, tenant, gatewayPath, resourceObj)
   if not file then
     request.err(500, utils.concatStrings({"Error adding to endpoint conf file: ", err}))
   end
-  local location = utils.concatStrings({"location /api/", tenant, "/", ngx.unescape_uri(gatewayPath), " {\n",
+
+  local updatedPath = ngx.unescape_uri(gatewayPath):gsub("%{(%w*)%}", utils.convertTemplatedPathParam)
+
+  local location = utils.concatStrings({"location ~ ^/api/", tenant, "/", updatedPath, " {\n",
                                         prefix,
                                         outgoingResource,
                                         "}\n"})
