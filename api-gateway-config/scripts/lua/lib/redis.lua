@@ -191,6 +191,32 @@ function _M.deleteRoute(red, key, field, ngx)
   end
 end
 
+--- Create/update subscription/apikey in redis
+-- @param red
+-- @param key
+-- @param ngx
+function _M.createSubscription(red, key, ngx)
+  -- Add/update a subscription key to redis
+  local ok, err = red:set (key, "")
+  if not ok then
+    ngx.status = 500
+    ngx.say(utils.concatStrings({"Failed adding subscription to redis: ", err}))
+    ngx.exit(ngx.status)
+  end
+end
+
+--- Delete subscription/apikey int redis
+-- @param red
+-- @param key
+-- @param ngx
+function _M.deleteSubscription(red, key, ngx)
+  local ok, err = red:del(key, "subscriptions")
+  if not ok then
+    ngx.status = 500
+    ngx.say("Error deleting subscription: ", err)
+    ngx.exit(ngx.status)
+  end
+end
 
 --- Subscribe to redis
 -- @param redisSubClient the redis client that is listening for the redis key changes
