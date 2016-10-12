@@ -18,6 +18,8 @@
 --   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 --   DEALINGS IN THE SOFTWARE.
 
+local redis = require 'lib/redis'
+
 local floor = math.floor
 local tonumber = tonumber
 
@@ -122,28 +124,13 @@ end
 
 function _M.limit(cfg)
     if not cfg.conn then
-        local ok, redis = pcall(require, "resty.redis")
-        if not ok then
-            ngx.log(ngx.ERR, "failed to require redis")
-            return _M.OK
-        end
-
         local rds = cfg.rds or {}
-        rds.timeout = rds.timeout or 1
+        rds.timeout = rds.timeout or 1000
         rds.host = rds.host or "127.0.0.1"
         rds.port = rds.port or 6379
+        rds.pass = rds.pass or nil
 
-        local red = redis:new()
-
-        red:set_timeout(rds.timeout * 1000)
-
-        local ok, err = red:connect(rds.host, rds.port)
-        if not ok then
-            ngx.log(ngx.WARN, "redis connect err: ", err)
-            return _M.OK
-        end
-
-        cfg.conn = red
+        cfg.conn = redis.init(rds.host, rds.port, rds.pass, rds.timeout, ngx)
     end
 
     local conn = cfg.conn
