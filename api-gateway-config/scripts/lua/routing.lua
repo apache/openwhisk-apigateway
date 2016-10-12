@@ -35,7 +35,7 @@ local rateLimit = require "policies/rateLimit"
 local _M = {}
 
 --- Main function that handles parsing of invocation details and carries out implementation
--- @param obj Lua table object containing implementation details for the given route
+-- @param obj Lua table object containing implementation details for the given resource
 -- {
 --   {{GatewayMethod (GET / PUT / POST / DELETE)}} = {
 --      "backendMethod": (GET / PUT / POST / DELETE) - Method to use for invocation (if different from gatewayMethod),
@@ -46,7 +46,8 @@ local _M = {}
 function processCall(obj)
   local verb = ngx.req.get_method()
   local found = false
-  for k, v in pairs(obj) do
+  local operations = obj.operations
+  for k, v in pairs(operations) do
     if k == verb then
       -- Check if auth is required
       if (v.security and string.lower(v.security.type) == 'apikey') then
@@ -64,7 +65,9 @@ function processCall(obj)
       if v.backendMethod ~= nil then
         setVerb(v.backendMethod)
       end
-      parsePolicies(v.policies)
+      if v.policies ~= nil then
+        parsePolicies(v.policies)
+      end
       found = true
       break
     end
@@ -76,7 +79,7 @@ function processCall(obj)
 end
 
 --- Function to read the list of policies and send implementation to the correct backend
--- @param obj List of policies containing a type and value field. This function reads the type field and routes it appropriately.
+-- @param obj List of policies containing a type and value field. This function reads the type field and resources it appropriately.
 function parsePolicies(obj)
   for k, v in pairs (obj) do
     if v.type == 'reqMapping' then

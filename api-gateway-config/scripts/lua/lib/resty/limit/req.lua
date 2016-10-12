@@ -130,7 +130,7 @@ function _M.limit(cfg)
         rds.port = rds.port or 6379
         rds.pass = rds.pass or nil
 
-        cfg.conn = redis.init(rds.host, rds.port, rds.pass, rds.timeout, ngx)
+        cfg.conn = redis.init(rds.host, rds.port, rds.pass, rds.timeout)
     end
 
     local conn = cfg.conn

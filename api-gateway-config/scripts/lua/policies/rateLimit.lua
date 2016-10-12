@@ -40,7 +40,7 @@ function limit(obj)
      k = ngx.var.namespace
    elseif obj.field == 'apikey' then
      k = utils.concatStrings({ngx.var.namespace, '_', ngx.var['http_x_api_key']})
-   elseif obj.field == 'route' then
+   elseif obj.field == 'resource' then
      k = utils.concatStrings({ngx.var.namespace, '_', ngx.var.gatewayPath})
    end
 

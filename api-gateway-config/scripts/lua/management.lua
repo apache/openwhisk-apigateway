@@ -19,7 +19,7 @@
 --   DEALINGS IN THE SOFTWARE.
 
 --- @module management
--- Defines and exposes a lightweight API management to create and remove routes in the running API Gateway
+-- Defines and exposes a lightweight API management to create and remove resources in the running API Gateway
 -- @author Alex Song (songs)
 
 local cjson = require "cjson"
@@ -32,15 +32,18 @@ local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
 local REDIS_PASS = os.getenv("REDIS_PASS")
 
+local REDIS_FIELD = "resources"
+
 local BASE_CONF_DIR = "/etc/api-gateway/managed_confs/"
 
 local _M = {}
 
---- Add/update a route to redis and create/update an nginx conf file given PUT JSON body
+--- Add/update a resource to redis and create/update an nginx conf file given PUT JSON body
 --
--- PUT http://0.0.0.0:9000/routes/<namespace>/<url-encoded-route>
+-- PUT http://0.0.0.0:9000/resources/<namespace>/<url-encoded-resource>
 -- Example PUT JSON body:
 -- {
+--      "api": "12345"
 --      "gatewayMethod": "GET",
 --      "backendURL": "http://openwhisk.ng.bluemix.net/guest/action?blocking=true",
 --      "backendMethod": "POST",
@@ -50,7 +53,7 @@ local _M = {}
 --      }
 --  }
 --
-function _M.addRoute()
+function _M.addResource()
   -- Read in the PUT JSON Body
   ngx.req.read_body()
   local args = ngx.req.get_post_args()
@@ -62,20 +65,13 @@ function _M.addRoute()
   -- Convert json into Lua table
   local decoded = convertJSONBody(args)
 
-  -- Error handling for correct fields in the request body
+  -- Error handling for required fields in the request body
   local gatewayMethod = decoded.gatewayMethod
   if not gatewayMethod then
     ngx.status = 400
     ngx.say("Error: \"gatewayMethod\" missing from request body.")
     ngx.exit(ngx.status)
   end
-  local policies = decoded.policies
-  if not policies then
-    ngx.status = 400
-    ngx.say("Error: \"policies\" missing from request body.")
-    ngx.exit(ngx.status)
-  end
-  local security = decoded.security
   local backendUrl = decoded.backendURL
   if not backendUrl then
     ngx.status = 400
@@ -84,22 +80,26 @@ function _M.addRoute()
   end
   -- Use gatewayMethod by default or usebackendMethod if specified
   local backendMethod = decoded and decoded.backendMethod or gatewayMethod
+  -- apiId, policies, security fields are optional
+  local apiId = decoded.apiId
+  local policies = decoded.policies
+  local security = decoded.security
 
   local requestURI = string.gsub(ngx.var.request_uri, "?.*", "")
   local list = parseRequestURI(requestURI)
   local namespace = list[2]
   local gatewayPath = list[3]
-  local redisKey = utils.concatStrings({list[1], ":", namespace, ":", ngx.unescape_uri(gatewayPath)})
+  local redisKey = utils.concatStrings({"resources", ":", namespace, ":", ngx.unescape_uri(gatewayPath)})
 
   -- Open connection to redis or use one from connection pool
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
 
-  local routeObj = redis.generateRouteObj(red, redisKey, gatewayMethod, backendUrl, backendMethod, policies, security, ngx)
-  redis.createRoute(red, redisKey, "route", routeObj, ngx)
-  filemgmt.createRouteConf(BASE_CONF_DIR, namespace, gatewayPath, routeObj)
+  local resourceObj = redis.generateResourceObj(red, redisKey, gatewayMethod, backendUrl, backendMethod, apiId, policies, security)
+  redis.createResource(red, redisKey, REDIS_FIELD, resourceObj)
+  filemgmt.createResourceConf(BASE_CONF_DIR, namespace, gatewayPath, resourceObj)
 
   -- Add current redis connection in the ngx_lua cosocket connection pool
-  redis.close(red, ngx)
+  redis.close(red)
 
   ngx.status = 200
   ngx.header.content_type = "application/json; charset=utf-8"
@@ -112,14 +112,11 @@ function _M.addRoute()
   ngx.exit(ngx.status)
 end
 
---- Get route from redis
+--- Get resource from redis
 --
--- Use optional query parameter, verb, to specify the verb of the route to get
--- Default behavior is to get all the verbs for that route
+-- GET http://0.0.0.0:9000/resources/<namespace>/<url-encoded-resource>
 --
--- GET http://0.0.0.0:9000/routes/<namespace>/<url-encoded-route>?verb="<verb>"
---
-function _M.getRoute()
+function _M.getResource()
   local requestURI = string.gsub(ngx.var.request_uri, "?.*", "")
   local list = parseRequestURI(requestURI)
   local namespace = list[2]
@@ -127,22 +124,30 @@ function _M.getRoute()
   local redisKey = utils.concatStrings({list[1], ":", namespace, ":", ngx.unescape_uri(gatewayPath)})
 
   -- Initialize and connect to redis
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
 
-  local routeObj = redis.getRoute(red, redisKey, "route", ngx)
-  if routeObj == nil then
+  local resourceObj = redis.getResource(red, redisKey, REDIS_FIELD)
+  if resourceObj == nil then
     ngx.status = 404
-    ngx.say("Route doesn't exist.")
+    ngx.say("Resource doesn't exist.")
     ngx.exit(ngx.status)
   end
 
   -- Add current redis connection in the ngx_lua cosocket connection pool
-  redis.close(red, ngx)
+  redis.close(red)
+
+  -- Get available operations for the given resource
+  resourceObj = cjson.decode(resourceObj)
+  local operations = {}
+  for k in pairs(resourceObj.operations) do
+    operations[#operations+1] = k
+  end
 
   ngx.status = 200
   ngx.header.content_type = "application/json; charset=utf-8"
   local managedUrlObj = {
-    managedUrl = utils.concatStrings({"http://0.0.0.0/api/", namespace, "/", gatewayPath})
+    managedUrl = utils.concatStrings({"http://0.0.0.0/api/", namespace, "/", gatewayPath}),
+    availableOperations = operations
   }
   local managedUrlObj = cjson.encode(managedUrlObj)
   managedUrlObj = managedUrlObj:gsub("\\", "")
@@ -150,11 +155,11 @@ function _M.getRoute()
   ngx.exit(ngx.status)
 end
 
---- Delete route from redis
+--- Delete resource from redis
 --
--- DELETE http://0.0.0.0:9000/routes/<namespace>/<url-encoded-route>
+-- DELETE http://0.0.0.0:9000/resources/<namespace>/<url-encoded-resource>
 --
-function _M.deleteRoute()
+function _M.deleteResource()
   local requestURI = string.gsub(ngx.var.request_uri, "?.*", "")
   local list = parseRequestURI(requestURI)
   local namespace = list[2]
@@ -162,19 +167,19 @@ function _M.deleteRoute()
   local redisKey = utils.concatStrings({list[1], ":", namespace, ":", ngx.unescape_uri(gatewayPath)})
 
   -- Initialize and connect to redis
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
 
-  -- Return if route doesn't exist
-  redis.deleteRoute(red, redisKey, "route", ngx)
+  -- Return if resource doesn't exist
+  redis.deleteResource(red, redisKey, REDIS_FIELD)
 
   -- Delete conf file
-  filemgmt.deleteRouteConf(BASE_CONF_DIR, namespace, gatewayPath)
+  filemgmt.deleteResourceConf(BASE_CONF_DIR, namespace, gatewayPath)
 
   -- Add current redis connection in the ngx_lua cosocket connection pool
-  redis.close(red, ngx)
+  redis.close(red)
 
   ngx.status = 200
-  ngx.say("Route deleted.")
+  ngx.say("Resource deleted.")
   ngx.exit(ngx.status)
 end
 
@@ -184,11 +189,11 @@ end
 --
 function _M.subscribe()
   -- Initialize and connect to redis
-  local redisSubClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 600000, ngx)
-  local redisGetClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
+  local redisSubClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 600000)
+  local redisGetClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
 
   logger.info(utils.concatStrings({"\nConnected to redis at ", REDIS_HOST, ":", REDIS_PORT}))
-  redis.subscribe(redisSubClient, redisGetClient, ngx)
+  redis.subscribe(redisSubClient, redisGetClient)
 
   ngx.exit(200)
 end
@@ -199,16 +204,16 @@ end
 --
 function _M.unsubscribe()
   -- Initialize and connect to redis
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
-  redis.unsubscribe(red, ngx)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  redis.unsubscribe(red)
 
   ngx.status = 200
-  ngx.say("Unsubscribed to channel routes")
+  ngx.say("Unsubscribed to channel resources")
   ngx.exit(ngx.status)
 end
 
 --- Add an apikey/subscription to redis
--- PUT http://0.0.0.0:9000/subscriptions/<namespace>/<url-encoded-route>/<key>
+-- PUT http://0.0.0.0:9000/subscriptions/<namespace>/<url-encoded-resource>/<key>
 --  where list[1] = prefix, list[2] = namespace, list[3] = gatewayPath, list[4] = key
 ------ or
 -- PUT http://0.0.0.0:9000/subscriptions/<namespace>/<key>
@@ -224,12 +229,12 @@ function _M.addSubscription()
   end
 
   -- Open connection to redis or use one from connection pool
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
 
-  redis.createSubscription(red, redisKey, ngx)
+  redis.createSubscription(red, redisKey)
 
   -- Add current redis connection in the ngx_lua cosocket connection pool
-  redis.close(red, ngx)
+  redis.close(red)
 
   ngx.status = 200
   ngx.say("Subscription created.")
@@ -237,7 +242,7 @@ function _M.addSubscription()
 end
 
 --- Delete apikey/subscription from redis
--- DELETE http://0.0.0.0:9000/subscriptions/<namespace>/<url-encoded-route>/<key>
+-- DELETE http://0.0.0.0:9000/subscriptions/<namespace>/<url-encoded-resource>/<key>
 --  where list[1] = prefix, list[2] = namespace, list[3] = gatewayPath, list[4] = key
 ------ or
 -- DELETE http://0.0.0.0:9000/subscriptions/<namespace>/<key>
@@ -253,13 +258,13 @@ function _M.deleteSubscription()
   end
 
   -- Initialize and connect to redis
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
 
   -- Return if subscription doesn't exist
-  redis.deleteSubscription(red, redisKey, ngx)
+  redis.deleteSubscription(red, redisKey)
 
   -- Add current redis connection in the ngx_lua cosocket connection pool
-  redis.close(red, ngx)
+  redis.close(red)
 
   ngx.status = 200
   ngx.say("Subscription deleted.")
@@ -277,7 +282,7 @@ function parseRequestURI(requestURI)
   end
   if not list[1] or not list[2] then
     ngx.status = 400
-    ngx.say("Error: Request path should be \"/routes/<namespace>/<url-encoded-route>\"")
+    ngx.say("Error: Request path should be \"/resources/<namespace>/<url-encoded-resource>\"")
     ngx.exit(ngx.status)
   end
 
