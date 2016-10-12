@@ -50,7 +50,7 @@ function limit(obj)
      rate = r,
      interval = obj.interval,
      log_level = ngx.NOTICE,
-     rds = { host = REDIS_HOST, port = REDIS_PORT }
+     rds = { host = REDIS_HOST, port = REDIS_PORT, pass = REDIS_PASS}
    }
   local ok = request.limit (config)
   if not ok then
