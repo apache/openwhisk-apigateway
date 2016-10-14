@@ -189,8 +189,8 @@ end
 --
 function _M.subscribe()
   -- Initialize and connect to redis
-  local redisSubClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 600000)
   local redisGetClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local redisSubClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 60000) -- read_reply will timeout every minute
 
   logger.info(utils.concatStrings({"\nConnected to redis at ", REDIS_HOST, ":", REDIS_PORT}))
   redis.subscribe(redisSubClient, redisGetClient)

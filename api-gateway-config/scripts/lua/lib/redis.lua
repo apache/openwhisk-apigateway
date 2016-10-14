@@ -43,7 +43,17 @@ function _M.init(host, port, password, timeout)
   red:set_timeout(timeout)
 
   -- Connect to Redis server
+  local retryCount = 4
   local connect, err = red:connect(host, port)
+  while not connect and retryCount > 0 do
+    local msg = utils.concatStrings({"Failed to conect to redis. Retrying ", retryCount, " more times."})
+    if retryCount == 1 then
+      msg = utils.concatStrings({msg:sub(1, -3), "."})
+    end
+    logger.info(msg)
+    retryCount = retryCount - 1
+    connect, err = red:connect(host, port)
+  end
   if not connect then
     ngx.status = 500
     ngx.say(utils.concatStrings({"Failed to connect to redis: ", err}))
