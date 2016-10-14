@@ -35,17 +35,21 @@ local _M = {}
 -- @param resourceObj
 -- @return fileLocation location of created/updated conf file
 function _M.createResourceConf(baseConfDir, namespace, gatewayPath, resourceObj)
-  resourceObj = utils.serializeTable(cjson.decode(resourceObj))
+  local decoded = cjson.decode(resourceObj)
+  resourceObj = utils.serializeTable(decoded)
   local prefix = utils.concatStrings({"\tinclude /etc/api-gateway/conf.d/commons/common-headers.conf;\n",
                                       "\tset $upstream https://172.17.0.1;\n",
                                       "\tset $namespace ", namespace, ";\n",
-                                      "\tset $gatewayPath ", gatewayPath, ";\n\n"})
-  -- Set resource headers and mapping by calling routing.processCall()
+                                      "\tset $gatewayPath ", gatewayPath, ";\n"})
+  if decoded.apiId ~= nil then
+    prefix = utils.concatStrings({prefix, "\tset $apiId ", decoded.apiId, ";\n"})
+  end
+  -- Set route headers and mapping by calling routing.processCall()
   local outgoingResource = utils.concatStrings({"\taccess_by_lua_block {\n",
-                                             "\t\tlocal routing = require \"routing\"\n",
-                                             "\t\trouting.processCall(", resourceObj, ")\n",
-                                             "\t}\n\n",
-                                             "\tproxy_pass $upstream;\n"})
+                                                "\t\tlocal routing = require \"routing\"\n",
+                                                "\t\trouting.processCall(", resourceObj, ")\n",
+                                                "\t}\n\n",
+                                                "\tproxy_pass $upstream;\n"})
 
   -- Add to endpoint conf file
   os.execute(utils.concatStrings({"mkdir -p ", baseConfDir, namespace}))
