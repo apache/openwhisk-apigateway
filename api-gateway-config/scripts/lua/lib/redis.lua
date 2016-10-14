@@ -27,6 +27,7 @@ local filemgmt = require "lib/filemgmt"
 local utils = require "lib/utils"
 local logger = require "lib/logger"
 
+local REDIS_FIELD = "resources"
 local BASE_CONF_DIR = "/etc/api-gateway/managed_confs/"
 
 local _M = {}
@@ -36,8 +37,7 @@ local _M = {}
 -- @param port
 -- @param password
 -- @param timeout
--- @param ngx
-function _M.init(host, port, password, timeout, ngx)
+function _M.init(host, port, password, timeout)
   local redis = require "resty.redis"
   local red   = redis:new()
   red:set_timeout(timeout)
@@ -65,8 +65,7 @@ end
 
 --- Add current redis connection in the ngx_lua cosocket connection pool
 -- @param red
--- @param ngx
-function _M.close(red, ngx)
+function _M.close(red)
   -- put it into the connection pool of size 100, with 10 seconds max idle time
   local ok, err = red:set_keepalive(10000, 100)
   if not ok then
@@ -76,117 +75,104 @@ function _M.close(red, ngx)
   end
 end
 
---- Generate Redis object for route
+--- Generate Redis object for resource
 -- @param red
 -- @param key
 -- @param gatewayMethod
 -- @param backendUrl
 -- @param backendMethod
+-- @param apiId
 -- @param policies
--- @param ngx
-function _M.generateRouteObj(red, key, gatewayMethod, backendUrl, backendMethod, policies, security, ngx)
-  local routeObj = _M.getRoute(red, key, "route", ngx)
-  if routeObj == nil then
-    local newRoute = {
-      [gatewayMethod] = {
-        backendUrl    = backendUrl,
-        backendMethod = backendMethod,
-        policies      = policies,
+-- @param security
+function _M.generateResourceObj(red, key, gatewayMethod, backendUrl, backendMethod, apiId, policies, security)
+  local newResource
+  local resourceObj = _M.getResource(red, key, REDIS_FIELD)
+  if resourceObj == nil then
+    newResource = {
+      operations = {
+        [gatewayMethod] = {
+          backendUrl = backendUrl,
+          backendMethod = backendMethod,
+        }
       }
     }
-    if security then
-      newRoute[gatewayMethod].security = security
-    end
-    return cjson.encode(newRoute)
   else
-    local decoded = cjson.decode(routeObj)
-    decoded[gatewayMethod] = {
-      backendUrl    = backendUrl,
+    newResource = cjson.decode(resourceObj)
+    newResource.operations[gatewayMethod] = {
+      backendUrl = backendUrl,
       backendMethod = backendMethod,
-      policies      = policies
     }
-    if security then
-      decoded[gatewayMethod].security = security
-    end
-    return cjson.encode(decoded)
   end
+  if apiId then
+    newResource.apiId = apiId
+  end
+  if policies then
+    newResource.operations[gatewayMethod].policies = policies
+  end
+  if security then
+    newResource.operations[gatewayMethod].security = security
+  end
+  return cjson.encode(newResource)
 end
 
---- Create/update route in redis
+--- Create/update resource in redis
 -- @param red
 -- @param key
 -- @param field
--- @param routeObj
--- @param ngx
-function _M.createRoute(red, key, field, routeObj, ngx)
-  -- Add/update route to redis
-  local ok, err = red:hset(key, field, routeObj)
+-- @param resourceObj
+function _M.createResource(red, key, field, resourceObj)
+  -- Add/update resource to redis
+  local ok, err = red:hset(key, field, resourceObj)
   if not ok then
     ngx.status = 500
-    ngx.say(utils.concatStrings({"Failed adding Route to redis: ", err}))
+    ngx.say(utils.concatStrings({"Failed adding Resource to redis: ", err}))
     ngx.exit(ngx.status)
   end
 end
 
---- Get route in redis
+--- Get resource in redis
 -- @param red
 -- @param key
 -- @param field
--- @param ngx
--- @return routeObj
-function _M.getRoute(red, key, field, ngx)
-  local routeObj, err = red:hget(key, field)
-  if not routeObj then
+-- @return resourceObj
+function _M.getResource(red, key, field)
+  local resourceObj, err = red:hget(key, field)
+  if not resourceObj then
     ngx.status = 500
-    ngx.say("Error getting route: ", err)
+    ngx.say("Error getting resource: ", err)
     ngx.exit(ngx.status)
   end
 
-  -- return nil if route doesn't exist
-  if routeObj == ngx.null then
+  -- return nil if resource doesn't exist
+  if resourceObj == ngx.null then
     return nil
   end
 
-  -- Get routeObj from redis using redisKey
-  local args = ngx.req.get_uri_args()
-  local requestVerb = nil
-  for k, v in pairs(args) do
-    if k == "verb" then
-      requestVerb = v
-    end
-  end
-
-  if requestVerb == nil then
-    return routeObj
-  else
-    routeObj = cjson.decode(routeObj)
-    return cjson.encode(routeObj[requestVerb])
-  end
+  return resourceObj
 end
 
---- Delete route int redis
+--- Delete resource int redis
 -- @param red
 -- @param key
 -- @param field
--- @param ngx
-function _M.deleteRoute(red, key, field, ngx)
-  local routeObj, err = red:hget(key, field)
-  if not routeObj then
+function _M.deleteResource(red, key, field)
+  local resourceObj, err = red:hget(key, field)
+  if not resourceObj then
     ngx.status = 500
-    ngx.say("Error deleting route: ", err)
+    ngx.say("Error deleting resource: ", err)
     ngx.exit(ngx.status)
   end
 
-  if routeObj == ngx.null then
+  if resourceObj == ngx.null then
     ngx.status = 404
-    ngx.say("Route doesn't exist.")
+    ngx.say("Resource doesn't exist.")
     ngx.exit(ngx.status)
   end
 
   local ok, err = red:del(key)
   if not ok then
     ngx.status = 500
-    ngx.say("Error deleing route: ", err)
+    ngx.say("Error deleing resource: ", err)
     ngx.exit(ngx.status)
   end
 end
@@ -194,10 +180,9 @@ end
 --- Create/update subscription/apikey in redis
 -- @param red
 -- @param key
--- @param ngx
-function _M.createSubscription(red, key, ngx)
+function _M.createSubscription(red, key)
   -- Add/update a subscription key to redis
-  local ok, err = red:set (key, "")
+  local ok, err = red:set(key, "")
   if not ok then
     ngx.status = 500
     ngx.say(utils.concatStrings({"Failed adding subscription to redis: ", err}))
@@ -208,8 +193,7 @@ end
 --- Delete subscription/apikey int redis
 -- @param red
 -- @param key
--- @param ngx
-function _M.deleteSubscription(red, key, ngx)
+function _M.deleteSubscription(red, key)
   local ok, err = red:del(key, "subscriptions")
   if not ok then
     ngx.status = 500
@@ -220,10 +204,9 @@ end
 
 --- Subscribe to redis
 -- @param redisSubClient the redis client that is listening for the redis key changes
--- @param redisGetClient the redis client that gets the changed route to update the conf file
--- @param ngx
-function _M.subscribe(redisSubClient, redisGetClient, ngx)
-  -- create conf files for existing routes in redis
+-- @param redisGetClient the redis client that gets the changed resource to update the conf file
+function _M.subscribe(redisSubClient, redisGetClient)
+  -- create conf files for existing resources in redis
   syncWithRedis(redisGetClient, ngx)
 
   -- enable keyspace notifications
@@ -234,7 +217,7 @@ function _M.subscribe(redisSubClient, redisGetClient, ngx)
     ngx.exit(ngx.status)
   end
 
-  local ok, err = redisSubClient:psubscribe("__keyspace@0__:routes:*:*")
+  local ok, err = redisSubClient:psubscribe("__keyspace@0__:resources:*:*")
   if not ok then
     ngx.status = 500
     ngx.say("Subscribe error: ", err)
@@ -248,11 +231,10 @@ function _M.subscribe(redisSubClient, redisGetClient, ngx)
   ngx.exit(ngx.status)
 end
 
---- Sync with redis on startup and create conf files for routes that are already in redis
+--- Sync with redis on startup and create conf files for resources that are already in redis
 -- @param red
--- @param ngx
-function syncWithRedis(red, ngx)
-  logger.info("\nCreating nginx conf files for existing routes...")
+function syncWithRedis(red)
+  logger.info("\nCreating nginx conf files for existing resources...")
   local redisKeys, err = red:keys("*")
   if not redisKeys then
     ngx.status = 500
@@ -260,18 +242,18 @@ function syncWithRedis(red, ngx)
     ngx.exit(ngx.status)
   end
 
-  -- Find all redis keys with "routes:*:*"
-  local routesExist = false
+  -- Find all redis keys with "resources:*:*"
+  local resourcesExist = false
   for k, redisKey in pairs(redisKeys) do
     local index = 1
     local namespace = ""
     local gatewayPath = ""
     for word in string.gmatch(redisKey, '([^:]+)') do
       if index == 1 then
-        if word ~= "routes" then
+        if word ~= "resources" then
           break
         else
-          routesExist = true
+          resourcesExist = true
           index = index + 1
         end
       else
@@ -280,25 +262,24 @@ function syncWithRedis(red, ngx)
         elseif index == 3 then
           gatewayPath = word
           -- Create new conf file
-          local routeObj = _M.getRoute(red, redisKey, "route", ngx)
-          local fileLocation = filemgmt.createRouteConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath), routeObj)
+          local resourceObj = _M.getResource(red, redisKey, REDIS_FIELD)
+          local fileLocation = filemgmt.createResourceConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath), resourceObj)
           logger.info(utils.concatStrings({"Updated file: ", fileLocation}))
         end
         index = index + 1
       end
     end
   end
-  if routesExist == false then
-    logger.info("No existing routes.")
+  if resourcesExist == false then
+    logger.info("No existing resources.")
   end
 end
 
 --- Subscribe helper method
 -- Starts a while loop that listens for key changes in redis
 -- @param redisSubClient the redis client that is listening for the redis key changes
--- @param redisGetClient the redis client that gets the changed route to update the conf file
--- @param ngx
-function subscribe(redisSubClient, redisGetClient, ngx)
+-- @param redisGetClient the redis client that gets the changed resource to update the conf file
+function subscribe(redisSubClient, redisGetClient)
   while true do
     local res, err = redisSubClient:read_reply()
     if not res then
@@ -323,14 +304,14 @@ function subscribe(redisSubClient, redisGetClient, ngx)
         index = index + 1
       end
 
-      local routeObj = _M.getRoute(redisGetClient, redisKey, "route", ngx)
+      local resourceObj = _M.getResource(redisGetClient, redisKey, REDIS_FIELD)
 
-      if routeObj == nil then
-        local fileLocation = filemgmt.deleteRouteConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath))
+      if resourceObj == nil then
+        local fileLocation = filemgmt.deleteResourceConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath))
         logger.info(utils.concatStrings({"Redis key deleted: ", redisKey}))
         logger.info(utils.concatStrings({"Deleted file: ", fileLocation}))
       else
-        local fileLocation = filemgmt.createRouteConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath), routeObj)
+        local fileLocation = filemgmt.createResourceConf(BASE_CONF_DIR, namespace, ngx.escape_uri(gatewayPath), resourceObj)
         logger.info(utils.concatStrings({"Redis key updated: ", redisKey}))
         logger.info(utils.concatStrings({"Updated file: ", fileLocation}))
       end
@@ -341,8 +322,8 @@ end
 
 
 --- Unsubscribe from redis
-function _M.unsubscribe(red, ngx)
-  local ok, err = red:unsubscribe("__keyspace@0__:routes:*:*")
+function _M.unsubscribe(red)
+  local ok, err = red:unsubscribe("__keyspace@0__:resources:*:*")
   if not ok then
     ngx.status = 500
     ngx.say("Unsubscribe error: ", err)

@@ -34,7 +34,7 @@ local _M = {}
 
 function validateAPIKey(namespace, gatewayPath, apiKey)
   -- Open connection to redis or use one from connection pool
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000, ngx)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
 
   local k = utils.concatStrings({'subscriptions:', tostring(namespace), ':', tostring(gatewayPath), ':', tostring(apiKey)})
   local exists, err = red:exists(k)

@@ -28,22 +28,22 @@ local cjson = require "cjson"
 
 local _M = {}
 
---- Create/overwrite Nginx Conf file for given route
+--- Create/overwrite Nginx Conf file for given resource
 -- @param baseConfDir
 -- @param namespace
 -- @param gatewayPath
--- @param routeObj
+-- @param resourceObj
 -- @return fileLocation location of created/updated conf file
-function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
-  routeObj = utils.serializeTable(cjson.decode(routeObj))
+function _M.createResourceConf(baseConfDir, namespace, gatewayPath, resourceObj)
+  resourceObj = utils.serializeTable(cjson.decode(resourceObj))
   local prefix = utils.concatStrings({"\tinclude /etc/api-gateway/conf.d/commons/common-headers.conf;\n",
                                       "\tset $upstream https://172.17.0.1;\n",
                                       "\tset $namespace ", namespace, ";\n",
                                       "\tset $gatewayPath ", gatewayPath, ";\n\n"})
-  -- Set route headers and mapping by calling routing.processCall()
-  local outgoingRoute = utils.concatStrings({"\taccess_by_lua_block {\n",
+  -- Set resource headers and mapping by calling routing.processCall()
+  local outgoingResource = utils.concatStrings({"\taccess_by_lua_block {\n",
                                              "\t\tlocal routing = require \"routing\"\n",
-                                             "\t\trouting.processCall(", routeObj, ")\n",
+                                             "\t\trouting.processCall(", resourceObj, ")\n",
                                              "\t}\n\n",
                                              "\tproxy_pass $upstream;\n"})
 
@@ -58,7 +58,7 @@ function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
   end
   local location = utils.concatStrings({"location /api/", namespace, "/", ngx.unescape_uri(gatewayPath), " {\n",
                                         prefix,
-                                        outgoingRoute,
+                                        outgoingResource,
                                         "}\n"})
   file:write(location)
   file:close()
@@ -70,12 +70,12 @@ function _M.createRouteConf(baseConfDir, namespace, gatewayPath, routeObj)
 end
 
 
---- Delete Ngx conf file for given route
+--- Delete Ngx conf file for given resource
 -- @param baseConfDir
 -- @param namespace
 -- @param gatewayPath
 -- @return fileLocation location of deleted conf file
-function _M.deleteRouteConf(baseConfDir, namespace, gatewayPath)
+function _M.deleteResourceConf(baseConfDir, namespace, gatewayPath)
   local fileLocation = utils.concatStrings({baseConfDir, namespace, "/", gatewayPath, ".conf"})
   os.execute(utils.concatStrings({"rm -f ", fileLocation}))
   -- reload nginx to refresh conf files

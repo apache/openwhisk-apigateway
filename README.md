@@ -7,7 +7,7 @@ Table of Contents
 
 * [Quick Start](#quick-start)
 * [API](#api)
-  * [Routes](#routes)
+  * [Resources](#resources)
   * [Subscriptions](#subscriptions)
 * [Developer Guide](#developer-guide)
 
@@ -25,16 +25,16 @@ docker run -p 80:80 -p 9000:9000 \
 
 This command starts an API Gateway that subscribes to the Redis instance with the specified host and port. The `REDIS_PASS` variable is optional and is required only when redis needs authentication. 
 
-On startup, the API Gateway looks for pre-existing routes in redis, whose keys are defined as `routes:<namespace>:<route>`, and creates nginx conf files associated with those routes. Then, it listens for any route key changes in redis and updates nginx conf files appropriately. These conf files are stored in the running docker container at `/etc/api-gateway/managed_confs/<namespace>/<route>.conf`.
+On startup, the API Gateway looks for pre-existing resources in redis, whose keys are defined as `resources:<namespace>:<resource>`, and creates nginx conf files associated with those resources. Then, it listens for any resource key changes in redis and updates nginx conf files appropriately. These conf files are stored in the running docker container at `/etc/api-gateway/managed_confs/<namespace>/<resource>.conf`.
 
 
 API
 ==============
 The following endpoints are exposed to port 9000.
 
-## Routes
-#### PUT /routes/{namespace}/{url-encoded-route}
-Create/update and expose a new route on the gateway associated with a namespace and a url-encoded route, with the implementation matching the passed values.
+## Resources
+#### PUT /resources/{namespace}/{url-encoded-resource}
+Create/update and expose a new resource on the gateway associated with a namespace and a url-encoded resource, with the implementation matching the passed values.
 
 _body:_
 ```
@@ -42,50 +42,50 @@ _body:_
   "gatewayMethod": *(string) The method that you would like your newly exposed API to listen on.
   "backendURL": *(string) The fully qualified URL that you would like your invoke operation to target.
   "backendMethod": (string) The method that you would like the invoke operation to use. If none is supplied, the gatewayMethod will be used.
-  "policies": *(array) A list of policy objects that will be applied during the execution of your route.
+  "policies": *(array) A list of policy objects that will be applied during the execution of your resource.
   "security": (object) An optional json object defining security policies (e.g. {"type": "apikey"} )
 }
 ```
 _Returns:_
 ```
 {
-  "managedUrl": (string) The URL at which you can invoke your newly created route.
+  "managedUrl": (string) The URL at which you can invoke your newly created resource.
 }
 ```
 
-#### GET /routes/{namespace}/{url-encoded-route}
-Get the specified route and return the managed url.
+#### GET /resources/{namespace}/{url-encoded-resource}
+Get the specified resource and return the managed url.
 
 _Returns:_
 ```
 {
-  "managedUrl": (string) The URL at which you can invoke the route.
+  "managedUrl": (string) The URL at which you can invoke the resource.
 }
 ```
 
-#### DELETE /routes/{namespace}/{url-encoded-route}
-Delete the specified route from redis and delete the corresponding conf file.
+#### DELETE /resources/{namespace}/{url-encoded-resource}
+Delete the specified resource from redis and delete the corresponding conf file.
 
 _Returns:_
 ```
-Route deleted.
+Resource deleted.
 ```
 
 #### GET /subscribe
-This is called automatically on gateway startup. It subscribes to route key changes in redis and creates/updates the necessary nginx conf files.
+This is called automatically on gateway startup. It subscribes to resource key changes in redis and creates/updates the necessary nginx conf files.
 
 
 ## Subscriptions
-#### PUT /subscriptions/{namespace}/{url-encoded-route}/{api-key}
-Add/update an api key for a given route. Alternatively, call `PUT /subscriptions/{namespace}/{api-key}` to create an api key for the namespace.
+#### PUT /subscriptions/{namespace}/{url-encoded-resource}/{api-key}
+Add/update an api key for a given resource. Alternatively, call `PUT /subscriptions/{namespace}/{api-key}` to create an api key for the namespace.
 
 _Returns:_
 ```
 Subscription created.
 ```
 
-#### DELETE /subscriptions/{namespace}/{url-encoded-route}/{api-key}
-Delete an api key associated with the route. Alternatively, call DELETE /subscriptions/{namespace}/{api-key} to delete an api key associated with the namespace.
+#### DELETE /subscriptions/{namespace}/{url-encoded-resource}/{api-key}
+Delete an api key associated with the resource. Alternatively, call DELETE /subscriptions/{namespace}/{api-key} to delete an api key associated with the namespace.
 
 _Returns:_
 ```
