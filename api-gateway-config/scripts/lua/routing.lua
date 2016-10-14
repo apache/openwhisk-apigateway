@@ -48,6 +48,7 @@ function processCall(obj)
   local found = false
   local operations = obj.operations
   for k, v in pairs(operations) do
+    k = string.upper(k)
     if k == verb then
       -- Check if auth is required
       if (v.security and string.lower(v.security.type) == 'apikey') then
