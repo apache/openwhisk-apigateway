@@ -40,14 +40,14 @@ function limit(obj, subHeader)
   if obj.scope == 'tenant' then
     k = utils.concatStrings({"tenant:", ngx.var.namespace})
   elseif obj.scope == 'api' then
-    k = utils.concatStrings({"tenant:", ngx.var.namespace, ":apis:", ngx.var.apiId})
+    k = utils.concatStrings({"tenant:", ngx.var.namespace, ":api:", ngx.var.apiId})
   elseif obj.scope == 'resource' then
-    k = utils.concatStrings({"tenant:", ngx.var.namespace, ":resources:", ngx.var.gatewayPath})
+    k = utils.concatStrings({"tenant:", ngx.var.namespace, ":resource:", ngx.var.gatewayPath})
   end
   -- Check subscription
-  if subHeader ~= nil then
+  if obj.subscription ~= nil and obj.subscription == true and subHeader ~= nil then
     apiKey = ngx.var[subHeader]
-    k = utils.concatStrings({k, ':subscriptions:', apiKey})
+    k = utils.concatStrings({k, ':subscription:', apiKey})
   end
 
   local config = {
