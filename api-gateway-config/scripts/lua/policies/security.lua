@@ -20,11 +20,11 @@
 
 --- @module mapping
 -- Process mapping object, turning implementation details into request transformations
--- @author Cody Walker (cmwalker)
+-- @author Cody Walker (cmwalker), Alex Song (songs)
 
 local redis = require "lib/redis"
 local utils = require "lib/utils"
-local logger = require "lib/logger"
+local request = require "lib/request"
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
@@ -32,36 +32,48 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
-function validateAPIKey(namespace, gatewayPath, apiKey)
+--- Validate that the given subscription is in redis
+-- @param tenant the namespace
+-- @param gatewayPath the gateway path to use, if scope is resource
+-- @param apiId api Id to use, if scope is api
+-- @param scope scope of the subscription
+-- @param apiKey the subscription api key
+-- @param return boolean value indicating if the subscription exists in redis
+function validateAPIKey(tenant, gatewayPath, apiId, scope, apiKey)
   -- Open connection to redis or use one from connection pool
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-
-  local k = utils.concatStrings({'subscriptions:', tostring(namespace), ':', tostring(gatewayPath), ':', tostring(apiKey)})
-  local exists, err = red:exists(k)
-  if exists == 0 then
-    k = utils.concatStrings({'subscriptions:', tostring(namespace), ':', tostring(apiKey)})
-    exists, err = red:exists(k)
-    end
+  local k
+  if scope == 'tenant' then
+    k = utils.concatStrings({'subscriptions:tenant:', tenant})
+  elseif scope == 'resource' then
+    k = utils.concatStrings({'subscriptions:tenant:', tenant, ':resource:', gatewayPath})
+  elseif scope == 'api' then
+    k = utils.concatStrings({'subscriptions:tenant:', tenant, ':api:', apiId})
+  end
+  k = utils.concatStrings({k, ':key:', apiKey})
+  local exists = red:exists(k)
+  redis.close(red)
   return exists == 1
 end
 
-function processAPIKey(h)
-  local namespace = ngx.var.namespace
+--- Process the security object
+-- @param securityObj security object from nginx conf file
+-- @return apiKey api key for the subscription
+function processAPIKey(securityObj)
+  local tenant = ngx.var.tenant
   local gatewayPath = ngx.var.gatewayPath
-  local apiKey = ngx.var[h]
+  local apiId = ngx.var.apiId
+  local scope = securityObj.scope
+  local header = (securityObj.header == nil) and 'x-api-key' or securityObj.header
+  local apiKey = ngx.var[utils.concatStrings({'http_', header}):gsub("-", "_")]
   if not apiKey then
-    logger.err('No api-key passed. Sending 401')
-    ngx.status = 401
-    ngx.say('API key is required.')
-    ngx.exit(ngx.status)
+    request.err(401, utils.concatStrings({'API key header "', header, '" is required.'}))
   end
-  local ok = validateAPIKey(namespace, gatewayPath, apiKey)
+  local ok = validateAPIKey(tenant, gatewayPath, apiId, scope, apiKey)
   if not ok then
-    logger.err('api-key does not match. Sending 401')
-    ngx.status = 401
-    ngx.say('Invalid API Key.')
-    ngx.exit(ngx.status)
+    request.err(401, 'Invalid API key.')
   end
+  return apiKey
 end
 
 _M.processAPIKey = processAPIKey

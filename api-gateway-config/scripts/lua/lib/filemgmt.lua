@@ -23,23 +23,23 @@
 -- @author Alex Song (songs)
 
 local utils = require "lib/utils"
-local logger = require "lib/logger"
 local cjson = require "cjson"
+local request = require "lib/request"
 
 local _M = {}
 
 --- Create/overwrite Nginx Conf file for given resource
--- @param baseConfDir
--- @param namespace
--- @param gatewayPath
--- @param resourceObj
+-- @param baseConfDir the base directory for storing conf files for managed resources
+-- @param tenant the namespace for the resource
+-- @param gatewayPath the gateway path of the resource
+-- @param resourceObj object containing different operations/policies for the resource
 -- @return fileLocation location of created/updated conf file
-function _M.createResourceConf(baseConfDir, namespace, gatewayPath, resourceObj)
+function _M.createResourceConf(baseConfDir, tenant, gatewayPath, resourceObj)
   local decoded = cjson.decode(resourceObj)
   resourceObj = utils.serializeTable(decoded)
   local prefix = utils.concatStrings({"\tinclude /etc/api-gateway/conf.d/commons/common-headers.conf;\n",
                                       "\tset $upstream https://172.17.0.1;\n",
-                                      "\tset $namespace ", namespace, ";\n",
+                                      "\tset $tenant ", tenant, ";\n",
                                       "\tset $gatewayPath ", gatewayPath, ";\n"})
   if decoded.apiId ~= nil then
     prefix = utils.concatStrings({prefix, "\tset $apiId ", decoded.apiId, ";\n"})
@@ -50,41 +50,34 @@ function _M.createResourceConf(baseConfDir, namespace, gatewayPath, resourceObj)
                                                 "\t\trouting.processCall(", resourceObj, ")\n",
                                                 "\t}\n\n",
                                                 "\tproxy_pass $upstream;\n"})
-
   -- Add to endpoint conf file
-  os.execute(utils.concatStrings({"mkdir -p ", baseConfDir, namespace}))
-  local fileLocation = utils.concatStrings({baseConfDir, namespace, "/", gatewayPath, ".conf"})
+  os.execute(utils.concatStrings({"mkdir -p ", baseConfDir, tenant}))
+  local fileLocation = utils.concatStrings({baseConfDir, tenant, "/", gatewayPath, ".conf"})
   local file, err = io.open(fileLocation, "w")
   if not file then
-    ngx.status = 500
-    ngx.say(utils.concatStrings({"Error adding to endpoint conf file: ", err}))
-    ngx.exit(ngx.status)
+    request.err(500, utils.concatStrings({"Error adding to endpoint conf file: ", err}))
   end
-  local location = utils.concatStrings({"location /api/", namespace, "/", ngx.unescape_uri(gatewayPath), " {\n",
+  local location = utils.concatStrings({"location /api/", tenant, "/", ngx.unescape_uri(gatewayPath), " {\n",
                                         prefix,
                                         outgoingResource,
                                         "}\n"})
   file:write(location)
   file:close()
-
   -- reload nginx to refresh conf files
   os.execute("/usr/local/sbin/nginx -s reload")
-
   return fileLocation
 end
 
-
 --- Delete Ngx conf file for given resource
--- @param baseConfDir
--- @param namespace
--- @param gatewayPath
+-- @param baseConfDir the base directory for storing conf files for managed resources
+-- @param tenant the namespace for the resource
+-- @param gatewayPath the gateway path of the resource
 -- @return fileLocation location of deleted conf file
-function _M.deleteResourceConf(baseConfDir, namespace, gatewayPath)
-  local fileLocation = utils.concatStrings({baseConfDir, namespace, "/", gatewayPath, ".conf"})
+function _M.deleteResourceConf(baseConfDir, tenant, gatewayPath)
+  local fileLocation = utils.concatStrings({baseConfDir, tenant, "/", gatewayPath, ".conf"})
   os.execute(utils.concatStrings({"rm -f ", fileLocation}))
   -- reload nginx to refresh conf files
   os.execute("/usr/local/sbin/nginx -s reload")
-
   return fileLocation
 end
 
