@@ -51,12 +51,16 @@ function processAPIKey(h)
   local apiKey = ngx.var[h]
   if not apiKey then
     logger.err('No api-key passed. Sending 401')
-    ngx.exit(401)
+    ngx.status = 401
+    ngx.say('API key is required.')
+    ngx.exit(ngx.status)
   end
   local ok = validateAPIKey(namespace, gatewayPath, apiKey)
   if not ok then
     logger.err('api-key does not match. Sending 401')
-    ngx.exit(401)
+    ngx.status = 401
+    ngx.say('Invalid API Key.')
+    ngx.exit(ngx.status)
   end
 end
 

@@ -31,31 +31,39 @@ local logger = require "lib/logger"
 
 local _M = {}
 
-function limit(obj)
+function limit(obj, subHeader)
   local i = 60 / obj.interval
   local r = i * obj.rate
   r = utils.concatStrings({tostring(r), 'r/m'})
   local k
-   if obj.field == 'namespace' then
-     k = ngx.var.namespace
-   elseif obj.field == 'apikey' then
-     k = utils.concatStrings({ngx.var.namespace, '_', ngx.var['http_x_api_key']})
-   elseif obj.field == 'resource' then
-     k = utils.concatStrings({ngx.var.namespace, '_', ngx.var.gatewayPath})
-   end
+  -- Check scope
+  if obj.scope == 'tenant' then
+    k = utils.concatStrings({"tenant:", ngx.var.namespace})
+  elseif obj.scope == 'api' then
+    k = utils.concatStrings({"tenant:", ngx.var.namespace, ":api:", ngx.var.apiId})
+  elseif obj.scope == 'resource' then
+    k = utils.concatStrings({"tenant:", ngx.var.namespace, ":resource:", ngx.var.gatewayPath})
+  end
+  -- Check subscription
+  if obj.subscription ~= nil and obj.subscription == true and subHeader ~= nil then
+    apiKey = ngx.var[subHeader]
+    k = utils.concatStrings({k, ':subscription:', apiKey})
+  end
 
   local config = {
-     key = k,
-     zone = 'rateLimiting',
-     rate = r,
-     interval = obj.interval,
-     log_level = ngx.NOTICE,
-     rds = { host = REDIS_HOST, port = REDIS_PORT, pass = REDIS_PASS}
-   }
-  local ok = request.limit (config)
+    key = k,
+    zone = 'rateLimiting',
+    rate = r,
+    interval = obj.interval,
+    log_level = ngx.NOTICE,
+    rds = { host = REDIS_HOST, port = REDIS_PORT, pass = REDIS_PASS}
+  }
+  local ok = request.limit(config)
   if not ok then
+    ngx.status = 429
     logger.err('Rate limit exceeded. Sending 429')
-    ngx.exit(429)
+    ngx.say('Rate limit exceeded.')
+    ngx.exit(ngx.status)
   end
 end
 

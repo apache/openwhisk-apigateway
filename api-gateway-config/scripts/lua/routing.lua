@@ -51,6 +51,7 @@ function processCall(obj)
     k = string.upper(k)
     if k == verb then
       -- Check if auth is required
+      local subHeader
       if (v.security and string.lower(v.security.type) == 'apikey') then
         local h = v.security.header
         if h == nil then
@@ -58,7 +59,8 @@ function processCall(obj)
         else
           h = utils.concatStrings({'http_', h})
         end
-        security.processAPIKey(h:gsub("-", "_"))
+        subHeader = h:gsub("-", "_")
+        security.processAPIKey(subHeader)
       end
       local u = url.parse(v.backendUrl)
       ngx.req.set_uri(u.path)
@@ -67,7 +69,7 @@ function processCall(obj)
         setVerb(v.backendMethod)
       end
       if v.policies ~= nil then
-        parsePolicies(v.policies)
+        parsePolicies(v.policies, subHeader)
       end
       found = true
       break
@@ -80,13 +82,14 @@ function processCall(obj)
 end
 
 --- Function to read the list of policies and send implementation to the correct backend
--- @param obj List of policies containing a type and value field. This function reads the type field and resources it appropriately.
-function parsePolicies(obj)
+-- @param obj List of policies containing a type and value field. This function reads the type field and routes it appropriately.
+-- @param subHeader optional subscription header
+function parsePolicies(obj, subHeader)
   for k, v in pairs (obj) do
     if v.type == 'reqMapping' then
       mapping.processMap(v.value)
     elseif v.type == 'rateLimit' then
-      rateLimit.limit(v.value)
+      rateLimit.limit(v.value, subHeader)
     end
   end
 end
