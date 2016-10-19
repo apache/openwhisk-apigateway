@@ -60,7 +60,8 @@ function _M.addResource()
     request.err(400, "Missing Request body")
   end
   -- Convert json into Lua table
-  local decoded = convertJSONBody(args)
+  local decoded = utils.convertJSONBody(args)
+
   -- Error handling for required fields in the request body
   local gatewayMethod = decoded.gatewayMethod
   if not gatewayMethod then
@@ -272,22 +273,8 @@ function parseRequestURI(requestURI)
   if not list[1] or not list[2] then
     request.err(400, "Request path should be \"/resources/<tenant>/<url-encoded-resource>\"")
   end
-  return list --prefix, tenant, gatewayPath
-end
 
---- Convert JSON body to Lua table using the cjson module
--- @param args Lua table with its key as the string representation of a JSON body
--- @return Lua table representation of JSON
-function convertJSONBody(args)
-  local jsonStringList = {}
-  for key, value in pairs(args) do
-    table.insert(jsonStringList, key)
-    -- Handle case where the "=" character is inside any of the strings in the json body
-    if(value ~= true) then
-      table.insert(jsonStringList, utils.concatStrings({"=", value}))
-    end
-  end
-  return cjson.decode(utils.concatStrings(jsonStringList))
+  return list  --prefix, tenant, gatewayPath, apiKey
 end
 
 return _M
