@@ -46,12 +46,123 @@ _body:_
   "security": (object) An optional json object defining security policies (e.g. {"type": "apikey"} )
 }
 ```
+
 _Returns:_
 ```
 {
   "managedUrl": (string) The URL at which you can invoke your newly created resource.
 }
 ```
+
+####Policies
+The currently supported policies are: `reqMapping`, `rateLimit`.
+
+#####rateLimit:
+_interval:_ the time interval that the rate is applied to.  
+_rate:_ the number of calls allowed per interval of time.  
+_scope:_ `api`, `tenant`, `resource`.  
+_subscription:_ `true`, `false`.  
+If subscription is `true`, the rateLimit applies to each user with a vaild subscription.  
+If subscription is `false`, the rateLimit applies the collective usage from all users.  
+```
+  "interval":60,
+  "rate":10,
+  "scope":"api"
+  "subscription": "false"
+```
+This will set a rateLimit ratio of 10 calls per 60 second, at an API level.  
+This rateLimit is shared across all users (subescription:false).
+
+#####reqMapping:
+Supported actions: `remove`, `insert`, `transform`.  
+Supported locations: `body`, `path`, `header`, `query`.  
+
+_remove:_
+```
+{
+   "action":"remove",
+   "from":{
+      "value":"<password>"
+      "location":"body"
+   }
+}
+```
+This will remove the `password` field from the body of the incoming request, so it is not sent to the backendURL
+
+_insert:_
+```
+{
+   "action":"insert",
+   "from":{
+      "value":"application/json"
+   },
+   "to":{
+      "name":"Content-type",
+      "location":"header"
+   }
+}
+```
+This will insert the value of `application/json` into a `header` named `Content-type` on the backend request
+
+_transform:_
+```
+{
+   "action":"transform",
+   "from":{
+      "name":"*",
+      "location":"query"
+   },
+   "to":{
+      "name":"*",
+      "location":"body"
+   }
+}
+```
+This will transform all incoming `query` parameters into `body` parameters in the outgoing request to the backendURL.  
+Where `*` is a wild card, or you can use the variable name.
+```
+policies":[
+     {
+        "type":"rateLimit",
+        "value":[
+            "interval":60,
+            "rate":100,
+            "scope":"api"
+            "subscription": "true"
+        ]
+     },
+        "type":"reqMapping",
+        "value":[
+        {
+           "action":"transform",
+           "from":{
+              "name":"<user>",
+              "location":"query"
+           },
+           "to":{
+              "name":"<id>",
+              "location":"body"
+           }
+        }]
+     }]
+```
+Each user (subscription:true) will have a rateLimit ratio of 100 calls per 60 seconds at the API level.  
+This will also assign the vaule from the `query` parameter named `user` to a body parameter named `id`.  
+
+####Security
+Supported types: `apiKey`.  
+_scope:_ `api`, `tenant`, `resource`.  
+_header:_ _(optional)_ custom name of auth header (default is x-api-key)  
+
+```
+"security": {
+        "type":"apiKey",
+        "scope":"api",
+        "header":"<MyCustomAuthHeader>"
+    }
+```
+This will add security of an `apiKey`, at the API level, and uses the header call `myCustomAuthHeader`.  
+NOTE: Security added at the Tenant level will affect all APIs and resources under that Tenant. Likewise, security added at the API level will affect all resources under that API.
 
 #### GET /resources/{namespace}/{url-encoded-resource}
 Get the specified resource and return the managed url.
@@ -76,16 +187,38 @@ This is called automatically on gateway startup. It subscribes to resource key c
 
 
 ## Subscriptions
-#### PUT /subscriptions/{namespace}/{url-encoded-resource}/{api-key}
-Add/update an api key for a given resource. Alternatively, call `PUT /subscriptions/{namespace}/{api-key}` to create an api key for the namespace.
+#### PUT /subscriptions
+Add/update an api key for the specified tenant, resource, or api.
+
+_body:_
+```
+{
+  "key": *(string) The api key to store to redis.
+  "scope": *(string) The scope to use the api key. "tenant", "resource", or "api".
+  "tenant": *(string) Tenant guid.
+  "resource": (string) Resource path. Required if scope is "resource".
+  "api": (string) API Guid. Required if scope is "API".
+}
+```
 
 _Returns:_
 ```
 Subscription created.
 ```
 
-#### DELETE /subscriptions/{namespace}/{url-encoded-resource}/{api-key}
-Delete an api key associated with the resource. Alternatively, call DELETE /subscriptions/{namespace}/{api-key} to delete an api key associated with the namespace.
+#### DELETE /subscriptions
+Delete an api key associated with the specified tenant, resource or api.
+
+_body:_
+```
+{
+  "key": *(string) The api key to delete.
+  "scope": *(string) The scope to use the api key. "tenant", "resource", or "api".
+  "tenant": *(string) Tenant guid.
+  "resource": (string) Resource path. Required if scope is "resource".
+  "api": (string) API Guid. Required if scope is "API".
+}
+```
 
 _Returns:_
 ```
