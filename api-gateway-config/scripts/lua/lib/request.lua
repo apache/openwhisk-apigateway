@@ -1,4 +1,4 @@
--- Copyright (c) 2016 IBM. All rights reserved.
+--pi-gateway-config/scripts/lua/lib/filemgmt.lua Copyright (c) 2016 IBM. All rights reserved.
 --
 --   Permission is hereby granted, free of charge, to any person obtaining a
 --   copy of this software and associated documentation files (the "Software"),
@@ -18,28 +18,33 @@
 --   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 --   DEALINGS IN THE SOFTWARE.
 
---- @module logger
--- Module to handle logging in a single place
--- @author Cody Walker (cmwalker), Alex Song (songs)
+--- @module
+--
+-- @author Alex Song (songs)
 
-local _M = {}
+local utils = require "lib/utils"
 
---- Handle error stream
--- @param s String to write to error stream
-function _M.err(s)
-  ngx.log(ngx.ERR, s)
+local _Request = {}
+
+--- Error function to call when request is malformed
+-- @param code error code
+-- @param msg error message
+function err(code, msg)
+  ngx.status = code
+  ngx.say(utils.concatStrings({"Error: ", msg}))
+  ngx.exit(ngx.status)
 end
 
---- Handle debug stream
--- @param s String to write to debug stream
-function _M.debug(s)
-  print(s)
+--- Function to call when request is successful
+-- @param code status code
+-- @param obj object to return
+function success(code, obj)
+  ngx.status = code
+  ngx.say(obj)
+  ngx.exit(ngx.status)
 end
 
---- Output to stdout
--- @param s String to write to stdout
-function _M.info(s)
-  os.execute("echo \"" .. s .. "\"")
-end
+_Request.err = err
+_Request.success = success
 
-return _M
+return _Request

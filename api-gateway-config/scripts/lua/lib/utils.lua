@@ -22,8 +22,6 @@
 --
 -- @author Alex Song (songs), Cody Walker (cmwalker)
 
-local logger = require "lib/logger"
-
 local _Utils = {}
 
 --- Concatenate a list of strings into a single string. This is more efficient than concatenating
@@ -42,6 +40,7 @@ end
 -- Recursively calls itself it
 -- Useful for saving a lua table to a file, as if not serialized it will save as "Table x35252"
 -- @param t The lua table
+-- @return String representing the serialized lua table
 function serializeTable(t)
   local first = true
   local tt = { '{' }

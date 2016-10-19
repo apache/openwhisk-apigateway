@@ -20,13 +20,12 @@
 
 --- @module Routing
 -- Used to dynamically handle nginx routing based on an object containing implementation details
--- @author Cody Walker (cmwalker)
+-- @author Cody Walker (cmwalker), Alex Song (songs)
 
 
-local logger = require "lib/logger"
 local utils = require "lib/utils"
+local request = require "lib/request"
 local url = require "url"
-local cjson = require "cjson"
 -- load policies
 local security = require "policies/security"
 local mapping = require "policies/mapping"
@@ -44,52 +43,43 @@ local _M = {}
 --    }, ...
 -- }
 function processCall(obj)
-  local verb = ngx.req.get_method()
   local found = false
-  local operations = obj.operations
-  for k, v in pairs(operations) do
-    k = string.upper(k)
-    if k == verb then
+  for verb, opFields in pairs(obj.operations) do
+    if string.upper(verb) == ngx.req.get_method() then
       -- Check if auth is required
-      local subHeader
-      if (v.security and string.lower(v.security.type) == 'apikey') then
-        local h = v.security.header
-        if h == nil then
-          h = 'http_x_api_key'
-        else
-          h = utils.concatStrings({'http_', h})
-        end
-        subHeader = h:gsub("-", "_")
-        security.processAPIKey(subHeader)
+      local apiKey
+      if (opFields.security and string.lower(opFields.security.type) == 'apikey') then
+        apiKey = security.processAPIKey(opFields.security)
       end
-      local u = url.parse(v.backendUrl)
+      -- Set nginx conf values
+      local u = url.parse(opFields.backendUrl)
       ngx.req.set_uri(u.path)
       ngx.var.upstream = utils.concatStrings({u.scheme, '://', u.host})
-      if v.backendMethod ~= nil then
-        setVerb(v.backendMethod)
+      if opFields.backendMethod ~= nil then
+        setVerb(opFields.backendMethod)
       end
-      if v.policies ~= nil then
-        parsePolicies(v.policies, subHeader)
+      -- Parse policies
+      if opFields.policies ~= nil then
+        parsePolicies(opFields.policies, apiKey)
       end
       found = true
       break
     end
   end
   if found == false then
-    ngx.say('Whoops. Verb not supported.')
-    ngx.exit(404)
+    request.err(404, 'Whoops. Verb not supported.')
   end
 end
 
 --- Function to read the list of policies and send implementation to the correct backend
 -- @param obj List of policies containing a type and value field. This function reads the type field and routes it appropriately.
--- @param subHeader optional subscription header
-function parsePolicies(obj, subHeader)
+-- @param apiKey optional subscription api key
+function parsePolicies(obj, apiKey)
   for k, v in pairs (obj) do
     if v.type == 'reqMapping' then
       mapping.processMap(v.value)
     elseif v.type == 'rateLimit' then
-      rateLimit.limit(v.value, subHeader)
+      rateLimit.limit(v.value, apiKey)
     end
   end
 end

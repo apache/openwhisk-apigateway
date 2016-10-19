@@ -20,50 +20,51 @@
 
 --- @module rateLimit
 -- Process a rateLimit object, setting the rate and interval to the request
--- @author David Green (greend)
+-- @author David Green (greend), Alex Song (songs)
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
 local REDIS_PASS = os.getenv("REDIS_PASS")
-local request = require "lib/resty/limit/req"
+local req = require "lib/resty/limit/req"
 local utils = require "lib/utils"
 local logger = require "lib/logger"
+local request = require "lib/request"
 
 local _M = {}
 
-function limit(obj, subHeader)
+--- Limit a resource/api/tenant, based on the passed in rateLimit object
+-- @param obj rateLimit object containing interval, rate, scope, subscription fields
+-- @param apiKey optional api key to use if subscription set to true
+function limit(obj, apiKey)
   local i = 60 / obj.interval
   local r = i * obj.rate
   r = utils.concatStrings({tostring(r), 'r/m'})
   local k
   -- Check scope
   if obj.scope == 'tenant' then
-    k = utils.concatStrings({"tenant:", ngx.var.namespace})
+    k = utils.concatStrings({"tenant:", ngx.var.tenant})
   elseif obj.scope == 'api' then
-    k = utils.concatStrings({"tenant:", ngx.var.namespace, ":api:", ngx.var.apiId})
+    k = utils.concatStrings({"tenant:", ngx.var.tenant, ":api:", ngx.var.apiId})
   elseif obj.scope == 'resource' then
-    k = utils.concatStrings({"tenant:", ngx.var.namespace, ":resource:", ngx.var.gatewayPath})
+    k = utils.concatStrings({"tenant:", ngx.var.tenant, ":resource:", ngx.var.gatewayPath})
   end
   -- Check subscription
-  if obj.subscription ~= nil and obj.subscription == true and subHeader ~= nil then
-    apiKey = ngx.var[subHeader]
+  if obj.subscription ~= nil and obj.subscription == true and apiKey ~= nil then
     k = utils.concatStrings({k, ':subscription:', apiKey})
   end
-
+  -- Perform rate limiting
   local config = {
     key = k,
     zone = 'rateLimiting',
     rate = r,
     interval = obj.interval,
     log_level = ngx.NOTICE,
-    rds = { host = REDIS_HOST, port = REDIS_PORT, pass = REDIS_PASS}
+    rds = {host = REDIS_HOST, port = REDIS_PORT, pass = REDIS_PASS}
   }
-  local ok = request.limit(config)
+  local ok = req.limit(config)
   if not ok then
-    ngx.status = 429
     logger.err('Rate limit exceeded. Sending 429')
-    ngx.say('Rate limit exceeded.')
-    ngx.exit(ngx.status)
+    request.err(429, 'Rate limit exceeded.')
   end
 end
 
