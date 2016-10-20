@@ -35,9 +35,8 @@ local _M = {}
 -- @param resourceObj object containing different operations/policies for the resource
 -- @return fileLocation location of created/updated conf file
 function _M.createResourceConf(baseConfDir, tenant, gatewayPath, resourceObj)
-  resourceObj = utils.serializeTable(cjson.decode(resourceObj))
   local decoded = cjson.decode(resourceObj)
-
+  resourceObj = utils.serializeTable(decoded)
   local prefix = utils.concatStrings({"\tinclude /etc/api-gateway/conf.d/commons/common-headers.conf;\n",
                                       "\tset $upstream https://172.17.0.1;\n",
                                       "\tset $tenant ", tenant, ";\n",
