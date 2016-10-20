@@ -51,10 +51,20 @@ function processCall(obj)
       if (opFields.security and string.lower(opFields.security.type) == 'apikey') then
         apiKey = security.processAPIKey(opFields.security)
       end
-      -- Set nginx conf values
+      -- Parse backend url
       local u = url.parse(opFields.backendUrl)
+      -- Check for path
+      if u.path == nil or u.path == '' then
+        u.path = '/'
+      end
       ngx.req.set_uri(u.path)
-      ngx.var.upstream = utils.concatStrings({u.scheme, '://', u.host})
+      -- Set upstream - add port if it's in the backendURL
+      local upstream = utils.concatStrings({u.scheme, '://', u.host})
+      if u.port ~= nil and u.port ~= '' then
+        upstream = utils.concatStrings({upstream, ':', u.port})
+      end
+      ngx.var.upstream = upstream
+      -- Set backend method
       if opFields.backendMethod ~= nil then
         setVerb(opFields.backendMethod)
       end
