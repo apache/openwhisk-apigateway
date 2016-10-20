@@ -46,12 +46,13 @@ function _M.init(host, port, password, timeout)
   local retryCount = 4
   local connect, err = red:connect(host, port)
   while not connect and retryCount > 0 do
-    local msg = utils.concatStrings({"Failed to conect to redis. Retrying ", retryCount, " more times."})
+    local msg = utils.concatStrings({"Failed to conect to redis at ", host, ":", port, ". Retrying ", retryCount, " more times."})
     if retryCount == 1 then
       msg = utils.concatStrings({msg:sub(1, -3), "."})
     end
     logger.info(msg)
     retryCount = retryCount - 1
+    os.execute("sleep 1")
     connect, err = red:connect(host, port)
   end
   if not connect then
