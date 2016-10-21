@@ -225,7 +225,7 @@ function validateSubscriptionBody()
   -- Convert json into Lua table
   local decoded
   if next(args) then
-    decoded = convertJSONBody(args)
+    decoded = utils.convertJSONBody(args)
   else
     request.err(400, "Request body required.")
   end
