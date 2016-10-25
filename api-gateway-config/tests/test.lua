@@ -1,4 +1,4 @@
---pi-gateway-config/scripts/lua/lib/filemgmt.lua Copyright (c) 2016 IBM. All rights reserved.
+-- Copyright (c) 2016 IBM. All rights reserved.
 --
 --   Permission is hereby granted, free of charge, to any person obtaining a
 --   copy of this software and associated documentation files (the "Software"),
@@ -18,33 +18,33 @@
 --   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 --   DEALINGS IN THE SOFTWARE.
 
---- @module
---
+-- Unit tests for the apigateway using the busted framework.
 -- @author Alex Song (songs)
 
-local utils = require "lib/utils"
+package.path = package.path .. ';/usr/local/share/lua/5.2/?.lua' ..
+    ';/usr/local/api-gateway/lualib/resty/?.lua;/etc/api-gateway/scripts/lua/?.lua'
+package.cpath = package.cpath .. ';/usr/local/lib/lua/5.2/?.so;/usr/local/api-gateway/lualib/?.so'
 
-local _Request = {}
+local fakengx = require 'fakengx'
+local request = require 'lib/request'
 
---- Error function to call when request is malformed
--- @param code error code
--- @param msg error message
-function err(code, msg)
-  ngx.status = code
-  ngx.print(utils.concatStrings({"Error: ", msg}))
-  ngx.exit(ngx.status)
-end
-
---- Function to call when request is successful
--- @param code status code
--- @param obj object to return
-function success(code, obj)
-  ngx.status = code
-  ngx.print(obj)
-  ngx.exit(ngx.status)
-end
-
-_Request.err = err
-_Request.success = success
-
-return _Request
+describe('Testing Request module', function()
+  before_each(function()
+    -- Mock ngx object for each test
+    _G.ngx = fakengx.new()
+  end)
+  it('should return correct error response', function()
+    local code = 500
+    local msg = 'Internal server error\n'
+    request.err(code, msg)
+    assert.are.equal(ngx._body, 'Error: ' .. msg)
+    assert.are.equal(ngx._exit, code)
+  end)
+  it('should return correct success response', function()
+    local code = 200
+    local msg ='Success!\n'
+    request.success(code, msg)
+    assert.are.equal(ngx._body, msg)
+    assert.are.equal(ngx._exit, code)
+  end)
+end)

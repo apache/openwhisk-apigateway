@@ -4,6 +4,15 @@ DOCKER_REGISTRY ?= ''
 docker:
 	docker build -t apicgw/apigateway .
 
+.PHONY: docker-test
+docker-test:
+	docker build -f ./Dockerfile-test -t apicgw/apigateway-test .
+	docker run --rm --name="apigateway-test" apicgw/apigateway-test:latest
+
+.PHONY: docker-test-run
+docker-test-run:
+	docker run --rm --name="apigateway-test" apicgw/apigateway-test:latest
+
 .PHONY: docker-ssh
 docker-ssh:
 	docker run -ti --entrypoint='bash' apicgw/apigateway:latest

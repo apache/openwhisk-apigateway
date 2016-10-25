@@ -1,0 +1,32 @@
+# Dockerfile for creating apigateway image for running unit tests
+
+FROM apicgw/apigateway:latest
+
+RUN echo "... Installing test dependencies ..." \
+    && apk add --update gcc readline-dev git unzip ncurses-dev \
+    && LUA_VERSION=5.1.5 && LUAROCKS_VERSION=2.4.1 \
+    && curl -R -O https://www.lua.org/ftp/lua-${LUA_VERSION}.tar.gz \
+    && tar zxf lua-${LUA_VERSION}.tar.gz \
+    && cd lua-${LUA_VERSION} \
+    && make linux install \
+    && wget http://keplerproject.github.io/luarocks/releases/luarocks-${LUAROCKS_VERSION}.tar.gz \
+    && tar -xvzf ./luarocks-${LUAROCKS_VERSION}.tar.gz \
+    && cd luarocks-${LUAROCKS_VERSION} \
+    && ./configure \
+    && make build \
+    && make install \
+    && cd /etc/api-gateway/tests \
+    && curl -R -O https://raw.githubusercontent.com/bsm/fakengx/master/fakengx.lua
+
+RUN echo "... Installing lua rocks ..." \
+    && luarocks install busted \
+    && luarocks install luabitop \
+    && luarocks install luasocket \
+    && luarocks install sha1 \
+    && luarocks install md5
+
+COPY init-test.sh /etc/init-container-test.sh
+ONBUILD COPY init-test.sh /etc/init-container-test.sh
+RUN chmod +x /etc/init-container-test.sh
+
+ENTRYPOINT ["/etc/init-container-test.sh"]
