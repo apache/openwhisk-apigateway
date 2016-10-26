@@ -7,7 +7,6 @@ docker:
 .PHONY: docker-test
 docker-test:
 	docker build -f ./Dockerfile-test -t apicgw/apigateway-test .
-	docker run --rm --name="apigateway-test" apicgw/apigateway-test:latest
 
 .PHONY: docker-test-run
 docker-test-run:

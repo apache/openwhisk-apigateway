@@ -1,3 +1,3 @@
 #!/bin/bash
 cd /etc/api-gateway/tests
-busted test.lua
+busted --output=TAP test.lua

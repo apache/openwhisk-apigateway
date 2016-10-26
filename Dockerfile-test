@@ -23,7 +23,8 @@ RUN echo "... Installing lua rocks ..." \
     && luarocks install luabitop \
     && luarocks install luasocket \
     && luarocks install sha1 \
-    && luarocks install md5
+    && luarocks install md5 \
+    && luarocks install fakeredis
 
 COPY init-test.sh /etc/init-container-test.sh
 ONBUILD COPY init-test.sh /etc/init-container-test.sh

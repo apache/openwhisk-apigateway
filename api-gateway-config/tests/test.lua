@@ -22,15 +22,46 @@
 -- @author Alex Song (songs)
 
 package.path = package.path .. ';/usr/local/share/lua/5.2/?.lua' ..
-    ';/usr/local/api-gateway/lualib/resty/?.lua;/etc/api-gateway/scripts/lua/?.lua'
+    ';/usr/local/api-gateway/lualib/?.lua;/etc/api-gateway/scripts/lua/?.lua'
 package.cpath = package.cpath .. ';/usr/local/lib/lua/5.2/?.so;/usr/local/api-gateway/lualib/?.so'
 
 local fakengx = require 'fakengx'
+local fakeredis = require 'fakeredis'
+local cjson = require 'cjson'
+
+local redis = require 'lib/redis'
 local request = require 'lib/request'
+
+describe('Testing Redis module', function()
+  before_each(function()
+    _G.ngx = fakengx.new()
+    red = fakeredis.new()
+  end)
+  it('should generate a resource obj to store in redis', function()
+    local key = 'resources:guest:hello'
+    local gatewayMethod = 'GET'
+    local backendUrl = 'https://httpbin.org:8000/get'
+    local backendMethod = gatewayMethod
+    local apiId = 12345
+    local policies
+    local security
+    local expected = {
+      operations = {
+        [gatewayMethod] = {
+          backendUrl = backendUrl,
+          backendMethod = backendMethod
+        }
+      },
+      apiId = apiId
+    }
+    expected = cjson.encode(expected)
+    local generated = redis.generateResourceObj(red, key, gatewayMethod, backendUrl, backendMethod, apiId, policies, security)
+    assert.are.same(expected, generated)
+  end)
+end)
 
 describe('Testing Request module', function()
   before_each(function()
-    -- Mock ngx object for each test
     _G.ngx = fakengx.new()
   end)
   it('should return correct error response', function()
