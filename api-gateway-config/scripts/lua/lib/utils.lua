@@ -75,24 +75,6 @@ function convertTemplatedPathParam(m)
   return concatStrings({"(?<path_" , x , ">([a-zA-Z0-9\\-\\s\\_\\%]*))"})
 end
 
-
---- Convert JSON body to Lua table using the cjson module
--- @param args Lua table with its key as the string representation of a JSON body
--- @return Lua table representation of JSON
-function convertJSONBody(args)
-  local jsonStringList = {}
-  for key, value in pairs(args) do
-    table.insert(jsonStringList, key)
-    -- Handle case where the "=" character is inside any of the strings in the json body
-    if(value ~= true) then
-      table.insert(jsonStringList, concatStrings({"=", value}))
-    end
-  end
-  return cjson.decode(concatStrings(jsonStringList))
-end
-
-
-_Utils.convertJSONBody = convertJSONBody
 _Utils.concatStrings = concatStrings
 _Utils.serializeTable = serializeTable
 _Utils.convertTemplatedPathParam = convertTemplatedPathParam

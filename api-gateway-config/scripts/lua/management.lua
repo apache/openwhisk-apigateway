@@ -55,12 +55,12 @@ local _M = {}
 function _M.addResource()
   -- Read in the PUT JSON Body
   ngx.req.read_body()
-  local args = ngx.req.get_post_args()
+  local args = ngx.req.get_body_data()
   if not args then
     request.err(400, "Missing Request body")
   end
   -- Convert json into Lua table
-  local decoded = utils.convertJSONBody(args)
+  local decoded = cjson.decode(args)
   -- Error handling for required fields in the request body
   local gatewayMethod = decoded.gatewayMethod
   if not gatewayMethod then
