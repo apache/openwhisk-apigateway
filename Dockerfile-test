@@ -18,13 +18,14 @@ RUN echo "... Installing test dependencies ..." \
     && cd /etc/api-gateway/tests \
     && curl -R -O https://raw.githubusercontent.com/bsm/fakengx/master/fakengx.lua
 
-RUN echo "... Installing lua rocks ..." \
+RUN echo "... Installing lua modules ..." \
     && luarocks install busted \
     && luarocks install luabitop \
     && luarocks install luasocket \
     && luarocks install sha1 \
     && luarocks install md5 \
-    && luarocks install fakeredis
+    && luarocks install fakeredis \
+    && luarocks install luacov
 
 COPY init-test.sh /etc/init-container-test.sh
 ONBUILD COPY init-test.sh /etc/init-container-test.sh

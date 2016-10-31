@@ -50,7 +50,7 @@ function _M.init(host, port, password, timeout)
     if retryCount == 1 then
       msg = utils.concatStrings({msg:sub(1, -3), "."})
     end
-    logger.info(msg)
+    logger.debug(msg)
     retryCount = retryCount - 1
     os.execute("sleep 1")
     connect, err = red:connect(host, port)
@@ -164,6 +164,8 @@ function _M.deleteResource(red, key, field)
   local ok, err = red:del(key)
   if not ok then
     request.err(500, utils.concatStrings({"Failed deleting resource: ", err}))
+  else
+    return ok
   end
 end
 
@@ -172,7 +174,7 @@ end
 -- @param key redis subscription key to create
 function _M.createSubscription(red, key)
   -- Add/update a subscription key to redis
-  local ok, err = red:set(key, true)
+  local ok, err = red:set(key, '')
   if not ok then
     request.err(500, utils.concatStrings({"Failed adding subscription to redis", err}))
   end
@@ -219,7 +221,7 @@ end
 --- Sync with redis on startup and create conf files for resources that are already in redis
 -- @param red redis client instance
 function syncWithRedis(red)
-  logger.info("\nCreating nginx conf files for existing resources...")
+  logger.debug("\nCreating nginx conf files for existing resources...")
   local redisKeys, err = red:keys("*")
   if not redisKeys then
     request.err(500, util.concatStrings({"Failed to sync with Redis: ", err}))
@@ -246,14 +248,14 @@ function syncWithRedis(red)
           -- Create new conf file
           local resourceObj = _M.getResource(red, redisKey, REDIS_FIELD)
           local fileLocation = filemgmt.createResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath), resourceObj)
-          logger.info(utils.concatStrings({"Updated file: ", fileLocation}))
+          logger.debug(utils.concatStrings({"Updated file: ", fileLocation}))
         end
         index = index + 1
       end
     end
   end
   if resourcesExist == false then
-    logger.info("No existing resources.")
+    logger.debug("No existing resources.")
   end
 end
 
@@ -289,12 +291,12 @@ function subscribe(redisSubClient, redisGetClient)
       local resourceObj = _M.getResource(redisGetClient, redisKey, REDIS_FIELD)
       if resourceObj == nil then
         local fileLocation = filemgmt.deleteResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath))
-        logger.info(utils.concatStrings({"Redis key deleted: ", redisKey}))
-        logger.info(utils.concatStrings({"Deleted file: ", fileLocation}))
+        logger.debug(utils.concatStrings({"Redis key deleted: ", redisKey}))
+        logger.debug(utils.concatStrings({"Deleted file: ", fileLocation}))
       else
         local fileLocation = filemgmt.createResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath), resourceObj)
-        logger.info(utils.concatStrings({"Redis key updated: ", redisKey}))
-        logger.info(utils.concatStrings({"Updated file: ", fileLocation}))
+        logger.debug(utils.concatStrings({"Redis key updated: ", redisKey}))
+        logger.debug(utils.concatStrings({"Updated file: ", fileLocation}))
       end
     end
   end
