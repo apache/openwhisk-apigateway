@@ -31,7 +31,7 @@ local _Request = {}
 -- @param msg error message
 function err(code, msg)
   ngx.status = code
-  ngx.say(utils.concatStrings({"Error: ", msg}))
+  ngx.print(utils.concatStrings({"Error: ", msg}))
   ngx.exit(ngx.status)
 end
 
@@ -40,7 +40,7 @@ end
 -- @param obj object to return
 function success(code, obj)
   ngx.status = code
-  ngx.say(obj)
+  ngx.print(obj)
   ngx.exit(ngx.status)
 end
 

@@ -61,7 +61,6 @@ function _M.addResource()
   end
   -- Convert json into Lua table
   local decoded = utils.convertJSONBody(args)
-
   -- Error handling for required fields in the request body
   local gatewayMethod = decoded.gatewayMethod
   if not gatewayMethod then
