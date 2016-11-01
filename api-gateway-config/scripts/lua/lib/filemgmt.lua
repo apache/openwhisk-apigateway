@@ -61,7 +61,7 @@ function _M.createResourceConf(baseConfDir, tenant, gatewayPath, resourceObj)
 
   local updatedPath = ngx.unescape_uri(gatewayPath):gsub("%{(%w*)%}", utils.convertTemplatedPathParam)
 
-  local location = utils.concatStrings({"location ~ ^/api/", tenant, "/", updatedPath, " {\n",
+  local location = utils.concatStrings({"location ~ ^/api/", tenant, "/", updatedPath, "(\\b) {\n",
                                         prefix,
                                         outgoingResource,
                                         "}\n"})
