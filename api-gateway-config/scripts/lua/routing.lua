@@ -53,11 +53,7 @@ function processCall(obj)
       end
       -- Parse backend url
       local u = url.parse(opFields.backendUrl)
-      -- Check for path
-      if u.path == nil or u.path == '' then
-        u.path = '/'
-      end
-      ngx.req.set_uri(u.path)
+      ngx.req.set_uri(getUriPath(u.path))
       -- Set upstream - add port if it's in the backendURL
       local upstream = utils.concatStrings({u.scheme, '://', u.host})
       if u.port ~= nil and u.port ~= '' then
@@ -103,9 +99,28 @@ function setVerb(v)
     ngx.req.set_method(ngx.HTTP_PUT)
   elseif (string.lower(v) == 'delete') then
     ngx.req.set_method(ngx.HTTP_DELETE)
+  elseif (string.lower(v) == 'patch') then
+      ngx.req.set_method(ngx.HTTP_PATH)
+  elseif (string.lower(v) == 'head') then
+      ngx.req.set_method(ngx.HTTP_HEAD)
+  elseif (string.lower(v) == 'options') then
+      ngx.req.set_method(ngx.HTTP_OPTIONS)
   else
     ngx.req.set_method(ngx.HTTP_GET)
   end
+end
+
+function getUriPath(backendPath)
+  local uriPath
+  local i, j = ngx.var.uri:find(ngx.var.gatewayPath)
+  local incomingPath = ngx.var.uri:sub(j + 1)
+  -- Check for backendUrl path
+  if backendPath == nil or backendPath== '' or backendPath== '/' then
+    uriPath = (incomingPath and incomingPath ~= '') and incomingPath or '/'
+  else
+    uriPath = utils.concatStrings({backendPath, incomingPath})
+  end
+  return uriPath
 end
 
 _M.processCall = processCall
