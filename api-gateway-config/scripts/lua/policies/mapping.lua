@@ -24,7 +24,6 @@
 local logger = require "lib/logger"
 local utils = require "lib/utils"
 local cjson = require "cjson"
-local url = require "url"
 
 local _M = {}
 
@@ -54,13 +53,16 @@ end
 --- Get request body, params, and headers from incoming requests
 function getRequestParams()
   ngx.req.read_body()
-  body = ngx.req.get_post_args()
-  if next(body) then
-    body = utils.convertJSONBody(body)
-  end
-  query = ngx.req.get_uri_args()
+  body = ngx.req.get_body_data()
+  body = (body and cjson.decode(body)) or {}
   headers = ngx.req.get_headers()
   path = ngx.var.uri
+  query = parseUrl(ngx.var.backendUrl)
+  local incomingQuery = ngx.req.get_uri_args()
+  for k, v in pairs (incomingQuery) do
+    query[k] = v
+  end
+
 end
 
 --- Insert parameter value to header, body, or query params into request
@@ -174,6 +176,7 @@ end
 function finalize()
   local bodyJson = cjson.encode(body)
   ngx.req.set_body_data(bodyJson)
+  ngx.req.set_uri_args(query)
 end
 
 function insertHeader(k, v)
@@ -182,7 +185,6 @@ end
 
 function insertQuery(k, v)
   query[k] = v
-  ngx.req.set_uri_args(query)
 end
 
 function insertBody(k, v)
@@ -205,6 +207,20 @@ end
 
 function removeBody(k)
   body[k] = nil
+end
+
+function parseUrl(url)
+  local map = {}
+  for k,v in url:gmatch('([^&=?]+)=([^&=?]+)' ) do
+    map[ k ] = decodeQuery(v)
+  end
+  return map
+end
+
+function decodeQuery(param)
+  local decoded = param:gsub('+', ' '):gsub('%%(%x%x)',
+    function(hex) return string.char(tonumber(hex, 16)) end)
+  return decoded
 end
 
 _M.processMap = processMap

@@ -54,6 +54,7 @@ function processCall(obj)
       -- Parse backend url
       local u = url.parse(opFields.backendUrl)
       ngx.req.set_uri(getUriPath(u.path))
+      ngx.var.backendUrl = opFields.backendUrl
       -- Set upstream - add port if it's in the backendURL
       local upstream = utils.concatStrings({u.scheme, '://', u.host})
       if u.port ~= nil and u.port ~= '' then

@@ -40,6 +40,7 @@ function _M.createResourceConf(baseConfDir, tenant, gatewayPath, resourceObj)
   local prefix = utils.concatStrings({"\tinclude /etc/api-gateway/conf.d/commons/common-headers.conf;\n",
                                       "\tset $upstream https://172.17.0.1;\n",
                                       "\tset $tenant ", tenant, ";\n",
+                                      "\tset $backendUrl '';\n",
                                       "\tset $gatewayPath ",  utils.concatStrings({"\"", ngx.unescape_uri(gatewayPath),
                                       "\""}), ";\n\n"})
   if decoded.apiId ~= nil then
