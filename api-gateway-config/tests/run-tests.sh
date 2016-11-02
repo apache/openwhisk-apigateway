@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # Run unit tests
-cd api-gateway-config/tests
-busted -c --output=TAP test.lua
+busted -c --output=TAP --helper=set_paths spec/test.lua
 
 # Generate code coverage report
 luacov ../scripts/lua/

@@ -21,10 +21,6 @@
 -- Unit tests for the apigateway using the busted framework.
 -- @author Alex Song (songs)
 
-local handle = io.popen('pwd')
-local pwd = handle:read('*a'):sub(1, -2)  -- get current working directory
-handle:close()
-package.path = package.path .. ';' .. pwd .. '/../scripts/lua/?.lua'
 local fakengx = require 'fakengx'
 local fakeredis = require 'fakeredis'
 local cjson = require 'cjson'
@@ -32,6 +28,7 @@ local request = require 'lib/request'
 local utils = require 'lib/utils'
 local logger = require 'lib/logger'
 local redis = require 'lib/redis'
+local mapping = require 'policies/mapping'
 
 
 ------------------------------------
@@ -101,30 +98,6 @@ describe('Testing utils module', function()
 
   it('should convert templated path parameter', function()
     -- TODO: Add test cases for convertTemplatedPathParam(m)
-  end)
-
-  it('should convert json body to lua table', function()
-    -- General case
-    local jsonString = '{ "apiId" : 12345, "policies" : [{"test":true}], "security" : {}}'
-    local expected = cjson.decode(jsonString)
-    local args = {}
-    args[jsonString] = true
-    local generated = utils.convertJSONBody(args)
-    assert.are.same(expected, generated)
-
-    -- "=" sign in original body, resulting in separated out key
-    -- original json string is '{ "apiId" : 12345, "policies" : [{"test":true}], "security" : {"apiKey":"a53kw2kfq302="}}'
-    local firstHalf = '{ "apiId" : 12345, "policies" : [{"test":true}], "security" : {"apiKey":"a53kw2kfq302'
-    local secondHalf = '"}}'
-    expected = {
-      apiId = 12345,
-      policies = {{test=true}},
-      security = {apiKey = "a53kw2kfq302="}
-    }
-    args = {}
-    args[firstHalf] = secondHalf
-    generated = utils.convertJSONBody(args)
-    assert.are.same(expected, generated)
   end)
 end)
 
@@ -278,3 +251,8 @@ end)
 ---------------------------------------
 
 --TODO: mapping, rateLimit, security
+describe('Testing mapping module', function()
+  before_each(function()
+    _G.ngx = fakengx.new()
+  end)
+end)

@@ -244,4 +244,18 @@ Developer Guide
   $ curl http://<docker_host_ip>/health-check
     API-Platform is running!
  ```
+ 
+##Testing
+
+ Unit tests can be found in the `api-gateway-config/tests/spec` directory.
+
+ First install the necessary dependencies:
+ ```
+  make test-build
+ ```
+ Then, run the unit tests:
+ ```
+  make test-run
+ ```
+ This will output the results of the tests as well as generate a code coverage report.
 
