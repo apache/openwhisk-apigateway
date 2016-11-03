@@ -114,7 +114,7 @@ end
 function getUriPath(backendPath)
   local uriPath
   local i, j = ngx.var.uri:find(ngx.var.gatewayPath)
-  local incomingPath = ngx.var.uri:sub(j + 1)
+  local incomingPath = ((j and ngx.var.uri:sub(j + 1)) or nil)
   -- Check for backendUrl path
   if backendPath == nil or backendPath== '' or backendPath== '/' then
     uriPath = (incomingPath and incomingPath ~= '') and incomingPath or '/'
