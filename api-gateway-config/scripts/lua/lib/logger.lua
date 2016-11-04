@@ -30,15 +30,9 @@ function _M.err(s)
   ngx.log(ngx.ERR, s)
 end
 
---- Handle debug stream
+--- Handle debug stream to stdout
 -- @param s String to write to debug stream
 function _M.debug(s)
-  print(s)
-end
-
---- Output to stdout
--- @param s String to write to stdout
-function _M.info(s)
   os.execute("echo \"" .. s .. "\"")
 end
 

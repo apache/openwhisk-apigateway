@@ -4,17 +4,17 @@ DOCKER_REGISTRY ?= ''
 docker:
 	docker build -t apicgw/apigateway .
 
-.PHONY: docker-test
-docker-test:
-	docker build -f ./Dockerfile-test -t apicgw/apigateway-test .
-
-.PHONY: docker-test-run
-docker-test-run:
-	docker run --rm --name="apigateway-test" apicgw/apigateway-test:latest
-
 .PHONY: docker-ssh
 docker-ssh:
 	docker run -ti --entrypoint='bash' apicgw/apigateway:latest
+
+.PHONY: test-build
+test-build:
+	cd api-gateway-config/tests; ./install-deps.sh
+
+.PHONY: test-run
+test-run:
+	cd api-gateway-config/tests; ./run-tests.sh
 
 .PHONY: docker-run
 docker-run:
@@ -52,17 +52,6 @@ docker-attach:
 docker-stop:
 	docker stop apigateway
 	docker rm apigateway
-
-.PHONY: docker-compose
-docker-compose:
-	#Volumes directories must be under your Users directory
-	mkdir -p ${HOME}/tmp/apiplatform/apigateway
-	rm -rf ${HOME}/tmp/apiplatform/apigateway/api-gateway-config
-	cp -r `pwd`/api-gateway-config ${HOME}/tmp/apiplatform/apigateway/
-	sed -i '' 's/127\.0\.0\.1/redis\.docker/' ${HOME}/tmp/apiplatform/apigateway/api-gateway-config/environment.conf.d/api-gateway-upstreams.http.conf
-	# clone api-gateway-redis block
-	sed -e '/api-gateway-redis/,/}/!d' ${HOME}/tmp/apiplatform/apigateway/api-gateway-config/environment.conf.d/api-gateway-upstreams.http.conf | sed 's/-redis/-redis-replica/' >> ${HOME}/tmp/apiplatform/apigateway/api-gateway-config/environment.conf.d/api-gateway-upstreams.http.conf
-	docker-compose up
 
 .PHONY: docker-push
 docker-push:
