@@ -2,6 +2,11 @@ apigateway
 =============
 A performant API Gateway based on Openresty and NGINX.
 
+Project status
+---------------
+This project is currently considered pre-alpha stage, and should not be used in production. Large swaths of code or APIs may change without notice.
+
+
 Table of Contents
 =================
 
