@@ -91,7 +91,7 @@ function _M.addResource()
   redis.close(red)
   -- Return managed url object
   local managedUrlObj = {
-    managedUrl = utils.concatStrings({"http://0.0.0.0/api/", tenant, "/", gatewayPath})
+    managedUrl = utils.concatStrings({"http://0.0.0.0:8080/api/", tenant, "/", gatewayPath})
   }
   managedUrlObj = cjson.encode(managedUrlObj):gsub("\\", "")
   ngx.header.content_type = "application/json; charset=utf-8"
@@ -122,7 +122,7 @@ function _M.getResource()
   end
   -- Return managed url object
   local managedUrlObj = {
-    managedUrl = utils.concatStrings({"http://0.0.0.0/api/", tenant, "/", gatewayPath}),
+    managedUrl = utils.concatStrings({"http://0.0.0.0:8080/api/", tenant, "/", gatewayPath}),
     availableOperations = operations
   }
   managedUrlObj = cjson.encode(managedUrlObj):gsub("\\", "")
