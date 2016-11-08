@@ -1,0 +1,37 @@
+---
+jobs:
+  - name: PR unit tests
+    public: true
+    serial: true
+    plan:
+      - get: apigateway
+        trigger: true
+      - put: apigateway
+        params:
+          path: apigateway
+          status: pending
+      - task: run-unit-tests
+        file: apigateway/concourse/tasks/run-unit-tests.yml
+        on_success:
+          put: apigateway
+          params:
+            path: apigateway
+            status: success
+        on_failure:
+          put: apigateway
+          params:
+            path: apigateway
+            status: failure
+
+resource_types:
+  - name: pull-request
+    type: docker-image
+    source:
+      repository: jtarchie/pr
+
+resources:
+  - name: apigateway
+    type: pull-request
+    source:
+      repo: openwhisk/apigateway
+      access_token: {{access_token}}

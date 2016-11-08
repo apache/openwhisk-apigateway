@@ -231,6 +231,7 @@ describe('Testing Redis module', function()
     redis.deleteSubscription(red, key)
     assert.are.equal(false, red:exists(key))
   end)
+
 end)
 
 --TODO: filemgmt
@@ -240,8 +241,3 @@ end)
 ---------------------------------------
 
 --TODO: mapping, rateLimit, security
-describe('Testing mapping module', function()
-  before_each(function()
-    _G.ngx = fakengx.new()
-  end)
-end)
