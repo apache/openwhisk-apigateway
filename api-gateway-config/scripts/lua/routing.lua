@@ -101,11 +101,11 @@ function setVerb(v)
   elseif (string.lower(v) == 'delete') then
     ngx.req.set_method(ngx.HTTP_DELETE)
   elseif (string.lower(v) == 'patch') then
-      ngx.req.set_method(ngx.HTTP_PATCH)
+    ngx.req.set_method(ngx.HTTP_PATCH)
   elseif (string.lower(v) == 'head') then
-      ngx.req.set_method(ngx.HTTP_HEAD)
+    ngx.req.set_method(ngx.HTTP_HEAD)
   elseif (string.lower(v) == 'options') then
-      ngx.req.set_method(ngx.HTTP_OPTIONS)
+    ngx.req.set_method(ngx.HTTP_OPTIONS)
   else
     ngx.req.set_method(ngx.HTTP_GET)
   end
