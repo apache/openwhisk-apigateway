@@ -48,10 +48,8 @@ function _M.createResourceConf(baseConfDir, tenant, gatewayPath, resourceObj)
     prefix = utils.concatStrings({prefix, "\tset $apiId ", decoded.apiId, ";\n"})
   end
   -- Add CORS headers
-  local cors = utils.concatStrings({
-    "\tadd_header Access-Control-Allow-Origin *;\n",
-    "\tadd_header Access-Control-Allow-Credentials true;\n"
-  })
+  prefix = utils.concatStrings({prefix, "\tadd_header Access-Control-Allow-Methods 'GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS';\n"})
+
   -- Set resource headers and mapping by calling routing.processCall()
   local outgoingResource = utils.concatStrings({
     "\taccess_by_lua_block {\n",
@@ -71,7 +69,6 @@ function _M.createResourceConf(baseConfDir, tenant, gatewayPath, resourceObj)
   local location = utils.concatStrings({
     "location ~ ^/api/", tenant, "/", updatedPath, "(\\b) {\n",
     prefix,
-    cors,
     outgoingResource,
     "}\n"
   })
