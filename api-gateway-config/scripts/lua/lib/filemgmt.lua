@@ -37,21 +37,29 @@ local _M = {}
 function _M.createResourceConf(baseConfDir, tenant, gatewayPath, resourceObj)
   local decoded = cjson.decode(resourceObj)
   resourceObj = utils.serializeTable(decoded)
-  local prefix = utils.concatStrings({"\tinclude /etc/api-gateway/conf.d/commons/common-headers.conf;\n",
-                                      "\tset $upstream https://172.17.0.1;\n",
-                                      "\tset $tenant ", tenant, ";\n",
-                                      "\tset $backendUrl '';\n",
-                                      "\tset $gatewayPath ",  utils.concatStrings({"\"", ngx.unescape_uri(gatewayPath),
-                                      "\""}), ";\n\n"})
+  local prefix = utils.concatStrings({
+    "\tinclude /etc/api-gateway/conf.d/commons/common-headers.conf;\n",
+    "\tset $upstream https://172.17.0.1;\n",
+    "\tset $tenant ", tenant, ";\n",
+    "\tset $backendUrl '';\n",
+    "\tset $gatewayPath '", ngx.unescape_uri(gatewayPath), "';\n"
+  })
   if decoded.apiId ~= nil then
     prefix = utils.concatStrings({prefix, "\tset $apiId ", decoded.apiId, ";\n"})
   end
+  -- Add CORS headers
+  local cors = utils.concatStrings({
+    "\tadd_header Access-Control-Allow-Origin *;\n",
+    "\tadd_header Access-Control-Allow-Credentials true;\n"
+  })
   -- Set resource headers and mapping by calling routing.processCall()
-  local outgoingResource = utils.concatStrings({"\taccess_by_lua_block {\n",
-                                                "\t\tlocal routing = require \"routing\"\n",
-                                                "\t\trouting.processCall(", resourceObj, ")\n",
-                                                "\t}\n\n",
-                                                "\tproxy_pass $upstream;\n"})
+  local outgoingResource = utils.concatStrings({
+    "\taccess_by_lua_block {\n",
+    "\t\tlocal routing = require \"routing\"\n",
+    "\t\trouting.processCall(", resourceObj, ")\n",
+    "\t}\n",
+    "\tproxy_pass $upstream;\n"
+  })
   -- Add to endpoint conf file
   os.execute(utils.concatStrings({"mkdir -p ", baseConfDir, tenant}))
   local fileLocation = utils.concatStrings({baseConfDir, tenant, "/", gatewayPath, ".conf"})
@@ -59,13 +67,14 @@ function _M.createResourceConf(baseConfDir, tenant, gatewayPath, resourceObj)
   if not file then
     request.err(500, utils.concatStrings({"Error adding to endpoint conf file: ", err}))
   end
-
   local updatedPath = ngx.unescape_uri(gatewayPath):gsub("%{(%w*)%}", utils.convertTemplatedPathParam)
-
-  local location = utils.concatStrings({"location ~ ^/api/", tenant, "/", updatedPath, "(\\b) {\n",
-                                        prefix,
-                                        outgoingResource,
-                                        "}\n"})
+  local location = utils.concatStrings({
+    "location ~ ^/api/", tenant, "/", updatedPath, "(\\b) {\n",
+    prefix,
+    cors,
+    outgoingResource,
+    "}\n"
+  })
   file:write(location)
   file:close()
   -- reload nginx to refresh conf files
