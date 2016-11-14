@@ -79,43 +79,29 @@ function _M.close(red)
 end
 
 --- Generate Redis object for resource
--- @param red redis client instance
--- @param key redis resource key
--- @param gatewayMethod resource gateway method
--- @param backendUrl resource backend url
--- @param backendMethod resource backend method
+-- @param ops list of operations for a given resource
 -- @param apiId resource api id (nil if no api)
--- @param policies list of policy objects
--- @param security security object
-function _M.generateResourceObj(red, key, gatewayMethod, backendUrl, backendMethod, apiId, policies, security)
-  local newResource
-  local resourceObj = _M.getResource(red, key, REDIS_FIELD)
-  if resourceObj == nil then
-    newResource = {
-      operations = {
-        [gatewayMethod] = {
-          backendUrl = backendUrl,
-          backendMethod = backendMethod,
-        }
-      }
+function _M.generateResourceObj(ops, apiId)
+  local resourceObj = {
+    operations = {}
+  }
+  for op, v in pairs(ops) do
+    op = op:upper()
+    resourceObj.operations[op] = {
+      backendUrl = v.backendUrl,
+      backendMethod = v.backendMethod
     }
-  else
-    newResource = cjson.decode(resourceObj)
-    newResource.operations[gatewayMethod] = {
-      backendUrl = backendUrl,
-      backendMethod = backendMethod,
-    }
+    if v.policies then
+      resourceObj.operations[op].policies = v.policies
+    end
+    if v.security then
+      resourceObj.operations[op].security = v.security
+    end
   end
   if apiId then
-    newResource.apiId = apiId
+    resourceObj.apiId = apiId
   end
-  if policies then
-    newResource.operations[gatewayMethod].policies = policies
-  end
-  if security then
-    newResource.operations[gatewayMethod].security = security
-  end
-  return cjson.encode(newResource)
+  return cjson.encode(resourceObj)
 end
 
 --- Create/update resource in redis

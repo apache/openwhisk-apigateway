@@ -49,7 +49,6 @@ function _M.createResourceConf(baseConfDir, tenant, gatewayPath, resourceObj)
   end
   -- Add CORS headers
   prefix = utils.concatStrings({prefix, "\tadd_header Access-Control-Allow-Methods 'GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS';\n"})
-
   -- Set resource headers and mapping by calling routing.processCall()
   local outgoingResource = utils.concatStrings({
     "\taccess_by_lua_block {\n",

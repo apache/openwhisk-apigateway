@@ -121,24 +121,19 @@ describe('Testing Redis module', function()
 
   it('should generate resource object to store in redis', function()
     -- Resource object with no policies or security
-    local key = 'resources:guest:hello'
-    local gatewayMethod = 'GET'
-    local backendUrl = 'https://httpbin.org/get'
-    local backendMethod = gatewayMethod
     local apiId = 12345
-    local policies
-    local security
+    local operations = {
+      GET = {
+        backendUrl = 'https://httpbin.org/get',
+        backendMethod = 'GET'
+      }
+    }
     local resourceObj = {
-      operations = {
-        [gatewayMethod] = {
-          backendUrl = backendUrl,
-          backendMethod = backendMethod
-        }
-      },
-      apiId = apiId
+      apiId = apiId,
+      operations = operations
     }
     local expected = resourceObj
-    local generated = cjson.decode(redis.generateResourceObj(red, key, gatewayMethod, backendUrl, backendMethod, apiId, policies, security))
+    local generated = cjson.decode(redis.generateResourceObj(operations, apiId))
     assert.are.same(expected, generated)
 
     -- Resource object with policy added
@@ -153,10 +148,9 @@ describe('Testing Redis module', function()
           }]
       }]
     ]]
-    policies = cjson.decode(policyList)
-    resourceObj.operations[gatewayMethod].policies = policies
+    resourceObj.operations.GET.policies = cjson.decode(policyList)
     expected = resourceObj
-    generated = cjson.decode(redis.generateResourceObj(red, key, gatewayMethod, backendUrl, backendMethod, apiId, policies, security))
+    generated = cjson.decode(redis.generateResourceObj(operations, apiId))
     assert.are.same(expected, generated)
 
     -- Resource object with security added
@@ -167,24 +161,19 @@ describe('Testing Redis module', function()
         "header":"myheader"
       }
     ]]
-    security = cjson.decode(securityObj)
-    resourceObj.operations[gatewayMethod].security = security
+    resourceObj.operations.GET.security = cjson.decode(securityObj)
     expected = resourceObj
-    generated = cjson.decode(redis.generateResourceObj(red, key, gatewayMethod, backendUrl, backendMethod, apiId, policies, security))
+    generated = cjson.decode(redis.generateResourceObj(operations, apiId))
     assert.are.same(expected, generated)
 
-    -- Update already existing resource object
-    local field = 'resources'
-    redis.createResource(red, key, field, cjson.encode(generated))
-    local newGatewayMethod = 'POST'
-    resourceObj.operations[newGatewayMethod] = {
-      backendUrl = backendUrl,
-      backendMethod = backendMethod
+    -- Resource object with multiple operations
+    resourceObj.operations.PUT = {
+        backendUrl = 'https://httpbin.org/get',
+        backendMethod = 'PUT',
+        security = {}
     }
-    policies = nil
-    security = nil
     expected = resourceObj
-    generated = cjson.decode(redis.generateResourceObj(red, key, newGatewayMethod, backendUrl, backendMethod, apiId, policies, security))
+    generated = cjson.decode(redis.generateResourceObj(operations, apiId))
     assert.are.same(expected, generated)
   end)
 

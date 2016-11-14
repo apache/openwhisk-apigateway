@@ -28,74 +28,145 @@ local filemgmt = require "lib/filemgmt"
 local utils = require "lib/utils"
 local logger = require "lib/logger"
 local request = require "lib/request"
-
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
 local REDIS_PASS = os.getenv("REDIS_PASS")
-
 local REDIS_FIELD = "resources"
-
 local BASE_CONF_DIR = "/etc/api-gateway/managed_confs/"
 
 local _M = {}
 
 --- Add/update a resource to redis and create/update an nginx conf file given PUT JSON body
--- PUT http://0.0.0.0:9000/resources/<tenant>/<url-encoded-resource>
--- Example PUT JSON body:
+-- PUT http://0.0.0.0:9000/APIs
+-- PUT JSON body:
 -- {
---      "api": "12345"
---      "gatewayMethod": "GET",
---      "backendURL": "http://openwhisk.ng.bluemix.net/guest/action?blocking=true",
---      "backendMethod": "POST",
---      "policies": [],
---      "security": {
---        "type": "apikey"
---      }
---  }
-function _M.addResource()
+--    "name": *(String) name of API
+--    "basePath": *(String) base path for api
+--    "tenantId": *(String) tenant id
+--    "resources": *(String) resources to add
+-- }
+function _M.addAPI()
   -- Read in the PUT JSON Body
   ngx.req.read_body()
   local args = ngx.req.get_body_data()
   if not args then
-    request.err(400, "Missing Request body")
+    request.err(400, "Missing request body")
   end
   -- Convert json into Lua table
   local decoded = cjson.decode(args)
-  -- Error handling for required fields in the request body
-  local gatewayMethod = decoded.gatewayMethod
-  if not gatewayMethod then
-    request.err(400, "\"gatewayMethod\" missing from request body.")
+  -- Error checking
+  local fields = {"name", "basePath", "tenantId", "resources"}
+  for k, v in pairs(fields) do
+    local res, err = isValid(v, decoded[v])
+    if res == false then
+      request.err(err.statusCode, err.message)
+    end
   end
-  local backendUrl = decoded.backendURL
-  if not backendUrl then
-    request.err(400, "\"backendURL\" missing from request body.")
-  end
-  -- Use gatewayMethod by default or usebackendMethod if specified
-  local backendMethod = decoded and decoded.backendMethod or gatewayMethod
-  -- apiId, policies, security fields are optional
-  local apiId = decoded.apiId
-  -- TODO: Error handling needed for policies and security
-  local policies = decoded.policies
-  local security = decoded.security
-  local requestURI = string.gsub(ngx.var.request_uri, "?.*", "")
-  local list = parseRequestURI(requestURI)
-  local tenant = list[2]
-  local gatewayPath = list[3]
-  local redisKey = utils.concatStrings({"resources", ":", tenant, ":", ngx.unescape_uri(gatewayPath)})
   -- Open connection to redis or use one from connection pool
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  local resourceObj = redis.generateResourceObj(red, redisKey, gatewayMethod, backendUrl, backendMethod, apiId, policies, security)
-  redis.createResource(red, redisKey, REDIS_FIELD, resourceObj)
-  filemgmt.createResourceConf(BASE_CONF_DIR, tenant, gatewayPath, resourceObj)
+  -- Format basePath
+  local basePath = decoded.basePath:sub(1,1) == '/' and decoded.basePath:sub(2) or decoded.basePath
+  -- Add resources to redis and create nginx conf files
+  for path, resource in pairs(decoded.resources) do
+    local gatewayPath = utils.concatStrings({basePath, ngx.escape_uri(path)})
+    addResource(red, resource, gatewayPath, decoded.tenantId)
+  end
   -- Add current redis connection in the ngx_lua cosocket connection pool
   redis.close(red)
   -- Return managed url object
   local managedUrlObj = {
-    managedUrl = utils.concatStrings({"http://0.0.0.0:8080/api/", tenant, "/", gatewayPath})
+    name = decoded.name,
+    basePath = utils.concatStrings({"/", basePath}),
+    tenantId = decoded.tenantId,
+    resources = decoded.resources,
+    managedUrl = utils.concatStrings({"http://0.0.0.0:8080/api/", decoded.tenantId, "/", basePath})
   }
   managedUrlObj = cjson.encode(managedUrlObj):gsub("\\", "")
   ngx.header.content_type = "application/json; charset=utf-8"
   request.success(200, managedUrlObj)
+end
+
+--- Check JSON body fields for errors
+-- @param field name of field
+-- @param object field object
+function isValid(field, object)
+  -- Check that field exists in body
+  if not object then
+    return false, { statusCode = 400, message = utils.concatStrings({"Missing field '", field, "' in request body."}) }
+  end
+  -- Additional checks for resource object
+  if field == "resources" then
+    local resources = object
+    if next(object) == nil then
+      return false, { statusCode = 400, message = "Empty resources object." }
+    end
+    for path, resource in pairs(resources) do
+      -- Check that resource path begins with slash
+      if path:sub(1,1) ~= '/' then
+        return false, { statusCode = 400, message = "Resource path must begin with '/'." }
+      end
+      -- Check operations object
+      if not resource.operations or next(resource.operations) == nil then
+        return false, { statusCode = 400, message = "Missing or empty field 'operations' or in resource path object." }
+      end
+      for verb, verbObj in pairs(resource.operations) do
+        local allowedVerbs = {GET=true, POST=true, PUT=true, DELETE=true, PATCH=true, HEAD=true, OPTIONS=true}
+        if allowedVerbs[verb:upper()] == nil then
+          return false, { statusCode = 400, message = utils.concatStrings({"Resource verb '", verb, "' not supported."}) }
+        end
+        -- Check required fields
+        local requiredFields = {"backendMethod", "backendUrl"}
+        for k, v in pairs(requiredFields) do
+          if verbObj[v] == nil then
+            return false, { statusCode = 400, message = utils.concatStrings({"Missing field '", v, "' for '", verb, "' operation."}) }
+          end
+          if v == "backendMethod" then
+            local backendMethod = verbObj[v]
+            if allowedVerbs[backendMethod:upper()] == nil then
+              return false, { statusCode = 400, message = utils.concatStrings({"backendMethod '", backendMethod, "' not supported."}) }
+            end
+          end
+        end
+        -- Check optional fields
+        local policies = verbObj.policies
+        if policies then
+          for k, v in pairs(policies) do
+            if v.type == nil then
+              return false, { statusCode = 400, message = "Missing field 'type' in policy object." }
+            end
+          end
+        end
+        local security = verbObj.security
+        if security and security.type == nil then
+          return false, { statusCode = 400, message = "Missing field 'type' in security object." }
+        end
+      end
+    end
+  end
+  -- All error checks passed
+  return true
+end
+
+--- Helper function for adding a resource to redis and creating an nginx conf file
+-- @param red
+-- @param resource
+-- @param gatewayPath
+-- @param tenantId
+function addResource(red, resource, gatewayPath, tenantId)
+  -- Create resource object and add to redis
+  local redisKey = utils.concatStrings({"resources", ":", tenantId, ":", ngx.unescape_uri(gatewayPath)})
+  local apiId
+  local operations
+  for k, v in pairs(resource) do
+    if k == 'apiId' then
+      apiId = v
+    elseif k == 'operations' then
+      operations = v
+    end
+  end
+  local resourceObj = redis.generateResourceObj(operations, apiId)
+  redis.createResource(red, redisKey, REDIS_FIELD, resourceObj)
+  filemgmt.createResourceConf(BASE_CONF_DIR, tenantId, gatewayPath, resourceObj)
 end
 
 --- Get resource from redis
