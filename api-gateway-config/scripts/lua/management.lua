@@ -36,7 +36,11 @@ local BASE_CONF_DIR = "/etc/api-gateway/managed_confs/"
 
 local _M = {}
 
---- Add/update a resource to redis and create/update an nginx conf file given PUT JSON body
+--------------------------
+---------- APIs ----------
+--------------------------
+
+--- Add an api to the Gateway
 -- PUT http://0.0.0.0:9000/APIs
 -- PUT JSON body:
 -- {
@@ -71,10 +75,11 @@ function _M.addAPI()
     local gatewayPath = utils.concatStrings({basePath, ngx.escape_uri(path)})
     addResource(red, resource, gatewayPath, decoded.tenantId)
   end
-  -- Add current redis connection in the ngx_lua cosocket connection pool
-  redis.close(red)
-  -- Return managed url object
+  -- Generate random uuid for api
+  local uuid = utils.uuid()
+  -- Create managed url object
   local managedUrlObj = {
+    id = uuid,
     name = decoded.name,
     basePath = utils.concatStrings({"/", basePath}),
     tenantId = decoded.tenantId,
@@ -82,6 +87,11 @@ function _M.addAPI()
     managedUrl = utils.concatStrings({"http://0.0.0.0:8080/api/", decoded.tenantId, "/", basePath})
   }
   managedUrlObj = cjson.encode(managedUrlObj):gsub("\\", "")
+  -- Add API object to redis
+  redis.addAPI(red, uuid, managedUrlObj)
+  -- Add current redis connection in the ngx_lua cosocket connection pool
+  redis.close(red)
+  -- Return managed url object
   ngx.header.content_type = "application/json; charset=utf-8"
   request.success(200, managedUrlObj)
 end
@@ -169,56 +179,84 @@ function addResource(red, resource, gatewayPath, tenantId)
   filemgmt.createResourceConf(BASE_CONF_DIR, tenantId, gatewayPath, resourceObj)
 end
 
---- Get resource from redis
--- GET http://0.0.0.0:9000/resources/<tenant>/<url-encoded-resource>
-function _M.getResource()
-  local requestURI = string.gsub(ngx.var.request_uri, "?.*", "")
-  local list = parseRequestURI(requestURI)
-  local tenant = list[2]
-  local gatewayPath = list[3]
-  local redisKey = utils.concatStrings({list[1], ":", tenant, ":", ngx.unescape_uri(gatewayPath)})
-  -- Initialize and connect to redis
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  local resourceObj = redis.getResource(red, redisKey, REDIS_FIELD)
-  if resourceObj == nil then
-    request.err(404, "Resource doesn't exist.")
+--- Get one or all APIs from the gateway
+-- PUT http://0.0.0.0:9000/APIs
+function _M.getAPIs()
+  local uri = string.gsub(ngx.var.request_uri, "?.*", "")
+  if uri:len() <= 6 then
+    getAllAPIs()
+  else
+    local id = uri:sub(7)
+    getAPI(id)
   end
-  -- Add current redis connection in the ngx_lua cosocket connection pool
-  redis.close(red)
-  -- Get available operations for the given resource
-  resourceObj = cjson.decode(resourceObj)
-  local operations = {}
-  for k in pairs(resourceObj.operations) do
-    operations[#operations+1] = k
-  end
-  -- Return managed url object
-  local managedUrlObj = {
-    managedUrl = utils.concatStrings({"http://0.0.0.0:8080/api/", tenant, "/", gatewayPath}),
-    availableOperations = operations
-  }
-  managedUrlObj = cjson.encode(managedUrlObj):gsub("\\", "")
-  ngx.header.content_type = "application/json; charset=utf-8"
-  request.success(200, managedUrlObj)
 end
 
---- Delete resource from redis
--- DELETE http://0.0.0.0:9000/resources/<tenant>/<url-encoded-resource>
-function _M.deleteResource()
-  local requestURI = string.gsub(ngx.var.request_uri, "?.*", "")
-  local list = parseRequestURI(requestURI)
-  local tenant = list[2]
-  local gatewayPath = list[3]
-  local redisKey = utils.concatStrings({list[1], ":", tenant, ":", ngx.unescape_uri(gatewayPath)})
-  -- Initialize and connect to redis
+--- Get all APIs in redis
+function getAllAPIs()
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  -- Return if resource doesn't exist
-  redis.deleteResource(red, redisKey, REDIS_FIELD)
-  -- Delete conf file
-  filemgmt.deleteResourceConf(BASE_CONF_DIR, tenant, gatewayPath)
-  -- Add current redis connection in the ngx_lua cosocket connection pool
+  local res = redis.getAllAPIs(red)
   redis.close(red)
-  request.success(200, "Resource deleted.")
+  local apiList = {}
+  for k, v in pairs(res) do
+    if k%2 == 0 then
+      apiList[#apiList+1] = cjson.decode(v)
+    end
+  end
+  apiList = cjson.encode(apiList)
+  ngx.header.content_type = "application/json; charset=utf-8"
+  request.success(200, apiList)
 end
+
+--- Get API by its id
+-- @param id
+function getAPI(id)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local api = redis.getAPI(red, id)
+  redis.close(red)
+  ngx.header.content_type = "application/json; charset=utf-8"
+  request.success(200, cjson.encode(api))
+end
+
+--- Delete API from gateway
+-- DELETE http://0.0.0.0:9000/APIs/<id>
+function _M.deleteAPI()
+  local uri = string.gsub(ngx.var.request_uri, "?.*", "")
+  if uri:len() <= 6 then
+    request.err(400, "No id specified.")
+  end
+  local id = uri:sub(7)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local api = redis.getAPI(red, id)
+  -- Delete all resources for the API
+  local basePath = api.basePath:sub(2)
+  for path, v in pairs(api.resources) do
+    local gatewayPath = utils.concatStrings({basePath, ngx.escape_uri(path)})
+    deleteResource(red, gatewayPath, api.tenantId)
+  end
+  redis.deleteAPI(red, id)
+  redis.close(red)
+  request.success(200, {})
+end
+
+--- Helper function for deleting resource in redis and appropriate conf files
+-- @param red redis instance
+-- @param gatewayPath path in gateway
+-- @param tenantId tenant id
+function deleteResource(red, gatewayPath, tenantId)
+  local redisKey = utils.concatStrings({"resources:", tenantId, ":", ngx.unescape_uri(gatewayPath)})
+  redis.deleteResource(red, redisKey, REDIS_FIELD)
+  filemgmt.deleteResourceConf(BASE_CONF_DIR, tenantId, gatewayPath)
+end
+
+-----------------------------
+---------- Tenants ----------
+-----------------------------
+
+
+
+------------------------------
+----- Pub/Sub with Redis -----
+------------------------------
 
 --- Subscribe to redis
 -- GET http://0.0.0.0:9000/subscribe
@@ -260,6 +298,10 @@ function _M.addSubscription()
   redis.close(red)
   request.success(200, "Subscription created.")
 end
+
+---------------------------
+------ Subscriptions ------
+---------------------------
 
 --- Delete apikey/subscription from redis
 -- DELETE http://0.0.0.0:9000/subscriptions

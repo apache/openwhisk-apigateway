@@ -75,9 +75,20 @@ function convertTemplatedPathParam(m)
   return concatStrings({"(?<path_" , x , ">([a-zA-Z0-9\\-\\s\\_\\%]*))"})
 end
 
+--- Generate random uuid
+function uuid()
+  local template ='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+  math.randomseed(os.time())
+  return string.gsub(template, '[xy]', function (c)
+    local v = (c == 'x') and math.random(0, 0xf) or math.random(8, 0xb)
+    return string.format('%x', v)
+  end)
+end
+
 _Utils.concatStrings = concatStrings
 _Utils.serializeTable = serializeTable
 _Utils.convertTemplatedPathParam = convertTemplatedPathParam
+_Utils.uuid = uuid
 
 return _Utils
 

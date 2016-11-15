@@ -33,6 +33,10 @@ local BASE_CONF_DIR = "/etc/api-gateway/managed_confs/"
 
 local _M = {}
 
+----------------------------
+-- Initialization/Cleanup --
+----------------------------
+
 --- Initialize and connect to Redis
 -- @param host redis host
 -- @param port redis port
@@ -77,6 +81,59 @@ function _M.close(red)
     request.err(500, utils.concatStrings({"Failed to set keepalive: ", err}))  
   end
 end
+
+---------------------------
+----------- APIs ----------
+---------------------------
+
+--- Add API to redis
+-- @param red Redis client instance
+-- @param id id of API
+-- @param apiObj the api to add
+function _M.addAPI(red, id, apiObj)
+  local ok, err = red:hset("apis", id, apiObj)
+  if not ok then
+    request.err(500, utils.concatStrings({"Failed adding API to redis: ", err}))
+  end
+end
+
+--- Get all APIs from redis
+-- @param red Redis client instance
+function _M.getAllAPIs(red)
+  local res, err = red:hgetall("apis")
+  if not res then
+    request.err(500, utils.concatStrings({"Failed getting APIs from redis: ", err}))
+  end
+  return res
+end
+
+--- Get a single API from redis given its id
+-- @param redis Redis client instance
+-- @param id id of API to get
+function _M.getAPI(red, id)
+  local api, err = red:hget("apis", id)
+  if not api then
+    request.err(500, utils.concatStrings({"Failed getting API from redis: ", err}))
+  end
+  if api == ngx.null then
+    request.err(404, utils.concatStrings({"Unknown API id ", id, "."}))
+  end
+  return cjson.decode(api)
+end
+
+--- Delete an API from redis given its id
+-- @param redis Redis client instance
+-- @param id id of API to delete
+function _M.deleteAPI(red, id)
+  local ok, err = red:hdel("apis", id)
+  if not ok then
+    request.err(500, utils.concatStrings({"Failed deleting API from redis: ", err}))
+  end
+end
+
+-----------------------------
+--------- Resources ---------
+-----------------------------
 
 --- Generate Redis object for resource
 -- @param ops list of operations for a given resource
@@ -155,6 +212,10 @@ function _M.deleteResource(red, key, field)
   end
 end
 
+-----------------------------
+--- API Key Subscriptions ---
+-----------------------------
+
 --- Create/update subscription/apikey in redis
 -- @param red redis client instance
 -- @param key redis subscription key to create
@@ -182,6 +243,10 @@ function _M.deleteSubscription(red, key)
     request.err(500, utils.concatStrings({"Failed to delete subscription: ", err}))
   end
 end
+
+-----------------------------------
+------- Pub/Sub with Redis --------
+-----------------------------------
 
 --- Subscribe to redis
 -- @param redisSubClient the redis client that is listening for the redis key changes
