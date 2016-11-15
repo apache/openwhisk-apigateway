@@ -192,7 +192,7 @@ function _M.getResource(red, key, field)
   return resourceObj
 end
 
---- Delete resource int redis
+--- Delete resource in redis
 -- @param red redis client instance
 -- @param key redis resource key
 -- @param field redis resource field
@@ -209,6 +209,55 @@ function _M.deleteResource(red, key, field)
     request.err(500, utils.concatStrings({"Failed deleting resource: ", err}))
   else
     return ok
+  end
+end
+
+-----------------------------
+---------- Tenants ----------
+-----------------------------
+
+--- Add tenant to redis
+-- @param red Redis client instance
+-- @param id id of tenant
+-- @param tenantObj the tenant to add
+function _M.addTenant(red, id, tenantObj)
+  local ok, err = red:hset("tenants", id, tenantObj)
+  if not ok then
+    request.err(500, utils.concatStrings({"Failed adding tenant to redis: ", err}))
+  end
+end
+
+--- Get all tenants from redis
+-- @param red Redis client instance
+function _M.getAllTenants(red)
+  local res, err = red:hgetall("tenants")
+  if not res then
+    request.err(500, utils.concatStrings({"Failed getting tenants from redis: ", err}))
+  end
+  return res
+end
+
+--- Get a single tenant from redis given its id
+-- @param redis Redis client instance
+-- @param id id of tenant to get
+function _M.getTenant(red, id)
+  local tenant, err = red:hget("tenants", id)
+  if not tenant then
+    request.err(500, utils.concatStrings({"Failed getting tenants from redis: ", err}))
+  end
+  if tenant == ngx.null then
+    request.err(404, utils.concatStrings({"Unknown tenant id ", id, "."}))
+  end
+  return cjson.decode(tenant)
+end
+
+--- Delete an tenant from redis given its id
+-- @param redis Redis client instance
+-- @param id id of tenant to delete
+function _M.deleteTenant(red, id)
+  local ok, err = red:hdel("tenants", id)
+  if not ok then
+    request.err(500, utils.concatStrings({"Failed deleting tenant from redis: ", err}))
   end
 end
 

@@ -42,7 +42,7 @@ local _M = {}
 
 --- Add an api to the Gateway
 -- PUT http://0.0.0.0:9000/APIs
--- PUT JSON body:
+-- body:
 -- {
 --    "name": *(String) name of API
 --    "basePath": *(String) base path for api
@@ -252,7 +252,95 @@ end
 ---------- Tenants ----------
 -----------------------------
 
+--- Add a tenant to the Gateway
+-- PUT http://0.0.0.0:9000/Tenants
+-- body:
+-- {
+--    "namespace": *(String) tenant namespace
+--    "instance": *(String) tenant instance
+-- }
+function _M.addTenant()
+  -- Read in the PUT JSON Body
+  ngx.req.read_body()
+  local args = ngx.req.get_body_data()
+  if not args then
+    request.err(400, "Missing request body")
+  end
+  -- Convert json into Lua table
+  local decoded = cjson.decode(args)
+  -- Error checking
+  local fields = {"namespace", "instance"}
+  for k, v in pairs(fields) do
+    if not decoded[v] then
+      request.err(400, utils.concatStrings({"Missing field '", v, "' in request body."}))
+    end
+  end
+  -- Generate random uuid for tenant
+  local uuid = utils.uuid()
+  local tenantObj = {
+    id = uuid,
+    namespace = decoded.namespace,
+    instance = decoded.instance
+  }
+  tenantObj = cjson.encode(tenantObj)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  redis.addTenant(red, uuid, tenantObj)
+  redis.close(red)
+  ngx.header.content_type = "application/json; charset=utf-8"
+  request.success(200, tenantObj)
+end
 
+--- Get one or all tenants from the gateway
+-- PUT http://0.0.0.0:9000/Tenants
+function _M.getTenants()
+  local uri = string.gsub(ngx.var.request_uri, "?.*", "")
+  if uri:len() <= 9 then
+    getAllTenants()
+  else
+    local id = uri:sub(10)
+    getTenant(id)
+  end
+end
+
+--- Get all tenants in redis
+function getAllTenants()
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local res = redis.getAllTenants(red)
+  redis.close(red)
+  local tenantList = {}
+  for k, v in pairs(res) do
+    if k%2 == 0 then
+      tenantList[#tenantList+1] = cjson.decode(v)
+    end
+  end
+  tenantList = cjson.encode(tenantList)
+  ngx.header.content_type = "application/json; charset=utf-8"
+  request.success(200, tenantList)
+end
+
+--- Get tenant by its id
+-- @param id
+function getTenant(id)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local tenant = redis.getTenant(red, id)
+  redis.close(red)
+  ngx.header.content_type = "application/json; charset=utf-8"
+  request.success(200, cjson.encode(tenant))
+end
+
+--- Delete tenant from gateway
+-- DELETE http://0.0.0.0:9000/Tenants/<id>
+function _M.deleteTenant()
+  local uri = string.gsub(ngx.var.request_uri, "?.*", "")
+  if uri:len() <= 9 then
+    request.err(400, "No id specified.")
+  end
+  local id = uri:sub(10)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  redis.deleteTenant(red, id)
+  redis.close(red)
+  request.success(200, {})
+end
 
 ------------------------------
 ----- Pub/Sub with Redis -----
