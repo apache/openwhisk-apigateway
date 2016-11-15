@@ -50,6 +50,24 @@ local _M = {}
 --    "resources": *(String) resources to add
 -- }
 function _M.addAPI()
+  -- Open connection to redis or use one from connection pool
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  -- Check for api id and use existingAPI if it already exists in redis
+  local uri = string.gsub(ngx.var.request_uri, "?.*", "")
+  local apiId, existingAPI
+  local index = 1
+  for word in string.gmatch(uri, '([^/]+)') do
+    if index == 3 then
+      apiId = word
+    end
+    index = index + 1
+  end
+  if apiId ~= nil then
+    existingAPI = redis.getAPI(red, apiId)
+    if existingAPI == nil then
+      request.err(404, utils.concatStrings({"Unknown API id ", apiId}))
+    end
+  end
   -- Read in the PUT JSON Body
   ngx.req.read_body()
   local args = ngx.req.get_body_data()
@@ -61,13 +79,11 @@ function _M.addAPI()
   -- Error checking
   local fields = {"name", "basePath", "tenantId", "resources"}
   for k, v in pairs(fields) do
-    local res, err = isValid(v, decoded[v])
+    local res, err = isValid(red, v, decoded[v])
     if res == false then
       request.err(err.statusCode, err.message)
     end
   end
-  -- Open connection to redis or use one from connection pool
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
   -- Format basePath
   local basePath = decoded.basePath:sub(1,1) == '/' and decoded.basePath:sub(2) or decoded.basePath
   -- Add resources to redis and create nginx conf files
@@ -75,9 +91,8 @@ function _M.addAPI()
     local gatewayPath = utils.concatStrings({basePath, ngx.escape_uri(path)})
     addResource(red, resource, gatewayPath, decoded.tenantId)
   end
-  -- Generate random uuid for api
-  local uuid = utils.uuid()
-  -- Create managed url object
+  -- Return managedUrl object
+  local uuid = existingAPI ~= nil and existingAPI.id or utils.uuid()
   local managedUrlObj = {
     id = uuid,
     name = decoded.name,
@@ -89,7 +104,6 @@ function _M.addAPI()
   managedUrlObj = cjson.encode(managedUrlObj):gsub("\\", "")
   -- Add API object to redis
   redis.addAPI(red, uuid, managedUrlObj)
-  -- Add current redis connection in the ngx_lua cosocket connection pool
   redis.close(red)
   -- Return managed url object
   ngx.header.content_type = "application/json; charset=utf-8"
@@ -97,12 +111,20 @@ function _M.addAPI()
 end
 
 --- Check JSON body fields for errors
+-- @param red Redis client instance
 -- @param field name of field
 -- @param object field object
-function isValid(field, object)
+function isValid(red, field, object)
   -- Check that field exists in body
   if not object then
     return false, { statusCode = 400, message = utils.concatStrings({"Missing field '", field, "' in request body."}) }
+  end
+  -- Additional check f or tenantId
+  if field == "tenantId" then
+    local tenant = redis.getTenant(red, object)
+    if tenant == nil then
+      return false, { statusCode = 404, message = utils.concatStrings({"Unknown tenant id ", object }) }
+    end
   end
   -- Additional checks for resource object
   if field == "resources" then
@@ -180,14 +202,32 @@ function addResource(red, resource, gatewayPath, tenantId)
 end
 
 --- Get one or all APIs from the gateway
--- PUT http://0.0.0.0:9000/APIs
+-- GET http://0.0.0.0:9000/APIs
 function _M.getAPIs()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
-  if uri:len() <= 6 then
+  local id
+  local index = 1
+  local tenantQuery = false
+  for word in string.gmatch(uri, '([^/]+)') do
+    if index == 3 then
+      id = word
+    elseif index == 4 then
+      if word == 'tenant' then
+        tenantQuery = true
+      else
+        request.err(400, "Invalid request")
+      end
+    end
+    index = index + 1
+  end
+  if id == nil then
     getAllAPIs()
   else
-    local id = uri:sub(7)
-    getAPI(id)
+    if tenantQuery == false then
+      getAPI(id)
+    else
+      getAPITenant(id)
+    end
   end
 end
 
@@ -208,25 +248,56 @@ function getAllAPIs()
 end
 
 --- Get API by its id
--- @param id
+-- @param id of API
 function getAPI(id)
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
   local api = redis.getAPI(red, id)
+  if api == nil then
+    request.err(404, utils.concatStrings({"Unknown api id ", id}))
+  end
   redis.close(red)
   ngx.header.content_type = "application/json; charset=utf-8"
   request.success(200, cjson.encode(api))
+end
+
+--- Get belongsTo relation tenant
+-- @param id id of API
+function getAPITenant(id)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local api = redis.getAPI(red, id)
+  if api == nil then
+    request.err(404, utils.concatStrings({"Unknown api id ", id}))
+  end
+  local tenantId = api.tenantId
+  local tenant = redis.getTenant(red, tenantId)
+  if tenant == nil then
+    request.err(404, utils.concatStrings({"Unknown tenant id ", tenantId}))
+  end
+  redis.close(red)
+  ngx.header.content_type = "application/json; charset=utf-8"
+  request.success(200, cjson.encode(tenant))
 end
 
 --- Delete API from gateway
 -- DELETE http://0.0.0.0:9000/APIs/<id>
 function _M.deleteAPI()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
-  if uri:len() <= 6 then
+  local index = 1
+  local id
+  for word in string.gmatch(uri, '([^/]+)') do
+    if index == 3 then
+      id = word
+    end
+    index = index + 1
+  end
+  if id == nil then
     request.err(400, "No id specified.")
   end
-  local id = uri:sub(7)
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
   local api = redis.getAPI(red, id)
+  if api == nil then
+    request.err(404, utils.concatStrings({"Unknown API id ", id}))
+  end
   -- Delete all resources for the API
   local basePath = api.basePath:sub(2)
   for path, v in pairs(api.resources) do
@@ -260,6 +331,24 @@ end
 --    "instance": *(String) tenant instance
 -- }
 function _M.addTenant()
+  -- Open connection to redis or use one from connection pool
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  -- Check for tenant id and use existingTenant if it already exists in redis
+  local uri = string.gsub(ngx.var.request_uri, "?.*", "")
+  local tenantId, existingTenant
+  local index = 1
+  for word in string.gmatch(uri, '([^/]+)') do
+    if index == 3 then
+      tenantId = word
+    end
+    index = index + 1
+  end
+  if tenantId ~= nil then
+    existingTenant = redis.getTenant(red, tenantId)
+    if existingTenant == nil then
+      request.err(400, utils.concatStrings({"Unknown tenant id ", tenantId}))
+    end
+  end
   -- Read in the PUT JSON Body
   ngx.req.read_body()
   local args = ngx.req.get_body_data()
@@ -275,15 +364,14 @@ function _M.addTenant()
       request.err(400, utils.concatStrings({"Missing field '", v, "' in request body."}))
     end
   end
-  -- Generate random uuid for tenant
-  local uuid = utils.uuid()
+  -- Return tenant object
+  local uuid = existingTenant ~= nil and existingTenant.id or utils.uuid()
   local tenantObj = {
     id = uuid,
     namespace = decoded.namespace,
     instance = decoded.instance
   }
   tenantObj = cjson.encode(tenantObj)
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
   redis.addTenant(red, uuid, tenantObj)
   redis.close(red)
   ngx.header.content_type = "application/json; charset=utf-8"
@@ -291,14 +379,32 @@ function _M.addTenant()
 end
 
 --- Get one or all tenants from the gateway
--- PUT http://0.0.0.0:9000/Tenants
+-- GET http://0.0.0.0:9000/Tenants
 function _M.getTenants()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
-  if uri:len() <= 9 then
+  local id
+  local index = 1
+  local apiQuery = false
+  for word in string.gmatch(uri, '([^/]+)') do
+    if index == 3 then
+      id = word
+    elseif index == 4 then
+      if word:lower() == 'apis' then
+        apiQuery = true
+      else
+        request.err(400, "Invalid request")
+      end
+    end
+    index = index + 1
+  end
+  if id == nil then
     getAllTenants()
   else
-    local id = uri:sub(10)
-    getTenant(id)
+    if apiQuery == false then
+      getTenant(id)
+    else
+      getTenantAPIs(id)
+    end
   end
 end
 
@@ -319,23 +425,53 @@ function getAllTenants()
 end
 
 --- Get tenant by its id
--- @param id
+-- @param id tenant id
 function getTenant(id)
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
   local tenant = redis.getTenant(red, id)
+  if tenant == nil then
+    request.err(404, utils.concatStrings({"Unknown tenant id ", id }))
+  end
   redis.close(red)
   ngx.header.content_type = "application/json; charset=utf-8"
   request.success(200, cjson.encode(tenant))
+end
+
+--- Get APIs associated with tenant
+-- @param id tenant id
+function getTenantAPIs(id)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local res = redis.getAllAPIs(red)
+  redis.close(red)
+  local apiList = {}
+  for k, v in pairs(res) do
+    if k%2 == 0 then
+      local decoded = cjson.decode(v)
+      if decoded.tenantId == id then
+        apiList[#apiList+1] = decoded
+      end
+    end
+  end
+  apiList = cjson.encode(apiList)
+  ngx.header.content_type = "application/json; charset=utf-8"
+  request.success(200, apiList)
 end
 
 --- Delete tenant from gateway
 -- DELETE http://0.0.0.0:9000/Tenants/<id>
 function _M.deleteTenant()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
-  if uri:len() <= 9 then
+  local index = 1
+  local id
+  for word in string.gmatch(uri, '([^/]+)') do
+    if index == 3 then
+      id = word
+    end
+    index = index + 1
+  end
+  if id == nil then
     request.err(400, "No id specified.")
   end
-  local id = uri:sub(10)
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
   redis.deleteTenant(red, id)
   redis.close(red)
@@ -366,6 +502,10 @@ function _M.unsubscribe()
   request.success(200, "Unsubscribed to redis")
 end
 
+---------------------------
+------ Subscriptions ------
+---------------------------
+
 --- Add an apikey/subscription to redis
 -- PUT http://0.0.0.0:9000/subscriptions
 -- Body:
@@ -386,10 +526,6 @@ function _M.addSubscription()
   redis.close(red)
   request.success(200, "Subscription created.")
 end
-
----------------------------
------- Subscriptions ------
----------------------------
 
 --- Delete apikey/subscription from redis
 -- DELETE http://0.0.0.0:9000/subscriptions
