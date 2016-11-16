@@ -33,6 +33,10 @@ local BASE_CONF_DIR = "/etc/api-gateway/managed_confs/"
 
 local _M = {}
 
+----------------------------
+-- Initialization/Cleanup --
+----------------------------
+
 --- Initialize and connect to Redis
 -- @param host redis host
 -- @param port redis port
@@ -78,44 +82,83 @@ function _M.close(red)
   end
 end
 
+---------------------------
+----------- APIs ----------
+---------------------------
+
+--- Add API to redis
+-- @param red Redis client instance
+-- @param id id of API
+-- @param apiObj the api to add
+function _M.addAPI(red, id, apiObj)
+  local ok, err = red:hset("apis", id, apiObj)
+  if not ok then
+    request.err(500, utils.concatStrings({"Failed to save the API: ", err}))
+  end
+end
+
+--- Get all APIs from redis
+-- @param red Redis client instance
+function _M.getAllAPIs(red)
+  local res, err = red:hgetall("apis")
+  if not res then
+    request.err(500, utils.concatStrings({"Failed to retrieve APIs: ", err}))
+  end
+  return res
+end
+
+--- Get a single API from redis given its id
+-- @param red Redis client instance
+-- @param id id of API to get
+function _M.getAPI(red, id)
+  local api, err = red:hget("apis", id)
+  if not api then
+    request.err(500, utils.concatStrings({"Failed to retrieve the API: ", err}))
+  end
+  if api == ngx.null then
+    return nil
+  end
+  return cjson.decode(api)
+end
+
+--- Delete an API from redis given its id
+-- @param red Redis client instance
+-- @param id id of API to delete
+function _M.deleteAPI(red, id)
+  local ok, err = red:hdel("apis", id)
+  if not ok then
+    request.err(500, utils.concatStrings({"Failed to delete the API: ", err}))
+  end
+end
+
+-----------------------------
+--------- Resources ---------
+-----------------------------
+
 --- Generate Redis object for resource
--- @param red redis client instance
--- @param key redis resource key
--- @param gatewayMethod resource gateway method
--- @param backendUrl resource backend url
--- @param backendMethod resource backend method
+-- @param ops list of operations for a given resource
 -- @param apiId resource api id (nil if no api)
--- @param policies list of policy objects
--- @param security security object
-function _M.generateResourceObj(red, key, gatewayMethod, backendUrl, backendMethod, apiId, policies, security)
-  local newResource
-  local resourceObj = _M.getResource(red, key, REDIS_FIELD)
-  if resourceObj == nil then
-    newResource = {
-      operations = {
-        [gatewayMethod] = {
-          backendUrl = backendUrl,
-          backendMethod = backendMethod,
-        }
-      }
+function _M.generateResourceObj(ops, apiId)
+  local resourceObj = {
+    operations = {}
+  }
+  for op, v in pairs(ops) do
+    op = op:upper()
+    resourceObj.operations[op] = {
+      backendUrl = v.backendUrl,
+      backendMethod = v.backendMethod
     }
-  else
-    newResource = cjson.decode(resourceObj)
-    newResource.operations[gatewayMethod] = {
-      backendUrl = backendUrl,
-      backendMethod = backendMethod,
-    }
+    if v.policies then
+      resourceObj.operations[op].policies = v.policies
+    end
+    if v.security then
+      resourceObj.operations[op].security = v.security
+    end
   end
   if apiId then
-    newResource.apiId = apiId
+    resourceObj.apiId = apiId
   end
-  if policies then
-    newResource.operations[gatewayMethod].policies = policies
-  end
-  if security then
-    newResource.operations[gatewayMethod].security = security
-  end
-  return cjson.encode(newResource)
+  return cjson.encode(resourceObj)
 end
 
 --- Create/update resource in redis
@@ -127,7 +170,7 @@ function _M.createResource(red, key, field, resourceObj)
   -- Add/update resource to redis
   local ok, err = red:hset(key, field, resourceObj)
   if not ok then
-    request.err(500, utils.concatStrings({"Failed adding resource to redis: ", err})) 
+    request.err(500, utils.concatStrings({"Failed to save the resource: ", err}))
   end
 end
 
@@ -139,7 +182,7 @@ end
 function _M.getResource(red, key, field)
   local resourceObj, err = red:hget(key, field)
   if not resourceObj then
-    request.err(500, utils.concatStrings({"Failed getting resource: ", err}))
+    request.err(500, utils.concatStrings({"Failed to retrieve the resource: ", err}))
   end
   -- return nil if resource doesn't exist
   if resourceObj == ngx.null then
@@ -149,25 +192,78 @@ function _M.getResource(red, key, field)
   return resourceObj
 end
 
---- Delete resource int redis
+--- Delete resource in redis
 -- @param red redis client instance
 -- @param key redis resource key
 -- @param field redis resource field
 function _M.deleteResource(red, key, field)
   local resourceObj, err = red:hget(key, field)
   if not resourceObj then
-    request.err(500, utils.concatStrings({"Failed deleting resource: ", err}))
+    request.err(500, utils.concatStrings({"Failed to delete the resource: ", err}))
   end
   if resourceObj == ngx.null then
     request.err(404, "Resource doesn't exist.")
   end
   local ok, err = red:del(key)
   if not ok then
-    request.err(500, utils.concatStrings({"Failed deleting resource: ", err}))
+    request.err(500, utils.concatStrings({"Failed to delete the resource: ", err}))
   else
     return ok
   end
 end
+
+-----------------------------
+---------- Tenants ----------
+-----------------------------
+
+--- Add tenant to redis
+-- @param red Redis client instance
+-- @param id id of tenant
+-- @param tenantObj the tenant to add
+function _M.addTenant(red, id, tenantObj)
+  local ok, err = red:hset("tenants", id, tenantObj)
+  if not ok then
+    request.err(500, utils.concatStrings({"Failed to add the tenant: ", err}))
+  end
+end
+
+--- Get all tenants from redis
+-- @param red Redis client instance
+function _M.getAllTenants(red)
+  local res, err = red:hgetall("tenants")
+  if not res then
+    request.err(500, utils.concatStrings({"Failed to retrieve tenants: ", err}))
+  end
+  return res
+end
+
+--- Get a single tenant from redis given its id
+-- @param red Redis client instance
+-- @param id id of tenant to get
+function _M.getTenant(red, id)
+  local tenant, err = red:hget("tenants", id)
+  if not tenant then
+    request.err(500, utils.concatStrings({"Failed to retrieve the tenant: ", err}))
+  end
+  if tenant == ngx.null then
+    return nil
+  end
+  return cjson.decode(tenant)
+end
+
+--- Delete an tenant from redis given its id
+-- @param red Redis client instance
+-- @param id id of tenant to delete
+function _M.deleteTenant(red, id)
+  local ok, err = red:hdel("tenants", id)
+  if not ok then
+    request.err(500, utils.concatStrings({"Failed to delete the tenant: ", err}))
+  end
+end
+
+-----------------------------
+--- API Key Subscriptions ---
+-----------------------------
 
 --- Create/update subscription/apikey in redis
 -- @param red redis client instance
@@ -176,7 +272,7 @@ function _M.createSubscription(red, key)
   -- Add/update a subscription key to redis
   local ok, err = red:set(key, '')
   if not ok then
-    request.err(500, utils.concatStrings({"Failed adding subscription to redis", err}))
+    request.err(500, utils.concatStrings({"Failed to add the subscription key", err}))
   end
 end
 
@@ -186,16 +282,20 @@ end
 function _M.deleteSubscription(red, key)
   local subscription, err = red:get(key)
   if not subscription then
-    request.err(500, utils.concatStrings({"Failed to delete subscription: ", err}))
+    request.err(500, utils.concatStrings({"Failed to delete the subscription key: ", err}))
   end
   if subscription == ngx.null then
     request.err(404, "Subscription doesn't exist.")
   end
   local ok, err = red:del(key)
   if not ok then
-    request.err(500, utils.concatStrings({"Failed to delete subscription: ", err}))
+    request.err(500, utils.concatStrings({"Failed to delete the subscription key: ", err}))
   end
 end
+
+-----------------------------------
+------- Pub/Sub with Redis --------
+-----------------------------------
 
 --- Subscribe to redis
 -- @param redisSubClient the redis client that is listening for the redis key changes

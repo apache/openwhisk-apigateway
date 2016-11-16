@@ -48,7 +48,7 @@ function processCall(obj)
     if string.upper(verb) == ngx.req.get_method() then
       -- Check if auth is required
       local apiKey
-      if (opFields.security and string.lower(opFields.security.type) == 'apikey') then
+      if (opFields.security and opFields.security.type ~= nil and string.lower(opFields.security.type) == 'apikey') then
         apiKey = security.processAPIKey(opFields.security)
       end
       -- Parse backend url
