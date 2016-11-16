@@ -18,9 +18,9 @@
 --   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 --   DEALINGS IN THE SOFTWARE.
 
---- @module
---
--- @author Alex Song (songs)
+--- @module filemgmt
+-- Creates the Nginx Conf files
+-- @author Alex Song (songs), David Green (greend)
 
 local utils = require "lib/utils"
 local cjson = require "cjson"

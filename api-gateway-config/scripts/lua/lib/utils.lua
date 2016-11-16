@@ -18,11 +18,10 @@
 --   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 --   DEALINGS IN THE SOFTWARE.
 
---- @module
---
--- @author Alex Song (songs), Cody Walker (cmwalker)
+--- @module utils
+-- Holds the common supporting functions in one file to be referenced else where
+-- @author Alex Song (songs), Cody Walker (cmwalker), David Green (greend)
 
-local cjson = require "cjson"
 local _Utils = {}
 
 --- Concatenate a list of strings into a single string. This is more efficient than concatenating

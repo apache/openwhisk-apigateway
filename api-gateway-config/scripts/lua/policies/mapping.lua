@@ -20,6 +20,7 @@
 
 --- @module mapping
 -- Process mapping object, turning implementation details into request transformations
+-- @author Cody Walker (cmwalker), Alex Song (songs), David Green (greend)
 
 local logger = require "lib/logger"
 local utils = require "lib/utils"
@@ -43,6 +44,8 @@ function processMap(map)
       removeParam(v)
     elseif v.action == "transform" then
       transformParam(v)
+    elseif v.action == "default" then
+      checkDefault(v)
     else
       logger.err(utils.concatStrings({'Map action not recognized. Skipping... ', v.action}))
     end
@@ -62,7 +65,6 @@ function getRequestParams()
   for k, v in pairs (incomingQuery) do
     query[k] = v
   end
-
 end
 
 --- Insert parameter value to header, body, or query params into request
@@ -113,6 +115,18 @@ function transformParam(m)
   else
     insertParam(m)
     removeParam(m)
+  end
+end
+
+--- Checks if the header has been set, and sets the header to a value if found to be null.
+-- @param m Header name and value to be set, if header is null.
+function checkDefault(m)
+  if m.to.location == "header" and headers[m.to.name] == nil then
+    insertHeader(m.to.name, m.from.value)
+  elseif m.to.location == "query" and query[m.to.name] == nil then
+    insertQuery(m.to.name, m.from.value)
+  elseif m.to.location == "body" and body[m.to.name] == nil then
+    insertBody(m.to.name, m.from.value)
   end
 end
 
@@ -181,6 +195,7 @@ end
 
 function insertHeader(k, v)
   ngx.req.set_header(k, v)
+  headers[k] = v
 end
 
 function insertQuery(k, v)
@@ -211,7 +226,7 @@ end
 
 function parseUrl(url)
   local map = {}
-  for k,v in url:gmatch('([^&=?]+)=([^&=?]+)' ) do
+  for k,v in url:gmatch('([^&=?]+)=([^&=?]+)') do
     map[ k ] = decodeQuery(v)
   end
   return map

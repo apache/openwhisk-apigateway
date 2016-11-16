@@ -76,10 +76,10 @@ If subscription is `false`, the rateLimit applies the collective usage from all 
   "subscription": "false"
 ```
 This will set a rateLimit ratio of 10 calls per 60 second, at an API level.  
-This rateLimit is shared across all users (subescription:false).
+This rateLimit is shared across all users (subescription:false).  
 
 #####reqMapping:
-Supported actions: `remove`, `insert`, `transform`.  
+Supported actions: `remove`, `default`, `insert`, `transform`.  
 Supported locations: `body`, `path`, `header`, `query`.  
 
 _remove:_
@@ -92,7 +92,23 @@ _remove:_
    }
 }
 ```
-This will remove the `password` field from the body of the incoming request, so it is not sent to the backendURL
+This will remove the `password` field from the body of the incoming request, so it's not passed to the backendURL  
+
+_default:_  
+Only `body`, `header`, `query` parameters can have default values.  
+```
+{
+   "action":"default",
+   "from":{
+      "value":"BASIC XXX"
+   },
+   "to":{
+      "name":"Authorization",
+      "location":"header"
+   }
+}
+```
+This will assign the value of `BASIC XXX` to a `header` called `Authorization` but only if the value is not already set.  
 
 _insert:_
 ```
@@ -124,35 +140,30 @@ _transform:_
 }
 ```
 This will transform all incoming `query` parameters into `body` parameters in the outgoing request to the backendURL.  
-Where `*` is a wild card, or you can use the variable name.
+Where `*` is a wild card, or you can use the variable name.  
+
+_Path Parameter Mappings:_  
+To map a path parameter from the incoming Url to a path parameter on the backend Url, you will need to wrap brackets `{}` around the path parameter on the incoming Url as well as the backend Url, for example:  
+`IP:Port/resources/tenant_id/serverless/{myAction}/restified`
 ```
-policies":[
-     {
-        "type":"rateLimit",
-        "value":[
-            "interval":60,
-            "rate":100,
-            "scope":"api"
-            "subscription": "true"
-        ]
-     },
-        "type":"reqMapping",
-        "value":[
-        {
-           "action":"transform",
-           "from":{
-              "name":"<user>",
-              "location":"query"
-           },
-           "to":{
-              "name":"<id>",
-              "location":"body"
-           }
-        }]
-     }]
+"backendURL":"https://openwhisk.stage1.ng.bluemix.net/api/v1/namespaces/APIC-Whisk_test/actions/{ACTION}?blocking=true&result=true",
+"policies":
+  [{
+    "type": "reqMapping",
+    "value": [{
+        "action": "transform",
+        "from": {
+          "name": "myAction",
+          "location": "path"
+        },
+        "to": {
+          "name": "ACTION",
+          "location": "path"
+        }
+      }]
+  }]
 ```
-Each user (subscription:true) will have a rateLimit ratio of 100 calls per 60 seconds at the API level.  
-This will also assign the vaule from the `query` parameter named `user` to a body parameter named `id`.  
+If a path is then invoked on `/serverless/Hello World/restified`, then the value from `{myAction}`, which is `Hello World`, will be assigned to the variable `ACTION` on the backend path.
 
 ####Security
 Supported types: `apiKey`.  
