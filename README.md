@@ -21,7 +21,9 @@ Quick Start
 ===========
 
 ```
-docker run -p 80:80 -p 8080:8080 -p 9000:9000 \
+docker run -p 80:80 -p <managedurl_port>:8080 -p 9000:9000 \
+            -e PUBLIC_MANAGEDURL_HOST=<managedurl_host> \
+            -e PUBLIC_MANAGEDURL_PORT=<managedurl_port> \
             -e REDIS_HOST=<redis_host> \
             -e REDIS_PORT=<redis_port> \
             -e REDIS_PASS=<redis_pass> \
@@ -252,7 +254,8 @@ Developer Guide
 
  To Run the Docker image
  ```
-  make docker-run-mgmt REDIS_HOST=<redis_host> REDIS_PORT=<redis_port> REDIS_PASS=<redis_pass>
+  make docker-run PUBLIC_MANAGEDURL_HOST=<mangedurl_host> PUBLIC_MANAGEDURL_PORT=<managedurl_port> \
+    GW_HOST=<gateway_host> REDIS_HOST=<redis_host> REDIS_PORT=<redis_port> REDIS_PASS=<redis_pass>
  ```
  
  The main API Gateway process is exposed to port `80`. To test that the Gateway works see its `health-check`:

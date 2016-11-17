@@ -28,6 +28,10 @@ local filemgmt = require "lib/filemgmt"
 local utils = require "lib/utils"
 local logger = require "lib/logger"
 local request = require "lib/request"
+local MANAGEDURL_HOST = os.getenv("PUBLIC_MANAGEDURL_HOST")
+MANAGEDURL_HOST = (MANAGEDURL_HOST ~= nil and MANAGEDURL_HOST ~= '') and MANAGEDURL_HOST or "0.0.0.0"
+local MANAGEDURL_PORT = os.getenv("PUBLIC_MANAGEDURL_PORT")
+MANAGEDURL_PORT = (MANAGEDURL_PORT ~= nil and MANAGEDURL_PORT ~= '') and MANAGEDURL_PORT or "8080"
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
 local REDIS_PASS = os.getenv("REDIS_PASS")
@@ -41,7 +45,7 @@ local _M = {}
 --------------------------
 
 --- Add an api to the Gateway
--- PUT http://0.0.0.0:9000/APIs
+-- PUT /APIs
 -- body:
 -- {
 --    "name": *(String) name of API
@@ -93,7 +97,7 @@ function _M.addAPI()
   end
   -- Return managedUrl object
   local uuid = existingAPI ~= nil and existingAPI.id or utils.uuid()
-  local managedUrl = utils.concatStrings({"http://0.0.0.0:8080/api/", decoded.tenantId})
+  local managedUrl = utils.concatStrings({"http://", MANAGEDURL_HOST, ":", MANAGEDURL_PORT, "/api/", decoded.tenantId})
   if basePath:sub(1,1) ~= '' then
     managedUrl = utils.concatStrings({managedUrl, "/", basePath})
   end
@@ -206,7 +210,7 @@ function addResource(red, resource, gatewayPath, tenantId)
 end
 
 --- Get one or all APIs from the gateway
--- GET http://0.0.0.0:9000/APIs
+-- GET /APIs
 function _M.getAPIs()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
   local id
@@ -283,7 +287,7 @@ function getAPITenant(id)
 end
 
 --- Delete API from gateway
--- DELETE http://0.0.0.0:9000/APIs/<id>
+-- DELETE /APIs/<id>
 function _M.deleteAPI()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
   local index = 1
@@ -328,7 +332,7 @@ end
 -----------------------------
 
 --- Add a tenant to the Gateway
--- PUT http://0.0.0.0:9000/Tenants
+-- PUT /Tenants
 -- body:
 -- {
 --    "namespace": *(String) tenant namespace
@@ -383,7 +387,7 @@ function _M.addTenant()
 end
 
 --- Get one or all tenants from the gateway
--- GET http://0.0.0.0:9000/Tenants
+-- GET /Tenants
 function _M.getTenants()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
   local id
@@ -462,7 +466,7 @@ function getTenantAPIs(id)
 end
 
 --- Delete tenant from gateway
--- DELETE http://0.0.0.0:9000/Tenants/<id>
+-- DELETE /Tenants/<id>
 function _M.deleteTenant()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
   local index = 1
@@ -487,7 +491,7 @@ end
 ------------------------------
 
 --- Subscribe to redis
--- GET http://0.0.0.0:9000/subscribe
+-- GET /subscribe
 function _M.subscribe()
   -- Initialize and connect to redis
   local redisGetClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
@@ -498,7 +502,7 @@ function _M.subscribe()
 end
 
 --- Unsusbscribe to redis
--- GET http://0.0.0.0:9000/unsubscribe
+-- GET /unsubscribe
 function _M.unsubscribe()
   -- Initialize and connect to redis
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
@@ -511,7 +515,7 @@ end
 ---------------------------
 
 --- Add an apikey/subscription to redis
--- PUT http://0.0.0.0:9000/subscriptions
+-- PUT /subscriptions
 -- Body:
 -- {
 --    key: *(String) key for tenant/api/resource
@@ -532,7 +536,7 @@ function _M.addSubscription()
 end
 
 --- Delete apikey/subscription from redis
--- DELETE http://0.0.0.0:9000/subscriptions
+-- DELETE /subscriptions
 -- Body:
 -- {
 --    key: *(String) key for tenant/api/resource

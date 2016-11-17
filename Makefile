@@ -18,11 +18,8 @@ test-run:
 
 .PHONY: docker-run
 docker-run:
-	docker run --rm --name="apigateway" -p 80:80 -p 5000:5000 apicgw/apigateway:latest ${DOCKER_ARGS}
-
-.PHONY: docker-run-mgmt
-docker-run-mgmt:
-	docker run --rm --name="apigateway" -p 80:80 -p 8080:8080 -p 9000:9000 \
+	docker run --rm --name="apigateway" -p 80:80 -p ${PUBLIC_MANAGEDURL_PORT}:8080 -p 9000:9000 \
+		-e PUBLIC_MANAGEDURL_HOST=${PUBLIC_MANAGEDURL_HOST} -e PUBLIC_MANAGEDURL_PORT=${PUBLIC_MANAGEDURL_PORT} \
 		-e REDIS_HOST=${REDIS_HOST} -e REDIS_PORT=${REDIS_PORT} -e REDIS_PASS=${REDIS_PASS} \
 		apicgw/apigateway:latest
 
