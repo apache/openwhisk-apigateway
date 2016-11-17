@@ -93,13 +93,17 @@ function _M.addAPI()
   end
   -- Return managedUrl object
   local uuid = existingAPI ~= nil and existingAPI.id or utils.uuid()
+  local managedUrl = utils.concatStrings({"http://0.0.0.0:8080/api/", decoded.tenantId})
+  if basePath:sub(1,1) ~= '' then
+    managedUrl = utils.concatStrings({managedUrl, "/", basePath})
+  end
   local managedUrlObj = {
     id = uuid,
     name = decoded.name,
     basePath = utils.concatStrings({"/", basePath}),
     tenantId = decoded.tenantId,
     resources = decoded.resources,
-    managedUrl = utils.concatStrings({"http://0.0.0.0:8080/api/", decoded.tenantId, "/", basePath})
+    managedUrl = managedUrl
   }
   managedUrlObj = cjson.encode(managedUrlObj):gsub("\\", "")
   -- Add API object to redis
