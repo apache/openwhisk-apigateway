@@ -2,3 +2,14 @@ api-gateway-config/target
 api-gateway-config/target/*
 api-gateway-config/conf.d/includes/resolvers.conf
 *.iml
+.DS_STORE
+lua_modules
+
+# Webstorm files
+.idea
+
+# No temporary vim files
+*~
+*.swp
+*.swo
+
