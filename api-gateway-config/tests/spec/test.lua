@@ -231,6 +231,9 @@ describe('Testing Redis module', function()
     redis.deleteSubscription(red, key)
     assert.are.equal(false, red:exists(key))
   end)
+  it('should fail!', function()
+    assert.are.equal(true, false)
+  end)
 
 end)
 
