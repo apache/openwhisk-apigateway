@@ -13,3 +13,5 @@ lua_modules
 *.swp
 *.swo
 
+# Concourse
+secrets.yml
