@@ -21,6 +21,7 @@
 --- @module logger
 -- Module to handle logging in a single place
 -- @author Cody Walker (cmwalker), Alex Song (songs)
+local utils = require "lib/utils"
 
 local _M = {}
 
@@ -33,6 +34,13 @@ end
 --- Handle debug stream to stdout
 -- @param s String to write to debug stream
 function _M.debug(s)
+  if s == nil then
+    s = "nil"
+  elseif type(s) == "table" then
+    s = utils.serializeTable(s)
+  elseif type(s) == "boolean" then
+    s = (s == true) and "true" or "false"
+  end
   os.execute("echo \"" .. s .. "\"")
 end
 

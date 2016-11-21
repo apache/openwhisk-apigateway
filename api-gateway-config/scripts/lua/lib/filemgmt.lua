@@ -73,8 +73,6 @@ function _M.createResourceConf(baseConfDir, tenant, gatewayPath, resourceObj)
   })
   file:write(location)
   file:close()
-  -- reload nginx to refresh conf files
-  os.execute("/usr/local/sbin/nginx -s reload")
   return fileLocation
 end
 
@@ -86,8 +84,6 @@ end
 function _M.deleteResourceConf(baseConfDir, tenant, gatewayPath)
   local fileLocation = utils.concatStrings({baseConfDir, tenant, "/", gatewayPath, ".conf"})
   os.execute(utils.concatStrings({"rm -f ", fileLocation}))
-  -- reload nginx to refresh conf files
-  os.execute("/usr/local/sbin/nginx -s reload")
   return fileLocation
 end
 
