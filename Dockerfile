@@ -8,10 +8,9 @@ FROM alpine:latest
 
 # install dependencies
 RUN apk update \
-    && apk add gcc tar libtool zlib jemalloc jemalloc-dev perl \ 
+    && apk add gcc tar libtool zlib jemalloc jemalloc-dev perl \
     make musl-dev openssl-dev pcre-dev g++ zlib-dev curl python \
-    perl-test-longstring perl-list-moreutils perl-http-message \
-    geoip-dev nodejs
+    perl-test-longstring perl-list-moreutils perl-http-message geoip-dev
 
 # openresty build
 ENV OPENRESTY_VERSION=1.9.7.3 \
