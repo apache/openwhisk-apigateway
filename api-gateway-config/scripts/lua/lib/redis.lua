@@ -357,10 +357,12 @@ end
 ------- Pub/Sub with Redis --------
 -----------------------------------
 
+local syncStatus = false
 --- Sync with redis on startup and create conf files for resources that are already in redis
 -- @param red redis client instance
 function _M.syncWithRedis(red)
   logger.debug("Sync with redis in progress...")
+  setSyncStatus(true)
   local resourceKeys = getAllResourceKeys(red)
   for k, resourceKey in pairs(resourceKeys) do
     local prefix, tenant, gatewayPath = resourceKey:match("([^,]+):([^,]+):([^,]+)")
@@ -368,7 +370,16 @@ function _M.syncWithRedis(red)
     filemgmt.createResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath), resourceObj)
   end
   os.execute("/usr/local/sbin/nginx -s reload")
+  setSyncStatus(false)
   logger.debug("All resources synced.")
+end
+
+function setSyncStatus(status)
+  syncStatus = status
+end
+
+function getSyncStatus()
+  return syncStatus
 end
 
 --- Subscribe to redis
@@ -418,6 +429,15 @@ function _M.subscribe(redisSubClient, redisGetClient)
       redisUpdated = false
       startTime = ngx.now()
     end
+  end
+end
+
+--- Get gateway sync status
+function _M.healthCheck()
+  if getSyncStatus() == true then
+    request.success(503, "Status: Gateway syncing.")
+  else
+    request.success(200, "Status: Gateway ready.")
   end
 end
 
