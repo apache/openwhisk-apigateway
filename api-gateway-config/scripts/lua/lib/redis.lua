@@ -192,7 +192,7 @@ end
 -- @param resourceObj redis object containing operations for resource
 function _M.createResource(red, key, field, resourceObj)
   -- Add/update resource to redis
-  ok, err = red:hset(key, field, resourceObj)
+  local ok, err = red:hset(key, field, resourceObj)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to save the resource: ", err}))
   end
@@ -237,6 +237,7 @@ function getAllResourceKeys(red)
   end
   return resourceKeys
 end
+
 --- Delete resource in redis
 -- @param red redis client instance
 -- @param key redis resource key
@@ -375,6 +376,7 @@ end
 -- @param redisGetClient the redis client that gets the changed resource to update the conf file
 function _M.subscribe(redisSubClient, redisGetClient)
   logger.debug("Subscribed to redis and listening for key changes...")
+  -- Subscribe to redis using psubscribe
   local ok, err = redisSubClient:config("set", "notify-keyspace-events", "KEA")
   if not ok then
     request.err(500, utils.concatStrings({"Failed to subscribe to redis: ", err}))
@@ -383,6 +385,9 @@ function _M.subscribe(redisSubClient, redisGetClient)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to subscribe to redis: ", err}))
   end
+  -- Update nginx conf file when redis is updated
+  local redisUpdated = false
+  local startTime = ngx.now()
   while true do
     local res, err = redisSubClient:read_reply()
     if not res then
@@ -390,34 +395,28 @@ function _M.subscribe(redisSubClient, redisGetClient)
         request.err(500, utils.concatStrings({"Failed to read from redis: ", err}))
       end
     else
-      local index = 1
-      local redisKey = ""
-      local tenant = ""
-      local gatewayPath = ""
-      for word in string.gmatch(res[3], '([^:]+)') do
-        if index == 2 then
-          redisKey = utils.concatStrings({redisKey, word, ":"})
-        elseif index == 3 then
-          tenant = word
-          redisKey = utils.concatStrings({redisKey, tenant, ":"})
-        elseif index == 4 then
-          gatewayPath = word
-          redisKey = utils.concatStrings({redisKey, gatewayPath})
-        end
-        index = index + 1
-      end
+      -- res[3] format is "__keyspace@0__:resources:<tenantId>:<gatewayPath>"
+      local keyspacePrefix, resourcePrefix, tenant, gatewayPath = res[3]:match("([^,]+):([^,]+):([^,]+):([^,]+)")
+      local redisKey = utils.concatStrings({resourcePrefix, ":", tenant, ":", gatewayPath})
       local resourceObj = _M.getResource(redisGetClient, redisKey, REDIS_FIELD)
       if resourceObj == nil then
-        local fileLocation = filemgmt.deleteResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath))
-        os.execute("/usr/local/sbin/nginx -s reload")
         logger.debug(utils.concatStrings({"Redis key deleted: ", redisKey}))
+        local fileLocation = filemgmt.deleteResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath))
         logger.debug(utils.concatStrings({"Deleted file: ", fileLocation}))
       else
-        local fileLocation = filemgmt.createResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath), resourceObj)
-        os.execute("/usr/local/sbin/nginx -s reload")
         logger.debug(utils.concatStrings({"Redis key updated: ", redisKey}))
+        local fileLocation = filemgmt.createResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath), resourceObj)
         logger.debug(utils.concatStrings({"Updated file: ", fileLocation}))
       end
+      redisUpdated = true
+    end
+    -- reload Nginx only if redis has been updated and it has been at least 1 second since last reload
+    local timeDiff = ngx.now() - startTime
+    if(redisUpdated == true and timeDiff >= 1) then
+      os.execute("/usr/local/sbin/nginx -s reload")
+      logger.debug("Nginx reloaded.")
+      redisUpdated = false
+      startTime = ngx.now()
     end
   end
 end
