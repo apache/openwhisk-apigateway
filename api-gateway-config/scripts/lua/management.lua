@@ -492,6 +492,11 @@ function _M.subscribe()
   ngx.exit(200)
 end
 
+--- Get gateway sync status
+function _M.healthCheck()
+  redis.healthCheck()
+end
+
 ---------------------------
 ------ Subscriptions ------
 ---------------------------
