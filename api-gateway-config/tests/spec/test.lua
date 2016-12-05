@@ -44,16 +44,16 @@ describe('Testing Request module', function()
     local code = 500
     local msg = 'Internal server error\n'
     request.err(code, msg)
-    assert.are.equal(ngx._body, 'Error: ' .. msg)
-    assert.are.equal(ngx._exit, code)
+    assert.are.equal('Error: ' .. msg .. '\n', ngx._body)
+    assert.are.equal(code, ngx._exit)
   end)
 
   it('should return correct success response', function()
     local code = 200
     local msg ='Success!\n'
     request.success(code, msg)
-    assert.are.equal(ngx._body, msg)
-    assert.are.equal(ngx._exit, code)
+    assert.are.equal(msg .. '\n', ngx._body)
+    assert.are.equal(code, ngx._exit)
   end)
 end)
 
@@ -231,6 +231,7 @@ describe('Testing Redis module', function()
     redis.deleteSubscription(red, key)
     assert.are.equal(false, red:exists(key))
   end)
+
 end)
 
 --TODO: filemgmt
@@ -240,8 +241,3 @@ end)
 ---------------------------------------
 
 --TODO: mapping, rateLimit, security
-describe('Testing mapping module', function()
-  before_each(function()
-    _G.ngx = fakengx.new()
-  end)
-end)

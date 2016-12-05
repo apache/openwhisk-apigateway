@@ -24,7 +24,6 @@
 
 local cjson = require "cjson"
 local redis = require "lib/redis"
-local filemgmt = require "lib/filemgmt"
 local utils = require "lib/utils"
 local logger = require "lib/logger"
 local request = require "lib/request"
@@ -56,22 +55,9 @@ local _M = {}
 function _M.addAPI()
   -- Open connection to redis or use one from connection pool
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  -- Check for api id and use existingAPI if it already exists in redis
+  -- Check for api id from uri and use existingAPI if it already exists in redis
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
-  local apiId, existingAPI
-  local index = 1
-  for word in string.gmatch(uri, '([^/]+)') do
-    if index == 3 then
-      apiId = word
-    end
-    index = index + 1
-  end
-  if apiId ~= nil then
-    existingAPI = redis.getAPI(red, apiId)
-    if existingAPI == nil then
-      request.err(404, utils.concatStrings({"Unknown API id ", apiId}))
-    end
-  end
+  local existingAPI = checkURIForExisting(red, uri, "api")
   -- Read in the PUT JSON Body
   ngx.req.read_body()
   local args = ngx.req.get_body_data()
@@ -80,6 +66,13 @@ function _M.addAPI()
   end
   -- Convert json into Lua table
   local decoded = cjson.decode(args)
+  -- Check for api id in JSON body
+  if existingAPI == nil and decoded.id ~= nil then
+    existingAPI = redis.getAPI(red, decoded.id)
+    if existingAPI == nil then
+      request.err(404, utils.concatStrings({"Unknown API id ", decoded.id}))
+    end
+  end
   -- Error checking
   local fields = {"name", "basePath", "tenantId", "resources"}
   for k, v in pairs(fields) do
@@ -90,12 +83,7 @@ function _M.addAPI()
   end
   -- Format basePath
   local basePath = decoded.basePath:sub(1,1) == '/' and decoded.basePath:sub(2) or decoded.basePath
-  -- Add resources to redis and create nginx conf files
-  for path, resource in pairs(decoded.resources) do
-    local gatewayPath = utils.concatStrings({basePath, ngx.escape_uri(path)})
-    addResource(red, resource, gatewayPath, decoded.tenantId)
-  end
-  -- Return managedUrl object
+  -- Create managedUrl object
   local uuid = existingAPI ~= nil and existingAPI.id or utils.uuid()
   local managedUrl = utils.concatStrings({"http://", MANAGEDURL_HOST, ":", MANAGEDURL_PORT, "/api/", decoded.tenantId})
   if basePath:sub(1,1) ~= '' then
@@ -109,9 +97,13 @@ function _M.addAPI()
     resources = decoded.resources,
     managedUrl = managedUrl
   }
-  managedUrlObj = cjson.encode(managedUrlObj):gsub("\\", "")
   -- Add API object to redis
-  redis.addAPI(red, uuid, managedUrlObj)
+  managedUrlObj = redis.addAPI(red, uuid, managedUrlObj, existingAPI)
+  -- Add resources to redis
+  for path, resource in pairs(decoded.resources) do
+    local gatewayPath = utils.concatStrings({basePath, ngx.escape_uri(path)})
+    addResource(red, resource, gatewayPath, decoded.tenantId)
+  end
   redis.close(red)
   -- Return managed url object
   ngx.header.content_type = "application/json; charset=utf-8"
@@ -206,7 +198,6 @@ function addResource(red, resource, gatewayPath, tenantId)
   end
   local resourceObj = redis.generateResourceObj(operations, apiId)
   redis.createResource(red, redisKey, REDIS_FIELD, resourceObj)
-  filemgmt.createResourceConf(BASE_CONF_DIR, tenantId, gatewayPath, resourceObj)
 end
 
 --- Get one or all APIs from the gateway
@@ -306,13 +297,14 @@ function _M.deleteAPI()
   if api == nil then
     request.err(404, utils.concatStrings({"Unknown API id ", id}))
   end
+  -- Delete API
+  redis.deleteAPI(red, id)
   -- Delete all resources for the API
   local basePath = api.basePath:sub(2)
   for path, v in pairs(api.resources) do
     local gatewayPath = utils.concatStrings({basePath, ngx.escape_uri(path)})
     deleteResource(red, gatewayPath, api.tenantId)
   end
-  redis.deleteAPI(red, id)
   redis.close(red)
   request.success(200, {})
 end
@@ -324,7 +316,6 @@ end
 function deleteResource(red, gatewayPath, tenantId)
   local redisKey = utils.concatStrings({"resources:", tenantId, ":", ngx.unescape_uri(gatewayPath)})
   redis.deleteResource(red, redisKey, REDIS_FIELD)
-  filemgmt.deleteResourceConf(BASE_CONF_DIR, tenantId, gatewayPath)
 end
 
 -----------------------------
@@ -343,20 +334,7 @@ function _M.addTenant()
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
   -- Check for tenant id and use existingTenant if it already exists in redis
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
-  local tenantId, existingTenant
-  local index = 1
-  for word in string.gmatch(uri, '([^/]+)') do
-    if index == 3 then
-      tenantId = word
-    end
-    index = index + 1
-  end
-  if tenantId ~= nil then
-    existingTenant = redis.getTenant(red, tenantId)
-    if existingTenant == nil then
-      request.err(400, utils.concatStrings({"Unknown tenant id ", tenantId}))
-    end
-  end
+  local existingTenant = checkURIForExisting(red, uri, "tenant")
   -- Read in the PUT JSON Body
   ngx.req.read_body()
   local args = ngx.req.get_body_data()
@@ -365,6 +343,13 @@ function _M.addTenant()
   end
   -- Convert json into Lua table
   local decoded = cjson.decode(args)
+  -- Check for tenant id in JSON body
+  if existingTenant == nil and decoded.id ~= nil then
+    existingTenant = redis.getTenant(red, decoded.id)
+    if existingTenant == nil then
+      request.err(404, utils.concatStrings({"Unknown Tenant id ", decoded.id}))
+    end
+  end
   -- Error checking
   local fields = {"namespace", "instance"}
   for k, v in pairs(fields) do
@@ -379,8 +364,7 @@ function _M.addTenant()
     namespace = decoded.namespace,
     instance = decoded.instance
   }
-  tenantObj = cjson.encode(tenantObj)
-  redis.addTenant(red, uuid, tenantObj)
+  tenantObj = redis.addTenant(red, uuid, tenantObj)
   redis.close(red)
   ngx.header.content_type = "application/json; charset=utf-8"
   request.success(200, tenantObj)
@@ -490,24 +474,27 @@ end
 ----- Pub/Sub with Redis -----
 ------------------------------
 
+--- Sync with redis
+-- GET /v1/sync
+function _M.sync()
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
+  logger.debug(utils.concatStrings({"Connected to redis at ", REDIS_HOST, ":", REDIS_PORT}))
+  redis.syncWithRedis(red)
+  ngx.exit(200)
+end
+
 --- Subscribe to redis
--- GET /subscribe
+-- GET /v1/subscribe
 function _M.subscribe()
-  -- Initialize and connect to redis
   local redisGetClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  local redisSubClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 60000) -- read_reply will timeout every minute
-  logger.debug(utils.concatStrings({"\nConnected to redis at ", REDIS_HOST, ":", REDIS_PORT}))
+  local redisSubClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
   redis.subscribe(redisSubClient, redisGetClient)
   ngx.exit(200)
 end
 
---- Unsusbscribe to redis
--- GET /unsubscribe
-function _M.unsubscribe()
-  -- Initialize and connect to redis
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  redis.unsubscribe(red)
-  request.success(200, "Unsubscribed to redis")
+--- Get gateway sync status
+function _M.healthCheck()
+  redis.healthCheck()
 end
 
 ---------------------------
@@ -604,6 +591,38 @@ function validateSubscriptionBody()
   end
   redisKey = utils.concatStrings({redisKey, ":key:", decoded.key})
   return redisKey
+end
+
+
+--- Check for api id from uri and use existingAPI if it already exists in redis
+-- @param red Redis client instance
+-- @param uri Uri of request. Eg. /v1/apis/{id}
+-- @param type type to look for in redis. "api" or "tenant"
+function checkURIForExisting(red, uri, type)
+  local id, existing
+  local index = 1
+  -- Check if id is in the uri
+  for word in string.gmatch(uri, '([^/]+)') do
+    if index == 3 then
+      id = word
+    end
+    index = index + 1
+  end
+  -- Get object from redis
+  if id ~= nil then
+    if type == "api" then
+      existing = redis.getAPI(red, id)
+      if existing == nil then
+        request.err(404, utils.concatStrings({"Unknown API id ", id}))
+      end
+    elseif type == "tenant" then
+      existing = redis.getTenant(red, id)
+      if existing == nil then
+        request.err(404, utils.concatStrings({"Unknown Tenant id ", id}))
+      end
+    end
+  end
+  return existing
 end
 
 --- Parse the request uri to get the redisKey, tenant, and gatewayPath

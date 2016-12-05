@@ -60,13 +60,13 @@ function _M.init(host, port, password, timeout)
     connect, err = red:connect(host, port)
   end
   if not connect then
-    request.err(500, utils.concatStrings({"Failed to connect to redis: ", err}))  
+    request.err(500, utils.concatStrings({"Failed to connect to redis: ", err}))
   end
   -- Authenticate with Redis
   if password ~= nil and password ~= "" then
     local res, err = red:auth(password)
     if not res then
-      request.err(500, utils.concatStrings({"Failed to authenticate: ", err}))  
+      request.err(500, utils.concatStrings({"Failed to authenticate: ", err}))
     end
   end
   return red
@@ -90,11 +90,35 @@ end
 -- @param red Redis client instance
 -- @param id id of API
 -- @param apiObj the api to add
-function _M.addAPI(red, id, apiObj)
+-- @param existingAPI existing api to update
+function _M.addAPI(red, id, apiObj, existingAPI)
+  if existingAPI == nil then
+    local apis = _M.getAllAPIs(red)
+    -- Return error if api with basepath already exists
+    for apiId, obj in pairs(apis) do
+      if apiId%2 == 0 then
+        obj = cjson.decode(obj)
+        if obj.tenantId == apiObj.tenantId and obj.basePath == apiObj.basePath then
+          request.err(500, "basePath not unique for given tenant.")
+        end
+      end
+    end
+  else
+    -- Delete all resources for the existingAPI
+    local basePath = existingAPI.basePath:sub(2)
+    for path, v in pairs(existingAPI.resources) do
+      local gatewayPath = utils.concatStrings({basePath, ngx.escape_uri(path)})
+      local redisKey = utils.concatStrings({"resources:", existingAPI.tenantId, ":", ngx.unescape_uri(gatewayPath)})
+      _M.deleteResource(red, redisKey, REDIS_FIELD)
+    end
+  end
+  -- Add new API
+  apiObj = cjson.encode(apiObj):gsub("\\", "")
   local ok, err = red:hset("apis", id, apiObj)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to save the API: ", err}))
   end
+  return apiObj
 end
 
 --- Get all APIs from redis
@@ -188,8 +212,30 @@ function _M.getResource(red, key, field)
   if resourceObj == ngx.null then
     return nil
   end
-
   return resourceObj
+end
+
+--- Get all resource keys in redis
+-- @param red redis client instance
+function getAllResourceKeys(red)
+  -- Find all resourceKeys in redis
+  local resources, err = red:scan(0, "match", "resources:*:*")
+  if not resources then
+    request.err(500, util.concatStrings({"Failed to retrieve resource keys: ", err}))
+  end
+  local cursor = resources[1]
+  local resourceKeys = resources[2]
+  while cursor ~= "0" do
+    resources, err = red:scan(cursor, "match", "resources:*:*")
+    if not resources then
+      request.err(500, util.concatStrings({"Failed to retrieve resource keys: ", err}))
+    end
+    cursor = resources[1]
+    for k, v in pairs(resources[2]) do
+      resourceKeys[#resourceKeys + 1] = v
+    end
+  end
+  return resourceKeys
 end
 
 --- Delete resource in redis
@@ -204,6 +250,7 @@ function _M.deleteResource(red, key, field)
   if resourceObj == ngx.null then
     request.err(404, "Resource doesn't exist.")
   end
+  -- Delete redis resource
   local ok, err = red:del(key)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to delete the resource: ", err}))
@@ -221,10 +268,23 @@ end
 -- @param id id of tenant
 -- @param tenantObj the tenant to add
 function _M.addTenant(red, id, tenantObj)
+  local tenants = _M.getAllTenants(red)
+  -- Return tenant from redis if it already exists
+  for tenantId, obj in pairs(tenants) do
+    if tenantId%2 == 0 then
+      obj = cjson.decode(obj)
+      if obj.namespace == tenantObj.namespace and obj.instance == tenantObj.instance then
+        return cjson.encode(obj)
+      end
+    end
+  end
+  -- Add new tenant
+  tenantObj = cjson.encode(tenantObj)
   local ok, err = red:hset("tenants", id, tenantObj)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to add the tenant: ", err}))
   end
+  return tenantObj
 end
 
 --- Get all tenants from redis
@@ -297,123 +357,88 @@ end
 ------- Pub/Sub with Redis --------
 -----------------------------------
 
+local syncStatus = false
+--- Sync with redis on startup and create conf files for resources that are already in redis
+-- @param red redis client instance
+function _M.syncWithRedis(red)
+  logger.debug("Sync with redis in progress...")
+  setSyncStatus(true)
+  local resourceKeys = getAllResourceKeys(red)
+  for k, resourceKey in pairs(resourceKeys) do
+    local prefix, tenant, gatewayPath = resourceKey:match("([^,]+):([^,]+):([^,]+)")
+    local resourceObj = _M.getResource(red, resourceKey, REDIS_FIELD)
+    filemgmt.createResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath), resourceObj)
+  end
+  os.execute("/usr/local/sbin/nginx -s reload")
+  setSyncStatus(false)
+  logger.debug("All resources synced.")
+end
+
+function setSyncStatus(status)
+  syncStatus = status
+end
+
+function getSyncStatus()
+  return syncStatus
+end
+
 --- Subscribe to redis
 -- @param redisSubClient the redis client that is listening for the redis key changes
 -- @param redisGetClient the redis client that gets the changed resource to update the conf file
 function _M.subscribe(redisSubClient, redisGetClient)
-  -- create conf files for existing resources in redis
-  syncWithRedis(redisGetClient, ngx)
-  -- enable keyspace notifications
-  local ok, err = redisGetClient:config("set", "notify-keyspace-events", "KEA")
+  logger.debug("Subscribed to redis and listening for key changes...")
+  -- Subscribe to redis using psubscribe
+  local ok, err = redisSubClient:config("set", "notify-keyspace-events", "KEA")
   if not ok then
-    request.err(500, utils.concatStrings({"Failed setting notify-keyspace-events: ", err}))
+    request.err(500, utils.concatStrings({"Failed to subscribe to redis: ", err}))
   end
   ok, err = redisSubClient:psubscribe("__keyspace@0__:resources:*:*")
   if not ok then
     request.err(500, utils.concatStrings({"Failed to subscribe to redis: ", err}))
   end
-  ngx.say("\nSubscribed to redis and listening for key changes...")
-  ngx.flush(true)
-  subscribe(redisSubClient, redisGetClient, ngx)
-  ngx.exit(ngx.status)
-end
-
---- Sync with redis on startup and create conf files for resources that are already in redis
--- @param red redis client instance
-function syncWithRedis(red)
-  logger.debug("\nCreating nginx conf files for existing resources...")
-  local redisKeys, err = red:keys("*")
-  if not redisKeys then
-    request.err(500, util.concatStrings({"Failed to sync with Redis: ", err}))
-  end
-  -- Find all redis keys with "resources:*:*"
-  local resourcesExist = false
-  for k, redisKey in pairs(redisKeys) do
-    local index = 1
-    local tenant = ""
-    local gatewayPath = ""
-    for word in string.gmatch(redisKey, '([^:]+)') do
-      if index == 1 then
-        if word ~= "resources" then
-          break
-        else
-          resourcesExist = true
-          index = index + 1
-        end
-      else
-        if index == 2 then
-          tenant = word
-        elseif index == 3 then
-          gatewayPath = word
-          -- Create new conf file
-          local resourceObj = _M.getResource(red, redisKey, REDIS_FIELD)
-          local fileLocation = filemgmt.createResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath), resourceObj)
-          logger.debug(utils.concatStrings({"Updated file: ", fileLocation}))
-        end
-        index = index + 1
-      end
-    end
-  end
-  if resourcesExist == false then
-    logger.debug("No existing resources.")
-  end
-end
-
---- Subscribe helper method
--- Starts a while loop that listens for key changes in redis
--- @param redisSubClient the redis client that is listening for the redis key changes
--- @param redisGetClient the redis client that gets the changed resource to update the conf file
-function subscribe(redisSubClient, redisGetClient)
+  -- Update nginx conf file when redis is updated
+  local redisUpdated = false
+  local startTime = ngx.now()
   while true do
     local res, err = redisSubClient:read_reply()
     if not res then
       if err ~= "timeout" then
-        ngx.say("Read reply error: ", err)
-        ngx.exit(ngx.status)
+        request.err(500, utils.concatStrings({"Failed to read from redis: ", err}))
       end
     else
-      local index = 1
-      local redisKey = ""
-      local tenant = ""
-      local gatewayPath = ""
-      for word in string.gmatch(res[3], '([^:]+)') do
-        if index == 2 then
-          redisKey = utils.concatStrings({redisKey, word, ":"})
-        elseif index == 3 then
-          tenant = word
-          redisKey = utils.concatStrings({redisKey, tenant, ":"})
-        elseif index == 4 then
-          gatewayPath = word
-          redisKey = utils.concatStrings({redisKey, gatewayPath})
-        end
-        index = index + 1
-      end
+      -- res[3] format is "__keyspace@0__:resources:<tenantId>:<gatewayPath>"
+      local keyspacePrefix, resourcePrefix, tenant, gatewayPath = res[3]:match("([^,]+):([^,]+):([^,]+):([^,]+)")
+      local redisKey = utils.concatStrings({resourcePrefix, ":", tenant, ":", gatewayPath})
       local resourceObj = _M.getResource(redisGetClient, redisKey, REDIS_FIELD)
       if resourceObj == nil then
-        local fileLocation = filemgmt.deleteResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath))
         logger.debug(utils.concatStrings({"Redis key deleted: ", redisKey}))
+        local fileLocation = filemgmt.deleteResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath))
         logger.debug(utils.concatStrings({"Deleted file: ", fileLocation}))
       else
-        local fileLocation = filemgmt.createResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath), resourceObj)
         logger.debug(utils.concatStrings({"Redis key updated: ", redisKey}))
+        local fileLocation = filemgmt.createResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath), resourceObj)
         logger.debug(utils.concatStrings({"Updated file: ", fileLocation}))
       end
+      redisUpdated = true
+    end
+    -- reload Nginx only if redis has been updated and it has been at least 1 second since last reload
+    local timeDiff = ngx.now() - startTime
+    if(redisUpdated == true and timeDiff >= 1) then
+      os.execute("/usr/local/sbin/nginx -s reload")
+      logger.debug("Nginx reloaded.")
+      redisUpdated = false
+      startTime = ngx.now()
     end
   end
-  ngx.exit(ngx.status)
 end
 
-
---- Unsubscribe from redis
--- @param red redis client instance
-function _M.unsubscribe(red)
-  local ok, err = red:unsubscribe("__keyspace@0__:resources:*:*")
-  if not ok then
-    request.err(500, utils.concatStrings({"Failed to unsubscribe to redis: ", err}))
+--- Get gateway sync status
+function _M.healthCheck()
+  if getSyncStatus() == true then
+    request.success(503, "Status: Gateway syncing.")
+  else
+    request.success(200, "Status: Gateway ready.")
   end
-  _M.close(red, ngx)
-  ngx.say("Unsubscribed from redis")
-  ngx.exit(ngx.status)
 end
 
 return _M
