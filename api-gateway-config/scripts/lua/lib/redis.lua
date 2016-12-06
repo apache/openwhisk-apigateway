@@ -409,17 +409,22 @@ function _M.subscribe(redisSubClient, redisGetClient)
       -- res[3] format is "__keyspace@0__:resources:<tenantId>:<gatewayPath>"
       local keyspacePrefix, resourcePrefix, tenant, gatewayPath = res[3]:match("([^,]+):([^,]+):([^,]+):([^,]+)")
       local redisKey = utils.concatStrings({resourcePrefix, ":", tenant, ":", gatewayPath})
-      local resourceObj = _M.getResource(redisGetClient, redisKey, REDIS_FIELD)
-      if resourceObj == nil then
-        logger.debug(utils.concatStrings({"Redis key deleted: ", redisKey}))
-        local fileLocation = filemgmt.deleteResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath))
-        logger.debug(utils.concatStrings({"Deleted file: ", fileLocation}))
+      -- Don't allow single quotes in the gateway path
+      if string.match(gatewayPath, "'") then
+        logger.debug(utils.concatStrings({"Redis key \"", redisKey, "\" contains illegal character \"'\"."}))
       else
-        logger.debug(utils.concatStrings({"Redis key updated: ", redisKey}))
-        local fileLocation = filemgmt.createResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath), resourceObj)
-        logger.debug(utils.concatStrings({"Updated file: ", fileLocation}))
+        local resourceObj = _M.getResource(redisGetClient, redisKey, REDIS_FIELD)
+        if resourceObj == nil then
+          logger.debug(utils.concatStrings({"Redis key deleted: ", redisKey}))
+          local fileLocation = filemgmt.deleteResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath))
+          logger.debug(utils.concatStrings({"Deleted file: ", fileLocation}))
+        else
+          logger.debug(utils.concatStrings({"Redis key updated: ", redisKey}))
+          local fileLocation = filemgmt.createResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath), resourceObj)
+          logger.debug(utils.concatStrings({"Updated file: ", fileLocation}))
+        end
+        redisUpdated = true
       end
-      redisUpdated = true
     end
     -- reload Nginx only if redis has been updated and it has been at least 1 second since last reload
     local timeDiff = ngx.now() - startTime
