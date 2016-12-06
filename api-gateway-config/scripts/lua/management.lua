@@ -54,7 +54,7 @@ local _M = {}
 -- }
 function _M.addAPI()
   -- Open connection to redis or use one from connection pool
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   -- Check for api id from uri and use existingAPI if it already exists in redis
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
   local existingAPI = checkURIForExisting(red, uri, "api")
@@ -232,7 +232,7 @@ end
 
 --- Get all APIs in redis
 function getAllAPIs()
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local res = redis.getAllAPIs(red)
   redis.close(red)
   local apiList = {}
@@ -249,7 +249,7 @@ end
 --- Get API by its id
 -- @param id of API
 function getAPI(id)
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local api = redis.getAPI(red, id)
   if api == nil then
     request.err(404, utils.concatStrings({"Unknown api id ", id}))
@@ -262,7 +262,7 @@ end
 --- Get belongsTo relation tenant
 -- @param id id of API
 function getAPITenant(id)
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local api = redis.getAPI(red, id)
   if api == nil then
     request.err(404, utils.concatStrings({"Unknown api id ", id}))
@@ -292,7 +292,7 @@ function _M.deleteAPI()
   if id == nil then
     request.err(400, "No id specified.")
   end
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local api = redis.getAPI(red, id)
   if api == nil then
     request.err(404, utils.concatStrings({"Unknown API id ", id}))
@@ -331,7 +331,7 @@ end
 -- }
 function _M.addTenant()
   -- Open connection to redis or use one from connection pool
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   -- Check for tenant id and use existingTenant if it already exists in redis
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
   local existingTenant = checkURIForExisting(red, uri, "tenant")
@@ -402,7 +402,7 @@ end
 
 --- Get all tenants in redis
 function getAllTenants()
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local res = redis.getAllTenants(red)
   redis.close(red)
   local tenantList = {}
@@ -419,7 +419,7 @@ end
 --- Get tenant by its id
 -- @param id tenant id
 function getTenant(id)
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local tenant = redis.getTenant(red, id)
   if tenant == nil then
     request.err(404, utils.concatStrings({"Unknown tenant id ", id }))
@@ -432,7 +432,7 @@ end
 --- Get APIs associated with tenant
 -- @param id tenant id
 function getTenantAPIs(id)
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local res = redis.getAllAPIs(red)
   redis.close(red)
   local apiList = {}
@@ -486,7 +486,7 @@ end
 --- Subscribe to redis
 -- GET /v1/subscribe
 function _M.subscribe()
-  local redisGetClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local redisGetClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local redisSubClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
   redis.subscribe(redisSubClient, redisGetClient)
   ngx.exit(200)
@@ -515,7 +515,7 @@ function _M.addSubscription()
   -- Validate body and create redisKey
   local redisKey = validateSubscriptionBody()
   -- Open connection to redis or use one from connection pool
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   redis.createSubscription(red, redisKey)
   -- Add current redis connection in the ngx_lua cosocket connection pool
   redis.close(red)
@@ -536,7 +536,7 @@ function _M.deleteSubscription()
   -- Validate body and create redisKey
   local redisKey = validateSubscriptionBody()
   -- Initialize and connect to redis
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   -- Return if subscription doesn't exist
   redis.deleteSubscription(red, redisKey)
   -- Add current redis connection in the ngx_lua cosocket connection pool

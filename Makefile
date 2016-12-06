@@ -2,11 +2,11 @@ DOCKER_TAG ?= snapshot-`date +'%Y%m%d-%H%M'`
 DOCKER_REGISTRY ?= ''
 
 docker:
-	docker build -t apicgw/apigateway .
+	docker build -t openwhisk/apigateway .
 
 .PHONY: docker-ssh
 docker-ssh:
-	docker run -ti --entrypoint='bash' apicgw/apigateway:latest
+	docker run -ti --entrypoint='bash' openwhisk/apigateway:latest
 
 .PHONY: test-build
 test-build:
@@ -21,7 +21,7 @@ docker-run:
 	docker run --rm --name="apigateway" -p 80:80 -p ${PUBLIC_MANAGEDURL_PORT}:8080 -p 9000:9000 \
 		-e PUBLIC_MANAGEDURL_HOST=${PUBLIC_MANAGEDURL_HOST} -e PUBLIC_MANAGEDURL_PORT=${PUBLIC_MANAGEDURL_PORT} \
 		-e REDIS_HOST=${REDIS_HOST} -e REDIS_PORT=${REDIS_PORT} -e REDIS_PASS=${REDIS_PASS} \
-		apicgw/apigateway:latest
+		openwhisk/apigateway:latest
 
 .PHONY: docker-debug
 docker-debug:
@@ -33,7 +33,7 @@ docker-debug:
 			-p 80:80 -p 5000:5000 \
 			-e "LOG_LEVEL=info" -e "DEBUG=true" \
 			-v ${HOME}/tmp/apiplatform/apigateway/api-gateway-config/:/etc/api-gateway \
-			apicgw/apigateway:latest ${DOCKER_ARGS}
+			openwhisk/apigateway:latest ${DOCKER_ARGS}
 
 .PHONY: docker-reload
 docker-reload:
@@ -49,9 +49,4 @@ docker-attach:
 docker-stop:
 	docker stop apigateway
 	docker rm apigateway
-
-.PHONY: docker-push
-docker-push:
-	docker tag -f apicgw/apigateway $(DOCKER_REGISTRY)/apicgw/apigateway:$(DOCKER_TAG)
-	docker push $(DOCKER_REGISTRY)/apicgw/apigateway:$(DOCKER_TAG)
 
