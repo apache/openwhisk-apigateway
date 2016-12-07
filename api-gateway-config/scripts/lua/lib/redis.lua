@@ -54,7 +54,7 @@ function _M.init(host, port, password, timeout)
     if retryCount == 1 then
       msg = utils.concatStrings({msg:sub(1, -3), "."})
     end
-    logger.debug(msg)
+    logger.info(msg)
     retryCount = retryCount - 1
     os.execute("sleep 1")
     connect, err = red:connect(host, port)
@@ -361,7 +361,7 @@ local syncStatus = false
 --- Sync with redis on startup and create conf files for resources that are already in redis
 -- @param red redis client instance
 function _M.syncWithRedis(red)
-  logger.debug("Sync with redis in progress...")
+  logger.info("Sync with redis in progress...")
   setSyncStatus(true)
   local resourceKeys = getAllResourceKeys(red)
   for k, resourceKey in pairs(resourceKeys) do
@@ -371,7 +371,7 @@ function _M.syncWithRedis(red)
   end
   os.execute("/usr/local/sbin/nginx -s reload")
   setSyncStatus(false)
-  logger.debug("All resources synced.")
+  logger.info("All resources synced.")
 end
 
 function setSyncStatus(status)
@@ -386,7 +386,7 @@ end
 -- @param redisSubClient the redis client that is listening for the redis key changes
 -- @param redisGetClient the redis client that gets the changed resource to update the conf file
 function _M.subscribe(redisSubClient, redisGetClient)
-  logger.debug("Subscribed to redis and listening for key changes...")
+  logger.info("Subscribed to redis and listening for key changes...")
   -- Subscribe to redis using psubscribe
   local ok, err = redisSubClient:config("set", "notify-keyspace-events", "KEA")
   if not ok then
@@ -430,7 +430,7 @@ function _M.subscribe(redisSubClient, redisGetClient)
     local timeDiff = ngx.now() - startTime
     if(redisUpdated == true and timeDiff >= 1) then
       os.execute("/usr/local/sbin/nginx -s reload")
-      logger.debug("Nginx reloaded.")
+      logger.info("Nginx reloaded.")
       redisUpdated = false
       startTime = ngx.now()
     end

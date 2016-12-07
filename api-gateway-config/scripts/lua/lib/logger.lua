@@ -26,9 +26,15 @@ local utils = require "lib/utils"
 local _M = {}
 
 --- Handle error stream
--- @param s String to write to error stream
+-- @param s String to write to error level of log stream
 function _M.err(s)
   ngx.log(ngx.ERR, s)
+end
+
+--- Handle info logs
+-- @param s String to write to info level of log stream
+function _M.info(s)
+  ngx.log(ngx.INFO, s)
 end
 
 --- Handle debug stream to stdout
