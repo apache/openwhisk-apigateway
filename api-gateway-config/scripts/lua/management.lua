@@ -489,7 +489,7 @@ end
 -- GET /v1/sync
 function _M.sync()
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
-  logger.debug(utils.concatStrings({"Connected to redis at ", REDIS_HOST, ":", REDIS_PORT}))
+  logger.info(utils.concatStrings({"Connected to redis at ", REDIS_HOST, ":", REDIS_PORT}))
   redis.syncWithRedis(red)
   ngx.exit(200)
 end
