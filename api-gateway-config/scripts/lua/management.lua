@@ -119,7 +119,14 @@ function isValid(red, field, object)
   if not object then
     return false, { statusCode = 400, message = utils.concatStrings({"Missing field '", field, "' in request body."}) }
   end
-  -- Additional check f or tenantId
+  -- Additional check for basePath
+  if field == "basePath" then
+    local basePath = object
+    if string.match(basePath, "'") then
+      return false, { statusCode = 400, message = "basePath contains illegal character \"'\"." }
+    end
+  end
+  -- Additional check for tenantId
   if field == "tenantId" then
     local tenant = redis.getTenant(red, object)
     if tenant == nil then
@@ -133,6 +140,10 @@ function isValid(red, field, object)
       return false, { statusCode = 400, message = "Empty resources object." }
     end
     for path, resource in pairs(resources) do
+      -- Check resource path for illegal characters
+      if string.match(path, "'") then
+        return false, { statusCode = 400, message = "resource path contains illegal character \"'\"." }
+      end
       -- Check that resource path begins with slash
       if path:sub(1,1) ~= '/' then
         return false, { statusCode = 400, message = "Resource path must begin with '/'." }
@@ -478,7 +489,7 @@ end
 -- GET /v1/sync
 function _M.sync()
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
-  logger.debug(utils.concatStrings({"Connected to redis at ", REDIS_HOST, ":", REDIS_PORT}))
+  logger.info(utils.concatStrings({"Connected to redis at ", REDIS_HOST, ":", REDIS_PORT}))
   redis.syncWithRedis(red)
   ngx.exit(200)
 end
