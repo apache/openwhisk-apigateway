@@ -22,27 +22,31 @@
 -- Used to dynamically handle nginx routing based on an object containing implementation details
 -- @author Cody Walker (cmwalker), Alex Song (songs)
 
-
+local cjson = require "cjson"
 local utils = require "lib/utils"
 local request = require "lib/request"
+local redis = require "lib/redis"
 local url = require "url"
 -- load policies
 local security = require "policies/security"
 local mapping = require "policies/mapping"
 local rateLimit = require "policies/rateLimit"
 
+local REDIS_HOST = os.getenv("REDIS_HOST")
+local REDIS_PORT = os.getenv("REDIS_PORT")
+local REDIS_PASS = os.getenv("REDIS_PASS")
+
 local _M = {}
 
 --- Main function that handles parsing of invocation details and carries out implementation
--- @param obj Lua table object containing implementation details for the given resource
--- {
---   {{GatewayMethod (GET / PUT / POST / DELETE)}} = {
---      "backendMethod": (GET / PUT / POST / DELETE) - Method to use for invocation (if different from gatewayMethod),
---      "backendUrl": STRING - fully composed url of backend invocation,
---      "policies": LIST - list of table objects containing type and value fields
---    }, ...
--- }
-function processCall(obj)
+function processCall()
+  -- Handle path parameters
+  ngx.var.gatewayPath = ngx.unescape_uri(ngx.var.gatewayPath):gsub("%{(%w*)%}", utils.convertTemplatedPathParam)
+  -- Get resource object from redis
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
+  local redisKey = utils.concatStrings({"resources:", ngx.var.tenant, ":", ngx.var.gatewayPath})
+  local obj = redis.getResource(red, redisKey, "resources")
+  obj = cjson.decode(obj)
   local found = false
   for verb, opFields in pairs(obj.operations) do
     if string.upper(verb) == ngx.req.get_method() then

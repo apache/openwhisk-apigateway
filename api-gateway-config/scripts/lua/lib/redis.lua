@@ -23,13 +23,11 @@
 -- @author Alex Song (songs)
 
 local cjson = require "cjson"
-local filemgmt = require "lib/filemgmt"
 local utils = require "lib/utils"
 local logger = require "lib/logger"
 local request = require "lib/request"
 
 local REDIS_FIELD = "resources"
-local BASE_CONF_DIR = "/etc/api-gateway/managed_confs/"
 
 local _M = {}
 
@@ -357,31 +355,7 @@ end
 ------- Pub/Sub with Redis --------
 -----------------------------------
 
-local syncStatus = false
---- Sync with redis on startup and create conf files for resources that are already in redis
--- @param red redis client instance
-function _M.syncWithRedis(red)
-  logger.info("Sync with redis in progress...")
-  setSyncStatus(true)
-  local resourceKeys = getAllResourceKeys(red)
-  for k, resourceKey in pairs(resourceKeys) do
-    local prefix, tenant, gatewayPath = resourceKey:match("([^,]+):([^,]+):([^,]+)")
-    local resourceObj = _M.getResource(red, resourceKey, REDIS_FIELD)
-    filemgmt.createResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath), resourceObj)
-  end
-  os.execute("/usr/local/sbin/nginx -s reload")
-  setSyncStatus(false)
-  logger.info("All resources synced.")
-end
-
-function setSyncStatus(status)
-  syncStatus = status
-end
-
-function getSyncStatus()
-  return syncStatus
-end
-
+local gatewayReady = false
 --- Subscribe to redis
 -- @param redisSubClient the redis client that is listening for the redis key changes
 -- @param redisGetClient the redis client that gets the changed resource to update the conf file
@@ -396,10 +370,8 @@ function _M.subscribe(redisSubClient, redisGetClient)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to subscribe to redis: ", err}))
   end
-  -- Update nginx conf file when redis is updated
-  local redisUpdated = false
-  local startTime = ngx.now()
   while true do
+    gatewayReady = true
     local res, err = redisSubClient:read_reply()
     if not res then
       if err ~= "timeout" then
@@ -416,31 +388,18 @@ function _M.subscribe(redisSubClient, redisGetClient)
         local resourceObj = _M.getResource(redisGetClient, redisKey, REDIS_FIELD)
         if resourceObj == nil then
           logger.debug(utils.concatStrings({"Redis key deleted: ", redisKey}))
-          local fileLocation = filemgmt.deleteResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath))
-          logger.debug(utils.concatStrings({"Deleted file: ", fileLocation}))
         else
           logger.debug(utils.concatStrings({"Redis key updated: ", redisKey}))
-          local fileLocation = filemgmt.createResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath), resourceObj)
-          logger.debug(utils.concatStrings({"Updated file: ", fileLocation}))
         end
-        redisUpdated = true
       end
-    end
-    -- reload Nginx only if redis has been updated and it has been at least 1 second since last reload
-    local timeDiff = ngx.now() - startTime
-    if(redisUpdated == true and timeDiff >= 1) then
-      os.execute("/usr/local/sbin/nginx -s reload")
-      logger.info("Nginx reloaded.")
-      redisUpdated = false
-      startTime = ngx.now()
     end
   end
 end
 
 --- Get gateway sync status
 function _M.healthCheck()
-  if getSyncStatus() == true then
-    request.success(503, "Status: Gateway syncing.")
+  if gatewayReady == false then
+    request.success(503, "Status: Gateway starting up.")
   else
     request.success(200, "Status: Gateway ready.")
   end
