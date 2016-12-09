@@ -245,9 +245,9 @@ _body:_
 {
   "key": *(string) The api key to store to redis.
   "scope": *(string) The scope to use the api key. "tenant", "resource", or "api".
-  "tenant": *(string) Tenant guid.
+  "tenantId": *(string) Tenant guid.
   "resource": (string) Resource path. Required if scope is "resource".
-  "api": (string) API Guid. Required if scope is "API".
+  "apiId": (string) API Guid. Required if scope is "API".
 }
 ```
 
@@ -264,9 +264,9 @@ _body:_
 {
   "key": *(string) The api key to delete.
   "scope": *(string) The scope to use the api key. "tenant", "resource", or "api".
-  "tenant": *(string) Tenant guid.
+  "tenantId": *(string) Tenant guid.
   "resource": (string) Resource path. Required if scope is "resource".
-  "api": (string) API Guid. Required if scope is "API".
+  "apiId": (string) API Guid. Required if scope is "API".
 }
 ```
 
