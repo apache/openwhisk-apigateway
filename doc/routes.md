@@ -4,7 +4,7 @@ The following defines the interface for managing APIs and Tenants. These endpoin
 
 ## APIs
 
-### PUT /apis
+### PUT /v1/apis
 Create a new API. Note that you should first create a tenant and obtain its `tenantId`. For API policy definitions, see [here](policies.md).
 
 _body_:
@@ -46,7 +46,7 @@ _returns:_
 }
 ```
 
-### PUT /apis/{id}
+### PUT /v1/apis/{id}
 Update attributes for a given API.
 
 _body_:
@@ -88,7 +88,7 @@ _returns:_
 }
 ```
 
-### GET /apis
+### GET /v1/apis
 Find all instances of APIs added to the gateway.
 
 _returns:_
@@ -106,7 +106,7 @@ _returns:_
 ]
 ```
 
-### GET /apis/{id}
+### GET /v1/apis/{id}
 Find an API by its id.
 
 _returns:_
@@ -122,7 +122,7 @@ _returns:_
 }
 ```
 
-### GET /apis/{id}/tenant
+### GET /v1/apis/{id}/tenant
 Find the tenant associated with this API.
 
 _returns:_
@@ -135,7 +135,7 @@ _returns:_
 ```
 
 
-### DELETE /apis/{id}
+### DELETE /v1/apis/{id}
 Delete the API
 
 _returns:_
@@ -145,7 +145,7 @@ _returns:_
 
 ## Tenants
 
-### PUT /tenants
+### PUT /v1/tenants
 Create a new tenant.
 
 _body:_
@@ -164,7 +164,7 @@ _returns:_
 }
 ```
 
-### PUT /tenants/{id}
+### PUT /v1/tenants/{id}
 Update attributes for a given tenant.
 
 _body:_
@@ -183,7 +183,7 @@ _returns:_
 }
 ```
 
-### GET /tenants
+### GET /v1/tenants
 Find all instances of tenants added to the gateway.
 
 _returns:_
@@ -197,7 +197,7 @@ _returns:_
 ]
 ```
 
-### GET /tenants/{id}
+### GET /v1/tenants/{id}
 Find a tenant by its id.
 
 _returns:_
@@ -209,7 +209,7 @@ _returns:_
 }
 ```
 
-### DELETE /tenants/{id}
+### DELETE /v1/tenants/{id}
 Delete the tenant.
 
 _returns:_
@@ -217,7 +217,7 @@ _returns:_
 {}
 ```
 
-### GET /tenants/{id}/apis
+### GET /v1/tenants/{id}/apis
 Get all APIs for the given tenant.
 
 _returns:_
