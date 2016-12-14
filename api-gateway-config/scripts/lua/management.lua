@@ -44,7 +44,7 @@ local _M = {}
 --------------------------
 
 --- Add an api to the Gateway
--- PUT /APIs
+-- PUT /v1/apis
 -- body:
 -- {
 --    "name": *(String) name of API
@@ -83,6 +83,7 @@ function _M.addAPI()
   end
   -- Format basePath
   local basePath = decoded.basePath:sub(1,1) == '/' and decoded.basePath:sub(2) or decoded.basePath
+  basePath = basePath:sub(-1) == '/' and basePath:sub(1, -2) or basePath
   -- Create managedUrl object
   local uuid = existingAPI ~= nil and existingAPI.id or utils.uuid()
   local managedUrl = utils.concatStrings({"http://", MANAGEDURL_HOST, ":", MANAGEDURL_PORT, "/api/", decoded.tenantId})
@@ -101,7 +102,8 @@ function _M.addAPI()
   managedUrlObj = redis.addAPI(red, uuid, managedUrlObj, existingAPI)
   -- Add resources to redis
   for path, resource in pairs(decoded.resources) do
-    local gatewayPath = utils.concatStrings({basePath, ngx.escape_uri(path)})
+    local gatewayPath = utils.concatStrings({basePath, path})
+    gatewayPath = (gatewayPath:sub(1,1) == '/') and gatewayPath:sub(2) or gatewayPath
     addResource(red, resource, gatewayPath, decoded.tenantId)
   end
   redis.close(red)
@@ -229,7 +231,7 @@ end
 -- @param tenantId
 function addResource(red, resource, gatewayPath, tenantId)
   -- Create resource object and add to redis
-  local redisKey = utils.concatStrings({"resources", ":", tenantId, ":", ngx.unescape_uri(gatewayPath)})
+  local redisKey = utils.concatStrings({"resources", ":", tenantId, ":", gatewayPath})
   local apiId
   local operations
   for k, v in pairs(resource) do
@@ -244,7 +246,7 @@ function addResource(red, resource, gatewayPath, tenantId)
 end
 
 --- Get one or all APIs from the gateway
--- GET /APIs
+-- GET /v1/apis
 function _M.getAPIs()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
   local id
@@ -321,7 +323,7 @@ function getAPITenant(id)
 end
 
 --- Delete API from gateway
--- DELETE /APIs/<id>
+-- DELETE /v1/apis/<id>
 function _M.deleteAPI()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
   local index = 1
@@ -345,7 +347,8 @@ function _M.deleteAPI()
   -- Delete all resources for the API
   local basePath = api.basePath:sub(2)
   for path, v in pairs(api.resources) do
-    local gatewayPath = utils.concatStrings({basePath, ngx.escape_uri(path)})
+    local gatewayPath = utils.concatStrings({basePath, path})
+    gatewayPath = (gatewayPath:sub(1,1) == '/') and gatewayPath:sub(2) or gatewayPath
     deleteResource(red, gatewayPath, api.tenantId)
   end
   redis.close(red)
@@ -357,7 +360,7 @@ end
 -- @param gatewayPath path in gateway
 -- @param tenantId tenant id
 function deleteResource(red, gatewayPath, tenantId)
-  local redisKey = utils.concatStrings({"resources:", tenantId, ":", ngx.unescape_uri(gatewayPath)})
+  local redisKey = utils.concatStrings({"resources:", tenantId, ":", gatewayPath})
   redis.deleteResource(red, redisKey, REDIS_FIELD)
 end
 
@@ -366,7 +369,7 @@ end
 -----------------------------
 
 --- Add a tenant to the Gateway
--- PUT /Tenants
+-- PUT /v1/tenants
 -- body:
 -- {
 --    "namespace": *(String) tenant namespace
@@ -414,7 +417,7 @@ function _M.addTenant()
 end
 
 --- Get one or all tenants from the gateway
--- GET /Tenants
+-- GET /v1/tenants
 function _M.getTenants()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
   local id
@@ -493,7 +496,7 @@ function getTenantAPIs(id)
 end
 
 --- Delete tenant from gateway
--- DELETE /Tenants/<id>
+-- DELETE /v1/tenants/<id>
 function _M.deleteTenant()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
   local index = 1
@@ -521,7 +524,6 @@ end
 -- GET /v1/sync
 function _M.sync()
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
-  logger.info(utils.concatStrings({"Connected to redis at ", REDIS_HOST, ":", REDIS_PORT}))
   redis.syncWithRedis(red)
   ngx.exit(200)
 end
@@ -531,6 +533,7 @@ end
 function _M.subscribe()
   local redisGetClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local redisSubClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  logger.info(utils.concatStrings({"Connected to redis at ", REDIS_HOST, ":", REDIS_PORT}))
   redis.subscribe(redisSubClient, redisGetClient)
   ngx.exit(200)
 end

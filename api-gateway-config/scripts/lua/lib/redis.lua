@@ -42,7 +42,7 @@ local _M = {}
 -- @param timeout redis timeout in milliseconds
 function _M.init(host, port, password, timeout)
   local redis = require "resty.redis"
-  local red   = redis:new()
+  local red = redis:new()
   red:set_timeout(timeout)
   -- Connect to Redis server
   local retryCount = 4
@@ -213,18 +213,19 @@ function _M.getResource(red, key, field)
   return resourceObj
 end
 
---- Get all resource keys in redis
+--- Get all resource keys for a tenant in redis
 -- @param red redis client instance
-function getAllResourceKeys(red)
+-- @param tenantId tenant id
+function _M.getAllResourceKeys(red, tenantId)
   -- Find all resourceKeys in redis
-  local resources, err = red:scan(0, "match", "resources:*:*")
+  local resources, err = red:scan(0, "match", utils.concatStrings({"resources:", tenantId, ":*"}))
   if not resources then
     request.err(500, util.concatStrings({"Failed to retrieve resource keys: ", err}))
   end
   local cursor = resources[1]
   local resourceKeys = resources[2]
   while cursor ~= "0" do
-    resources, err = red:scan(cursor, "match", "resources:*:*")
+    resources, err = red:scan(cursor, "match", utils.concatStrings({"resources:", tenantId, ":*"}))
     if not resources then
       request.err(500, util.concatStrings({"Failed to retrieve resource keys: ", err}))
     end
@@ -355,7 +356,6 @@ end
 ------- Pub/Sub with Redis --------
 -----------------------------------
 
-local gatewayReady = false
 --- Subscribe to redis
 -- @param redisSubClient the redis client that is listening for the redis key changes
 -- @param redisGetClient the redis client that gets the changed resource to update the conf file
@@ -371,7 +371,6 @@ function _M.subscribe(redisSubClient, redisGetClient)
     request.err(500, utils.concatStrings({"Failed to subscribe to redis: ", err}))
   end
   while true do
-    gatewayReady = true
     local res, err = redisSubClient:read_reply()
     if not res then
       if err ~= "timeout" then
@@ -383,13 +382,13 @@ function _M.subscribe(redisSubClient, redisGetClient)
       local redisKey = utils.concatStrings({resourcePrefix, ":", tenant, ":", gatewayPath})
       -- Don't allow single quotes in the gateway path
       if string.match(gatewayPath, "'") then
-        logger.debug(utils.concatStrings({"Redis key \"", redisKey, "\" contains illegal character \"'\"."}))
+        logger.info(utils.concatStrings({"Redis key \"", redisKey, "\" contains illegal character \"'\"."}))
       else
         local resourceObj = _M.getResource(redisGetClient, redisKey, REDIS_FIELD)
         if resourceObj == nil then
-          logger.debug(utils.concatStrings({"Redis key deleted: ", redisKey}))
+          logger.info(utils.concatStrings({"Redis key deleted: ", redisKey}))
         else
-          logger.debug(utils.concatStrings({"Redis key updated: ", redisKey}))
+          logger.info(utils.concatStrings({"Redis key updated: ", redisKey}))
         end
       end
     end
@@ -398,11 +397,7 @@ end
 
 --- Get gateway sync status
 function _M.healthCheck()
-  if gatewayReady == false then
-    request.success(503, "Status: Gateway starting up.")
-  else
-    request.success(200, "Status: Gateway ready.")
-  end
+  request.success(200,  "Status: Gateway ready.")
 end
 
 return _M
