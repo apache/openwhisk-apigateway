@@ -49,7 +49,7 @@ function processCall()
   if obj == nil then
     obj = checkForPathParams(red)
     if obj == nil then
-      return request.err(404, 'API doesn\'t exist.')
+      return request.err(404, 'Not found.')
     end
   end
   obj = cjson.decode(obj)

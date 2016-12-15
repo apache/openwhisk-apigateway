@@ -352,50 +352,7 @@ function _M.deleteSubscription(red, key)
   end
 end
 
------------------------------------
-------- Pub/Sub with Redis --------
------------------------------------
-
---- Subscribe to redis
--- @param redisSubClient the redis client that is listening for the redis key changes
--- @param redisGetClient the redis client that gets the changed resource to update the conf file
-function _M.subscribe(redisSubClient, redisGetClient)
-  logger.info("Subscribed to redis and listening for key changes...")
-  -- Subscribe to redis using psubscribe
-  local ok, err = redisSubClient:config("set", "notify-keyspace-events", "KEA")
-  if not ok then
-    request.err(500, utils.concatStrings({"Failed to subscribe to redis: ", err}))
-  end
-  ok, err = redisSubClient:psubscribe("__keyspace@0__:resources:*:*")
-  if not ok then
-    request.err(500, utils.concatStrings({"Failed to subscribe to redis: ", err}))
-  end
-  while true do
-    local res, err = redisSubClient:read_reply()
-    if not res then
-      if err ~= "timeout" then
-        request.err(500, utils.concatStrings({"Failed to read from redis: ", err}))
-      end
-    else
-      -- res[3] format is "__keyspace@0__:resources:<tenantId>:<gatewayPath>"
-      local keyspacePrefix, resourcePrefix, tenant, gatewayPath = res[3]:match("([^,]+):([^,]+):([^,]+):([^,]+)")
-      local redisKey = utils.concatStrings({resourcePrefix, ":", tenant, ":", gatewayPath})
-      -- Don't allow single quotes in the gateway path
-      if string.match(gatewayPath, "'") then
-        logger.info(utils.concatStrings({"Redis key \"", redisKey, "\" contains illegal character \"'\"."}))
-      else
-        local resourceObj = _M.getResource(redisGetClient, redisKey, REDIS_FIELD)
-        if resourceObj == nil then
-          logger.info(utils.concatStrings({"Redis key deleted: ", redisKey}))
-        else
-          logger.info(utils.concatStrings({"Redis key updated: ", redisKey}))
-        end
-      end
-    end
-  end
-end
-
---- Get gateway sync status
+--- Check health of gateway
 function _M.healthCheck()
   request.success(200,  "Status: Gateway ready.")
 end

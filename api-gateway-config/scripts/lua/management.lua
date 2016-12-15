@@ -520,25 +520,20 @@ end
 ----- Pub/Sub with Redis -----
 ------------------------------
 
---- Sync with redis
--- GET /v1/sync
-function _M.sync()
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
-  redis.syncWithRedis(red)
-  ngx.exit(200)
-end
-
 --- Subscribe to redis
 -- GET /v1/subscribe
 function _M.subscribe()
-  local redisGetClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
-  local redisSubClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS)
   logger.info(utils.concatStrings({"Connected to redis at ", REDIS_HOST, ":", REDIS_PORT}))
-  redis.subscribe(redisSubClient, redisGetClient)
+  while true do end
   ngx.exit(200)
 end
 
---- Get gateway sync status
+----------------------------
+------- Health Check -------
+----------------------------
+
+--- Check health of gateway
 function _M.healthCheck()
   redis.healthCheck()
 end
