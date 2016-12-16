@@ -44,7 +44,7 @@ local _M = {}
 --------------------------
 
 --- Add an api to the Gateway
--- PUT /APIs
+-- PUT /v1/apis
 -- body:
 -- {
 --    "name": *(String) name of API
@@ -83,6 +83,7 @@ function _M.addAPI()
   end
   -- Format basePath
   local basePath = decoded.basePath:sub(1,1) == '/' and decoded.basePath:sub(2) or decoded.basePath
+  basePath = basePath:sub(-1) == '/' and basePath:sub(1, -2) or basePath
   -- Create managedUrl object
   local uuid = existingAPI ~= nil and existingAPI.id or utils.uuid()
   local managedUrl = utils.concatStrings({"http://", MANAGEDURL_HOST, ":", MANAGEDURL_PORT, "/api/", decoded.tenantId})
@@ -101,7 +102,8 @@ function _M.addAPI()
   managedUrlObj = redis.addAPI(red, uuid, managedUrlObj, existingAPI)
   -- Add resources to redis
   for path, resource in pairs(decoded.resources) do
-    local gatewayPath = utils.concatStrings({basePath, ngx.escape_uri(path)})
+    local gatewayPath = utils.concatStrings({basePath, path})
+    gatewayPath = (gatewayPath:sub(1,1) == '/') and gatewayPath:sub(2) or gatewayPath
     addResource(red, resource, gatewayPath, decoded.tenantId)
   end
   redis.close(red)
@@ -133,61 +135,93 @@ function isValid(red, field, object)
       return false, { statusCode = 404, message = utils.concatStrings({"Unknown tenant id ", object }) }
     end
   end
-  -- Additional checks for resource object
   if field == "resources" then
-    local resources = object
-    if next(object) == nil then
-      return false, { statusCode = 400, message = "Empty resources object." }
-    end
-    for path, resource in pairs(resources) do
-      -- Check resource path for illegal characters
-      if string.match(path, "'") then
-        return false, { statusCode = 400, message = "resource path contains illegal character \"'\"." }
-      end
-      -- Check that resource path begins with slash
-      if path:sub(1,1) ~= '/' then
-        return false, { statusCode = 400, message = "Resource path must begin with '/'." }
-      end
-      -- Check operations object
-      if not resource.operations or next(resource.operations) == nil then
-        return false, { statusCode = 400, message = "Missing or empty field 'operations' or in resource path object." }
-      end
-      for verb, verbObj in pairs(resource.operations) do
-        local allowedVerbs = {GET=true, POST=true, PUT=true, DELETE=true, PATCH=true, HEAD=true, OPTIONS=true}
-        if allowedVerbs[verb:upper()] == nil then
-          return false, { statusCode = 400, message = utils.concatStrings({"Resource verb '", verb, "' not supported."}) }
-        end
-        -- Check required fields
-        local requiredFields = {"backendMethod", "backendUrl"}
-        for k, v in pairs(requiredFields) do
-          if verbObj[v] == nil then
-            return false, { statusCode = 400, message = utils.concatStrings({"Missing field '", v, "' for '", verb, "' operation."}) }
-          end
-          if v == "backendMethod" then
-            local backendMethod = verbObj[v]
-            if allowedVerbs[backendMethod:upper()] == nil then
-              return false, { statusCode = 400, message = utils.concatStrings({"backendMethod '", backendMethod, "' not supported."}) }
-            end
-          end
-        end
-        -- Check optional fields
-        local policies = verbObj.policies
-        if policies then
-          for k, v in pairs(policies) do
-            if v.type == nil then
-              return false, { statusCode = 400, message = "Missing field 'type' in policy object." }
-            end
-          end
-        end
-        local security = verbObj.security
-        if security and security.type == nil then
-          return false, { statusCode = 400, message = "Missing field 'type' in security object." }
-        end
-      end
+    local res, err = checkResources(object)
+    if res ~= nil and res == false then
+      return res, err
     end
   end
   -- All error checks passed
   return true
+end
+
+--- Error checking for resources
+-- @param resources resources object
+function checkResources(resources)
+  if next(resources) == nil then
+    return false, { statusCode = 400, message = "Empty resources object." }
+  end
+  for path, resource in pairs(resources) do
+    -- Check resource path for illegal characters
+    if string.match(path, "'") then
+      return false, { statusCode = 400, message = "resource path contains illegal character \"'\"." }
+    end
+    -- Check that resource path begins with slash
+    if path:sub(1,1) ~= '/' then
+      return false, { statusCode = 400, message = "Resource path must begin with '/'." }
+    end
+    -- Check operations object
+    local res, err = checkOperations(resource.operations)
+    if res ~= nil and res == false then
+      return res, err
+    end
+  end
+end
+
+--- Error checking for operations
+-- @param operations operations object
+function checkOperations(operations)
+  if not operations or next(operations) == nil then
+    return false, { statusCode = 400, message = "Missing or empty field 'operations' or in resource path object." }
+  end
+  local allowedVerbs = {GET=true, POST=true, PUT=true, DELETE=true, PATCH=true, HEAD=true, OPTIONS=true}
+  for verb, verbObj in pairs(operations) do
+    if allowedVerbs[verb:upper()] == nil then
+      return false, { statusCode = 400, message = utils.concatStrings({"Resource verb '", verb, "' not supported."}) }
+    end
+    -- Check required fields
+    local requiredFields = {"backendMethod", "backendUrl"}
+    for k, v in pairs(requiredFields) do
+      if verbObj[v] == nil then
+        return false, { statusCode = 400, message = utils.concatStrings({"Missing field '", v, "' for '", verb, "' operation."}) }
+      end
+      if v == "backendMethod" then
+        local backendMethod = verbObj[v]
+        if allowedVerbs[backendMethod:upper()] == nil then
+          return false, { statusCode = 400, message = utils.concatStrings({"backendMethod '", backendMethod, "' not supported."}) }
+        end
+      end
+    end
+    -- Check optional fields
+    local res, err = checkOptionalPolicies(verbObj.policies, verbObj.security)
+    if res ~= nil and res == false then
+      return res, err
+    end
+  end
+end
+
+--- Error checking for policies and security
+-- @param policies policies object
+-- @param security security object
+function checkOptionalPolicies(policies, security)
+  if policies then
+    for k, v in pairs(policies) do
+      local validTypes = {reqMapping = true, rateLimit = true}
+      if (v.type == nil or v.value == nil) then
+        return false, { statusCode = 400, message = "Missing field in policy object. Need \"type\" and \"scope\"." }
+      elseif validTypes[v.type] == nil then
+        return false, { statusCode = 400, message = "Invalid type in policy object. Valid: \"reqMapping\", \"rateLimit\"" }
+      end
+    end
+  end
+  if security then
+    local validScopes = {tenant=true, api=true, resource=true}
+    if (security.type == nil or security.scope == nil) then
+      return false, { statusCode = 400, message = "Missing field in security object. Need \"type\" and \"scope\"." }
+    elseif validScopes[security.scope] == nil then
+      return false, { statusCode = 400, message = "Invalid scope in security object. Valid: \"tenant\", \"api\", \"resource\"." }
+    end
+  end
 end
 
 --- Helper function for adding a resource to redis and creating an nginx conf file
@@ -197,7 +231,7 @@ end
 -- @param tenantId
 function addResource(red, resource, gatewayPath, tenantId)
   -- Create resource object and add to redis
-  local redisKey = utils.concatStrings({"resources", ":", tenantId, ":", ngx.unescape_uri(gatewayPath)})
+  local redisKey = utils.concatStrings({"resources", ":", tenantId, ":", gatewayPath})
   local apiId
   local operations
   for k, v in pairs(resource) do
@@ -212,7 +246,7 @@ function addResource(red, resource, gatewayPath, tenantId)
 end
 
 --- Get one or all APIs from the gateway
--- GET /APIs
+-- GET /v1/apis
 function _M.getAPIs()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
   local id
@@ -289,7 +323,7 @@ function getAPITenant(id)
 end
 
 --- Delete API from gateway
--- DELETE /APIs/<id>
+-- DELETE /v1/apis/<id>
 function _M.deleteAPI()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
   local index = 1
@@ -313,7 +347,8 @@ function _M.deleteAPI()
   -- Delete all resources for the API
   local basePath = api.basePath:sub(2)
   for path, v in pairs(api.resources) do
-    local gatewayPath = utils.concatStrings({basePath, ngx.escape_uri(path)})
+    local gatewayPath = utils.concatStrings({basePath, path})
+    gatewayPath = (gatewayPath:sub(1,1) == '/') and gatewayPath:sub(2) or gatewayPath
     deleteResource(red, gatewayPath, api.tenantId)
   end
   redis.close(red)
@@ -325,7 +360,7 @@ end
 -- @param gatewayPath path in gateway
 -- @param tenantId tenant id
 function deleteResource(red, gatewayPath, tenantId)
-  local redisKey = utils.concatStrings({"resources:", tenantId, ":", ngx.unescape_uri(gatewayPath)})
+  local redisKey = utils.concatStrings({"resources:", tenantId, ":", gatewayPath})
   redis.deleteResource(red, redisKey, REDIS_FIELD)
 end
 
@@ -334,7 +369,7 @@ end
 -----------------------------
 
 --- Add a tenant to the Gateway
--- PUT /Tenants
+-- PUT /v1/tenants
 -- body:
 -- {
 --    "namespace": *(String) tenant namespace
@@ -382,7 +417,7 @@ function _M.addTenant()
 end
 
 --- Get one or all tenants from the gateway
--- GET /Tenants
+-- GET /v1/tenants
 function _M.getTenants()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
   local id
@@ -461,7 +496,7 @@ function getTenantAPIs(id)
 end
 
 --- Delete tenant from gateway
--- DELETE /Tenants/<id>
+-- DELETE /v1/tenants/<id>
 function _M.deleteTenant()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
   local index = 1
@@ -485,25 +520,20 @@ end
 ----- Pub/Sub with Redis -----
 ------------------------------
 
---- Sync with redis
--- GET /v1/sync
-function _M.sync()
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
-  logger.info(utils.concatStrings({"Connected to redis at ", REDIS_HOST, ":", REDIS_PORT}))
-  redis.syncWithRedis(red)
-  ngx.exit(200)
-end
-
 --- Subscribe to redis
 -- GET /v1/subscribe
 function _M.subscribe()
-  local redisGetClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
-  local redisSubClient = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  redis.subscribe(redisSubClient, redisGetClient)
+  redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS)
+  logger.info(utils.concatStrings({"Connected to redis at ", REDIS_HOST, ":", REDIS_PORT}))
+  while true do end
   ngx.exit(200)
 end
 
---- Get gateway sync status
+----------------------------
+------- Health Check -------
+----------------------------
+
+--- Check health of gateway
 function _M.healthCheck()
   redis.healthCheck()
 end
@@ -518,9 +548,9 @@ end
 -- {
 --    key: *(String) key for tenant/api/resource
 --    scope: *(String) tenant or api or resource
---    tenant: *(String) tenant id
+--    tenantId: *(String) tenant id
 --    resource: (String) url-encoded resource path
---    api: (String) api id
+--    apiId: (String) api id
 -- }
 function _M.addSubscription()
   -- Validate body and create redisKey
@@ -539,9 +569,9 @@ end
 -- {
 --    key: *(String) key for tenant/api/resource
 --    scope: *(String) tenant or api or resource
---    tenant: *(String) tenant id
+--    tenantId: *(String) tenant id
 --    resource: (String) url-encoded resource path
---    api: (String) api id
+--    apiId: (String) api id
 -- }
 function _M.deleteSubscription()
   -- Validate body and create redisKey
@@ -560,19 +590,14 @@ end
 function validateSubscriptionBody()
   -- Read in the PUT JSON Body
   ngx.req.read_body()
-  local args = ngx.req.get_post_args()
+  local args = ngx.req.get_body_data()
   if not args then
     request.err(400, "Missing request body.")
   end
   -- Convert json into Lua table
-  local decoded
-  if next(args) then
-    decoded = utils.convertJSONBody(args)
-  else
-    request.err(400, "Request body required.")
-  end
+  local decoded = cjson.decode(args)
   -- Check required fields
-  local requiredFieldList = {"key", "scope", "tenant"}
+  local requiredFieldList = {"key", "scope", "tenantId"}
   for i, field in ipairs(requiredFieldList) do
     if not decoded[field] then
       request.err(400, utils.concatStrings({"\"", field, "\" missing from request body."}))
@@ -582,7 +607,7 @@ function validateSubscriptionBody()
   local resource = decoded.resource
   local apiId = decoded.apiId
   local redisKey
-  local prefix = utils.concatStrings({"subscriptions:tenant:", decoded.tenant})
+  local prefix = utils.concatStrings({"subscriptions:tenant:", decoded.tenantId})
   if decoded.scope == "tenant" then
     redisKey = prefix
   elseif decoded.scope == "resource" then

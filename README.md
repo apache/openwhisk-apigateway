@@ -30,7 +30,7 @@ docker run -p 80:80 -p <managedurl_port>:8080 -p 9000:9000 \
 
 This command starts an API Gateway that subscribes to the Redis instance with the specified host and port. The `REDIS_PASS` variable is optional and is required only when redis needs authentication. 
 
-On startup, the API Gateway looks for pre-existing resources in redis, whose keys are defined as `resources:<namespace>:<resource>`, and creates nginx conf files associated with those resources. Then, it listens for any resource key changes in redis and updates nginx conf files appropriately. These conf files are stored in the running docker container at `/etc/api-gateway/managed_confs/<namespace>/<resource>.conf`.
+On startup, the API Gateway subscribes to redis and listens for changes in keys that are defined as `resources:<namespace>:<resourcePath>`.
 
 ## Routes
 See [here](doc/routes.md) for the management interface for creating tenants/APIs. For detailed API policy definitions, see [here](doc/policies.md).
@@ -50,12 +50,7 @@ See [here](doc/routes.md) for the management interface for creating tenants/APIs
   make docker-run PUBLIC_MANAGEDURL_HOST=<mangedurl_host> PUBLIC_MANAGEDURL_PORT=<managedurl_port> \
     REDIS_HOST=<redis_host> REDIS_PORT=<redis_port> REDIS_PASS=<redis_pass>
  ```
- 
- The main API Gateway process is exposed to port `80`. To test that the Gateway works see its `health-check`:
- ```
-  $ curl http://<docker_host_ip>/health-check
-    API-Platform is running!
- ```
+
  
 ### Testing
 

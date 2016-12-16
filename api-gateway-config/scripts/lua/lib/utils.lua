@@ -84,10 +84,23 @@ function uuid()
   end)
 end
 
+--- Check if element exists in table as value
+-- @param table table to check
+-- @param element element to check in table
+function tableContains(table, element)
+  for i, value in pairs(table) do
+    if value == element then
+      return true
+    end
+  end
+  return false
+end
+
 _Utils.concatStrings = concatStrings
 _Utils.serializeTable = serializeTable
 _Utils.convertTemplatedPathParam = convertTemplatedPathParam
 _Utils.uuid = uuid
+_Utils.tableContains = tableContains
 
 return _Utils
 
