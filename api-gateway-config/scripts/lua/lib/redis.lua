@@ -23,13 +23,11 @@
 -- @author Alex Song (songs)
 
 local cjson = require "cjson"
-local filemgmt = require "lib/filemgmt"
 local utils = require "lib/utils"
 local logger = require "lib/logger"
 local request = require "lib/request"
 
 local REDIS_FIELD = "resources"
-local BASE_CONF_DIR = "/etc/api-gateway/managed_confs/"
 
 local _M = {}
 
@@ -44,7 +42,7 @@ local _M = {}
 -- @param timeout redis timeout in milliseconds
 function _M.init(host, port, password, timeout)
   local redis = require "resty.redis"
-  local red   = redis:new()
+  local red = redis:new()
   red:set_timeout(timeout)
   -- Connect to Redis server
   local retryCount = 4
@@ -215,18 +213,19 @@ function _M.getResource(red, key, field)
   return resourceObj
 end
 
---- Get all resource keys in redis
+--- Get all resource keys for a tenant in redis
 -- @param red redis client instance
-function getAllResourceKeys(red)
+-- @param tenantId tenant id
+function _M.getAllResourceKeys(red, tenantId)
   -- Find all resourceKeys in redis
-  local resources, err = red:scan(0, "match", "resources:*:*")
+  local resources, err = red:scan(0, "match", utils.concatStrings({"resources:", tenantId, ":*"}))
   if not resources then
     request.err(500, util.concatStrings({"Failed to retrieve resource keys: ", err}))
   end
   local cursor = resources[1]
   local resourceKeys = resources[2]
   while cursor ~= "0" do
-    resources, err = red:scan(cursor, "match", "resources:*:*")
+    resources, err = red:scan(cursor, "match", utils.concatStrings({"resources:", tenantId, ":*"}))
     if not resources then
       request.err(500, util.concatStrings({"Failed to retrieve resource keys: ", err}))
     end
@@ -353,97 +352,9 @@ function _M.deleteSubscription(red, key)
   end
 end
 
------------------------------------
-------- Pub/Sub with Redis --------
------------------------------------
-
-local syncStatus = false
---- Sync with redis on startup and create conf files for resources that are already in redis
--- @param red redis client instance
-function _M.syncWithRedis(red)
-  logger.info("Sync with redis in progress...")
-  setSyncStatus(true)
-  local resourceKeys = getAllResourceKeys(red)
-  for k, resourceKey in pairs(resourceKeys) do
-    local prefix, tenant, gatewayPath = resourceKey:match("([^,]+):([^,]+):([^,]+)")
-    local resourceObj = _M.getResource(red, resourceKey, REDIS_FIELD)
-    filemgmt.createResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath), resourceObj)
-  end
-  os.execute("/usr/local/sbin/nginx -s reload")
-  setSyncStatus(false)
-  logger.info("All resources synced.")
-end
-
-function setSyncStatus(status)
-  syncStatus = status
-end
-
-function getSyncStatus()
-  return syncStatus
-end
-
---- Subscribe to redis
--- @param redisSubClient the redis client that is listening for the redis key changes
--- @param redisGetClient the redis client that gets the changed resource to update the conf file
-function _M.subscribe(redisSubClient, redisGetClient)
-  logger.info("Subscribed to redis and listening for key changes...")
-  -- Subscribe to redis using psubscribe
-  local ok, err = redisSubClient:config("set", "notify-keyspace-events", "KEA")
-  if not ok then
-    request.err(500, utils.concatStrings({"Failed to subscribe to redis: ", err}))
-  end
-  ok, err = redisSubClient:psubscribe("__keyspace@0__:resources:*:*")
-  if not ok then
-    request.err(500, utils.concatStrings({"Failed to subscribe to redis: ", err}))
-  end
-  -- Update nginx conf file when redis is updated
-  local redisUpdated = false
-  local startTime = ngx.now()
-  while true do
-    local res, err = redisSubClient:read_reply()
-    if not res then
-      if err ~= "timeout" then
-        request.err(500, utils.concatStrings({"Failed to read from redis: ", err}))
-      end
-    else
-      -- res[3] format is "__keyspace@0__:resources:<tenantId>:<gatewayPath>"
-      local keyspacePrefix, resourcePrefix, tenant, gatewayPath = res[3]:match("([^,]+):([^,]+):([^,]+):([^,]+)")
-      local redisKey = utils.concatStrings({resourcePrefix, ":", tenant, ":", gatewayPath})
-      -- Don't allow single quotes in the gateway path
-      if string.match(gatewayPath, "'") then
-        logger.debug(utils.concatStrings({"Redis key \"", redisKey, "\" contains illegal character \"'\"."}))
-      else
-        local resourceObj = _M.getResource(redisGetClient, redisKey, REDIS_FIELD)
-        if resourceObj == nil then
-          logger.debug(utils.concatStrings({"Redis key deleted: ", redisKey}))
-          local fileLocation = filemgmt.deleteResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath))
-          logger.debug(utils.concatStrings({"Deleted file: ", fileLocation}))
-        else
-          logger.debug(utils.concatStrings({"Redis key updated: ", redisKey}))
-          local fileLocation = filemgmt.createResourceConf(BASE_CONF_DIR, tenant, ngx.escape_uri(gatewayPath), resourceObj)
-          logger.debug(utils.concatStrings({"Updated file: ", fileLocation}))
-        end
-        redisUpdated = true
-      end
-    end
-    -- reload Nginx only if redis has been updated and it has been at least 1 second since last reload
-    local timeDiff = ngx.now() - startTime
-    if(redisUpdated == true and timeDiff >= 1) then
-      os.execute("/usr/local/sbin/nginx -s reload")
-      logger.info("Nginx reloaded.")
-      redisUpdated = false
-      startTime = ngx.now()
-    end
-  end
-end
-
---- Get gateway sync status
+--- Check health of gateway
 function _M.healthCheck()
-  if getSyncStatus() == true then
-    request.success(503, "Status: Gateway syncing.")
-  else
-    request.success(200, "Status: Gateway ready.")
-  end
+  request.success(200,  "Status: Gateway ready.")
 end
 
 return _M

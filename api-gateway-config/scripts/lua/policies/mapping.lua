@@ -70,7 +70,7 @@ end
 --- Insert parameter value to header, body, or query params into request
 -- @param m Parameter value to add to request
 function insertParam(m)
-  local v = nil
+  local v
   local k = m.to.name
   if m.from.value ~= nil then
     v = m.from.value
@@ -81,7 +81,7 @@ function insertParam(m)
   elseif m.from.location == 'body' then
     v = body[m.from.name]
   elseif m.from.location == 'path' then
-    v = ngx.var[utils.concatStrings({'path_', m.from.name})]
+    v = ngx.ctx[m.from.name]
   end
   -- determine to where
   if m.to.location == 'header' then
@@ -208,8 +208,8 @@ end
 
 function insertPath(k, v)
   v = ngx.unescape_uri(v)
-  local primedUri = path:gsub("%{(%w*)%}", v)
-  ngx.req.set_uri(primedUri)
+  path = path:gsub(utils.concatStrings({"%{", k ,"%}"}), v)
+  ngx.req.set_uri(path)
 end
 
 function removeHeader(k)

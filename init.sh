@@ -55,7 +55,6 @@ if [[ -n "${redis_host}" && -n "${redis_port}" ]]; then
     sleep 1  # sleep until api-gateway is set up
     tail -f /var/log/api-gateway/access.log -f /var/log/api-gateway/error.log \
          -f /var/log/api-gateway/gateway_error.log -f /var/log/api-gateway/management.log &
-    curl -s http://0.0.0.0:9000/v1/sync & # sync with redis
     curl -s http://0.0.0.0:9000/v1/subscribe # subscribe to redis key changes for routes
 else
     echo "REDIS_HOST and/or REDIS_PORT not defined"

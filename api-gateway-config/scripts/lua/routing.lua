@@ -22,27 +22,37 @@
 -- Used to dynamically handle nginx routing based on an object containing implementation details
 -- @author Cody Walker (cmwalker), Alex Song (songs)
 
-
+local cjson = require "cjson"
 local utils = require "lib/utils"
 local request = require "lib/request"
+local redis = require "lib/redis"
 local url = require "url"
 -- load policies
 local security = require "policies/security"
 local mapping = require "policies/mapping"
 local rateLimit = require "policies/rateLimit"
+local logger = require "lib/logger"
+
+local REDIS_HOST = os.getenv("REDIS_HOST")
+local REDIS_PORT = os.getenv("REDIS_PORT")
+local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
 --- Main function that handles parsing of invocation details and carries out implementation
--- @param obj Lua table object containing implementation details for the given resource
--- {
---   {{GatewayMethod (GET / PUT / POST / DELETE)}} = {
---      "backendMethod": (GET / PUT / POST / DELETE) - Method to use for invocation (if different from gatewayMethod),
---      "backendUrl": STRING - fully composed url of backend invocation,
---      "policies": LIST - list of table objects containing type and value fields
---    }, ...
--- }
-function processCall(obj)
+function processCall()
+  -- Get resource object from redis
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
+  local redisKey = utils.concatStrings({"resources:", ngx.var.tenant, ":", ngx.var.gatewayPath})
+  local obj = redis.getResource(red, redisKey, "resources")
+  -- Check for path parameters
+  if obj == nil then
+    obj = checkForPathParams(red)
+    if obj == nil then
+      return request.err(404, 'Not found.')
+    end
+  end
+  obj = cjson.decode(obj)
   local found = false
   for verb, opFields in pairs(obj.operations) do
     if string.upper(verb) == ngx.req.get_method() then
@@ -78,6 +88,33 @@ function processCall(obj)
   end
 end
 
+--- Check redis for path parameters
+-- @param red redis client instance
+function checkForPathParams(red)
+  local resourceKeys = redis.getAllResourceKeys(red, ngx.var.tenant)
+  for i, key in pairs(resourceKeys) do
+    local res = {string.match(key, "([^,]+):([^,]+):([^,]+)")}
+    local path = res[3] -- gatewayPath portion of redis key
+    local pathParamVars = {}
+    for w in string.gfind(path, "({%w+})") do
+      w = string.gsub(w, "{", "")
+      w = string.gsub(w, "}", "")
+      pathParamVars[#pathParamVars + 1] = w
+    end
+    if next(pathParamVars) ~= nil then
+      local pathPattern, count = string.gsub(path, "%{(%w*)%}", "([^,]+)")
+      local obj = {string.match(ngx.var.gatewayPath, pathPattern)}
+      if (#obj == count) then
+        for i, v in pairs(obj) do
+          ngx.ctx[pathParamVars[i]] = v
+        end
+        return redis.getResource(red, key, "resources")
+      end
+    end
+  end
+  return nil
+end
+
 --- Function to read the list of policies and send implementation to the correct backend
 -- @param obj List of policies containing a type and value field. This function reads the type field and routes it appropriately.
 -- @param apiKey optional subscription api key
@@ -94,34 +131,24 @@ end
 --- Given a verb, transforms the backend request to use that method
 -- @param v Verb to set on the backend request
 function setVerb(v)
-  if (string.lower(v) == 'post') then
-    ngx.req.set_method(ngx.HTTP_POST)
-  elseif (string.lower(v) == 'put') then
-    ngx.req.set_method(ngx.HTTP_PUT)
-  elseif (string.lower(v) == 'delete') then
-    ngx.req.set_method(ngx.HTTP_DELETE)
-  elseif (string.lower(v) == 'patch') then
-    ngx.req.set_method(ngx.HTTP_PATCH)
-  elseif (string.lower(v) == 'head') then
-    ngx.req.set_method(ngx.HTTP_HEAD)
-  elseif (string.lower(v) == 'options') then
-    ngx.req.set_method(ngx.HTTP_OPTIONS)
+  local allowedVerbs = {'GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'}
+  local verb = string.upper(v)
+  if(utils.tableContains(allowedVerbs, verb)) then
+    ngx.req.set_method(ngx[utils.concatStrings({"HTTP_", verb})])
   else
     ngx.req.set_method(ngx.HTTP_GET)
   end
 end
 
 function getUriPath(backendPath)
-  local uriPath
-  local i, j = ngx.var.uri:find(ngx.var.gatewayPath)
+  local i, j = ngx.var.uri:find(ngx.unescape_uri(ngx.var.gatewayPath))
   local incomingPath = ((j and ngx.var.uri:sub(j + 1)) or nil)
   -- Check for backendUrl path
-  if backendPath == nil or backendPath== '' or backendPath== '/' then
-    uriPath = (incomingPath and incomingPath ~= '') and incomingPath or '/'
+  if backendPath == nil or backendPath == '' or backendPath == '/' then
+    return (incomingPath and incomingPath ~= '') and incomingPath or '/'
   else
-    uriPath = utils.concatStrings({backendPath, incomingPath})
+    return utils.concatStrings({backendPath, incomingPath})
   end
-  return uriPath
 end
 
 _M.processCall = processCall
