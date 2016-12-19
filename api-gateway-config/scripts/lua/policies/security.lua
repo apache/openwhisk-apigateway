@@ -56,6 +56,23 @@ function validateAPIKey(tenant, gatewayPath, apiId, scope, apiKey)
   return exists == 1
 end
 
+-- Process the security object
+-- @param securityObj security object from nginx conf file 
+-- @return oauthId oauth identification
+function processOAuth(securityObj) 
+  local tenant = ngx.var.tenant
+  local gatewayPath = ngx.var.gatewayPath
+  local apiId = ngx.var.apiId
+  local scope = securityObj.scope
+  
+  local provider = require(utils.concatStrings({'oauth/', securityObj.provider}))
+  local token = ngx.var[utils.concatStrings({'http_', 'Authorization'}):gsub("-", "_")]
+  local result = provider(token)
+  if result == nil then
+    request.err(401, "Token didn't work.")
+  end
+end 
+
 --- Process the security object
 -- @param securityObj security object from nginx conf file
 -- @return apiKey api key for the subscription
@@ -66,6 +83,7 @@ function processAPIKey(securityObj)
   local scope = securityObj.scope
   local header = (securityObj.header == nil) and 'x-api-key' or securityObj.header
   local apiKey = ngx.var[utils.concatStrings({'http_', header}):gsub("-", "_")]
+
   if not apiKey then
     request.err(401, utils.concatStrings({'API key header "', header, '" is required.'}))
   end
@@ -76,6 +94,7 @@ function processAPIKey(securityObj)
   return apiKey
 end
 
+_M.processOAuth = processOAuth
 _M.processAPIKey = processAPIKey
 
 return _M

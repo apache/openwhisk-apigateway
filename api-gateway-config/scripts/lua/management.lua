@@ -218,11 +218,20 @@ function checkOptionalPolicies(policies, security)
     local validScopes = {tenant=true, api=true, resource=true}
     if (security.type == nil or security.scope == nil) then
       return false, { statusCode = 400, message = "Missing field in security object. Need \"type\" and \"scope\"." }
+    end
+    if (security.type == "oauth" and security.provider == nil) then
+      return false, { statusCode = 400, message = "Missing field in security object. Need \"provider\"."}
+    end
+    if (security.type == "oauth") then
+      if not pcall(require, utils.concatStrings({"oauth/", security.provider})) then 
+        return false, {statusCode = 400, message = "Supplied OAuth provider is not currently supported."} 
+      end
+    end
     elseif validScopes[security.scope] == nil then
       return false, { statusCode = 400, message = "Invalid scope in security object. Valid: \"tenant\", \"api\", \"resource\"." }
     end
   end
-end
+
 
 --- Helper function for adding a resource to redis and creating an nginx conf file
 -- @param red

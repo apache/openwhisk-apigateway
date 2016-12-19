@@ -58,9 +58,14 @@ function processCall()
     if string.upper(verb) == ngx.req.get_method() then
       -- Check if auth is required
       local apiKey
+      local oauthId
       if (opFields.security and opFields.security.type ~= nil and string.lower(opFields.security.type) == 'apikey') then
         apiKey = security.processAPIKey(opFields.security)
       end
+      -- if not api key then do oauth
+      if (opFields.security and opFields.security.type ~= nil and string.lower(opFields.security.type) == 'oauth') then
+        oauthId = security.processOAuth(opFields.security) 
+      end 
       -- Parse backend url
       local u = url.parse(opFields.backendUrl)
       ngx.req.set_uri(getUriPath(u.path))
@@ -77,7 +82,7 @@ function processCall()
       end
       -- Parse policies
       if opFields.policies ~= nil then
-        parsePolicies(opFields.policies, apiKey)
+        parsePolicies(opFields.policies, apiKey, oauthId)
       end
       found = true
       break
