@@ -10,11 +10,15 @@ docker-ssh:
 
 .PHONY: test-build
 test-build:
-	cd api-gateway-config/tests; ./install-deps.sh
+	cd api-gateway-config/tests/unit; ./install-deps.sh
+	cd api-gateway-config/tests/fv; ./install-deps.sh
 
 .PHONY: test-run
 test-run:
-	cd api-gateway-config/tests; ./run-tests.sh
+	cd api-gateway-config/tests/unit; ./run-tests.sh
+.PHONY: fvtest-run
+fvtest-run:
+	cd api-gateway-config/tests/fv; ./run-tests.sh
 
 .PHONY: docker-run
 docker-run:

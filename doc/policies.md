@@ -109,7 +109,7 @@ If a path is then invoked on `/serverless/Hello World/restified`, then the value
 
 
 ##Security
-Supported types: `apiKey`.  
+Supported types: `apiKey, oauth`.  
 _scope:_ `api`, `tenant`, `resource`.  
 _header:_ _(optional)_ custom name of auth header (default is x-api-key)  
 

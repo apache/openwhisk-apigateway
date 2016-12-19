@@ -57,7 +57,6 @@ describe('Testing Request module', function()
   end)
 end)
 
-
 describe('Testing utils module', function()
   before_each(function()
     _G.ngx = fakengx.new()
@@ -231,7 +230,16 @@ describe('Testing Redis module', function()
     redis.deleteSubscription(red, key)
     assert.are.equal(false, red:exists(key))
   end)
-
+  it('should create an OAuth Token', function()
+    local key = 'oauth:providers:test:tokens:test'
+    redis.createOAuthToken(red, key)
+    assert.are.same(true, red:exists(key))
+  end)
+  it('should create an OAuth token with Expiration', function()
+    local key = 'oauth:providers:test:tokens:test'
+    redis.createOAuthToken(red, key, 1000)
+    assert.are_not.equal(red:ttl(key), -1)
+  end)
 end)
 
 --TODO: filemgmt
@@ -239,5 +247,18 @@ end)
 ---------------------------------------
 ---- Unit tests for policy modules ----
 ---------------------------------------
+describe('Testing security module', function () 
+  it('Should allow an api to be created', function()
+    
 
+  end)
+  it('Should prevent an API from being created with an unsupported OAuth provider', function () 
+
+  end)
+  it('Should cache OAuth tokens correctly', function() 
+
+
+  end) 
+
+end) 
 --TODO: mapping, rateLimit, security

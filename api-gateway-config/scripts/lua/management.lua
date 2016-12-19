@@ -218,11 +218,21 @@ function checkOptionalPolicies(policies, security)
     local validScopes = {tenant=true, api=true, resource=true}
     if (security.type == nil or security.scope == nil) then
       return false, { statusCode = 400, message = "Missing field in security object. Need \"type\" and \"scope\"." }
-    elseif validScopes[security.scope] == nil then
+    end
+    if (security.type == "oauth" and security.provider == nil) then
+      return false, { statusCode = 400, message = "Missing field in security object. Need \"provider\"."}
+    end
+    if (security.type == "oauth") then
+      if not pcall(require, utils.concatStrings({"oauth/", security.provider})) then 
+        return false, {statusCode = 400, message = "Supplied OAuth provider is not currently supported."} 
+      end
+    end
+    if validScopes[security.scope] == nil then
       return false, { statusCode = 400, message = "Invalid scope in security object. Valid: \"tenant\", \"api\", \"resource\"." }
     end
   end
 end
+
 
 --- Helper function for adding a resource to redis and creating an nginx conf file
 -- @param red
@@ -596,6 +606,7 @@ function validateSubscriptionBody()
   end
   -- Convert json into Lua table
   local decoded = cjson.decode(args)
+
   -- Check required fields
   local requiredFieldList = {"key", "scope", "tenantId"}
   for i, field in ipairs(requiredFieldList) do
@@ -612,8 +623,25 @@ function validateSubscriptionBody()
     redisKey = prefix
   elseif decoded.scope == "resource" then
     if resource ~= nil then
-      redisKey = utils.concatStrings({prefix, ":resource:", resource})
-    else
+      local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
+      redisKey = utils.concatStrings({prefix, ":resource:", resource}) 
+      
+      configKey = utils.concatStrings({"resources:", decoded.tenantId, ":", resource})
+      config = cjson.decode(red:hget(configKey, 'resources'))
+      local oauthEnabled = false
+      for name, operation in pairs(config.operations) do
+        if operation.security and operation.security.type == 'oauth' then 
+          oauthEnabled = operation.security
+        end
+      end
+      if oauthEnabled then
+        local security = require('policies/security') 
+        local token = security.process(oauthEnabled, true)
+        if token then
+          decoded.key = token.email
+        end
+      end 
+   else
       request.err(400, "\"resource\" missing from request body.")
     end
   elseif decoded.scope == "api" then
@@ -625,6 +653,7 @@ function validateSubscriptionBody()
   else 
     request.err(400, "Invalid scope")
   end
+
   redisKey = utils.concatStrings({redisKey, ":key:", decoded.key})
   return redisKey
 end
