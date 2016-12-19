@@ -352,6 +352,23 @@ function _M.deleteSubscription(red, key)
   end
 end
 
+-----------------------------
+----- OAuth Tokens ----------
+-----------------------------
+--
+--- Create and get OAuth tokens
+function _M.createOAuthToken(red, key, expires)
+  if not expires then
+    red:set(key, '')
+  else
+    red:set(key, '', expires)
+    red:expire(key, expires)
+  end
+end
+
+function _M.existsOAuthToken(red, key) 
+  return red:exists(key) == 1
+end
 --- Check health of gateway
 function _M.healthCheck()
   request.success(200,  "Status: Gateway ready.")

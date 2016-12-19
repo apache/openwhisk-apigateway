@@ -35,7 +35,7 @@ local _M = {}
 --- Limit a resource/api/tenant, based on the passed in rateLimit object
 -- @param obj rateLimit object containing interval, rate, scope, subscription fields
 -- @param apiKey optional api key to use if subscription set to true
-function limit(obj, apiKey)
+function limit(obj, apiKey, oAuthId)
   local i = 60 / obj.interval
   local r = i * obj.rate
   r = utils.concatStrings({tostring(r), 'r/m'})
@@ -48,10 +48,17 @@ function limit(obj, apiKey)
   elseif obj.scope == 'resource' then
     k = utils.concatStrings({"tenant:", ngx.var.tenant, ":resource:", ngx.var.gatewayPath})
   end
-  -- Check subscription
+  
+  -- Check subscription to API Key
   if obj.subscription ~= nil and obj.subscription == true and apiKey ~= nil then
     k = utils.concatStrings({k, ':subscription:', apiKey})
   end
+
+  -- Check subscription to OAuth
+  if obj.subscription ~= nil and obj.subscription == true and oAuthId ~= nil then
+    k = utils.concatStrings({k, ':subscription:', oAuthId})
+  end 
+
   -- Perform rate limiting
   local config = {
     key = k,
