@@ -22,96 +22,12 @@
 -- Process mapping object, turning implementation details into request transformations
 -- @author Cody Walker (cmwalker), Alex Song (songs)
 
-local redis = require "lib/redis"
 local utils = require "lib/utils"
-local request = require "lib/request"
-local cjson = require "cjson" 
-
-local REDIS_HOST = os.getenv("REDIS_HOST")
-local REDIS_PORT = os.getenv("REDIS_PORT")
-local REDIS_PASS = os.getenv("REDIS_PASS")
-
 local _M = {}
-
---- Validate that the given subscription is in redis
--- @param tenant the namespace
--- @param gatewayPath the gateway path to use, if scope is resource
--- @param apiId api Id to use, if scope is api
--- @param scope scope of the subscription
--- @param apiKey the subscription api key
--- @param return boolean value indicating if the subscription exists in redis
-function validateAPIKey(tenant, gatewayPath, apiId, scope, apiKey)
-  -- Open connection to redis or use one from connection pool
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  local k
-  if scope == 'tenant' then
-    k = utils.concatStrings({'subscriptions:tenant:', tenant})
-  elseif scope == 'resource' then
-    k = utils.concatStrings({'subscriptions:tenant:', tenant, ':resource:', gatewayPath})
-  elseif scope == 'api' then
-    k = utils.concatStrings({'subscriptions:tenant:', tenant, ':api:', apiId})
-  end
-  k = utils.concatStrings({k, ':key:', apiKey})
-  local exists = red:exists(k)
-  redis.close(red)
-  return exists == 1
-end
-
--- Process the security object
--- @param securityObj security object from nginx conf file 
--- @return oauthId oauth identification
-function processOAuth(securityObj) 
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  
-  local tenant = ngx.var.tenant
-  local gatewayPath = ngx.var.gatewayPath
-  local apiId = ngx.var.apiId
-  local scope = securityObj.scope
-
-
-  local provider = require(utils.concatStrings({'oauth/', securityObj.provider}))
-  local token = ngx.var[utils.concatStrings({'http_', 'Authorization'}):gsub("-", "_")]
-
-  if token == nil then
-    request.err(401, "No Authorization header provided")
-  end
- 
-  local key = utils.concatStrings({"oauth:providers:", securityObj.provider, ":tokens:", token})
-  ngx.log(ngx.DEBUG, "key: ", key)
-  if red:exists(key) == 0 then
-    local res = provider(token)
-    if not res then
-      request.err(401, "Token didn't work") 
-    end
-    red:set(key, cjson.encode(res))
-    ngx.log(ngx.DEBUG, "expires in: ", res.expires_in)
-    red:expire(key, res.expires_in)
-  end
-  -- only check with the provider if we haven't cached the token. 
+function process (securityObj) 
+  local policyProvider = require(utils.concatStrings({'policies/security/', securityObj.type}))
+  return policyProvider.process(securityObj)
 end 
 
---- Process the security object
--- @param securityObj security object from nginx conf file
--- @return apiKey api key for the subscription
-function processAPIKey(securityObj)
-  local tenant = ngx.var.tenant
-  local gatewayPath = ngx.var.gatewayPath
-  local apiId = ngx.var.apiId
-  local scope = securityObj.scope
-  local header = (securityObj.header == nil) and 'x-api-key' or securityObj.header
-  local apiKey = ngx.var[utils.concatStrings({'http_', header}):gsub("-", "_")]
-
-  if not apiKey then
-    request.err(401, utils.concatStrings({'API key header "', header, '" is required.'}))
-  end
-  local ok = validateAPIKey(tenant, gatewayPath, apiId, scope, apiKey)
-  if not ok then
-    request.err(401, 'Invalid API key.')
-  end
-  return apiKey
-end
-
-_M.processOAuth = processOAuth
-_M.processAPIKey = processAPIKey
-
+_M.process = process
 return _M
