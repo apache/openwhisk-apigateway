@@ -227,10 +227,11 @@ function checkOptionalPolicies(policies, security)
         return false, {statusCode = 400, message = "Supplied OAuth provider is not currently supported."} 
       end
     end
-    elseif validScopes[security.scope] == nil then
+    if validScopes[security.scope] == nil then
       return false, { statusCode = 400, message = "Invalid scope in security object. Valid: \"tenant\", \"api\", \"resource\"." }
     end
   end
+end
 
 
 --- Helper function for adding a resource to redis and creating an nginx conf file

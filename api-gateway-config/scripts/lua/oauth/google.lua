@@ -37,7 +37,7 @@ function validateOAuthToken (token)
     expires_at = tonumber(json_resp.exp) * 1000,
     valid = true
   }
-  return json_resp.email
+  return json_resp
 end
 
 return validateOAuthToken
