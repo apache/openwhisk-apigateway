@@ -18,9 +18,8 @@
 --   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 --   DEALINGS IN THE SOFTWARE.
 
---- @module
---
--- @author Alex Song (songs)
+--- @module redis
+-- Module that the gateway uses to interact with redis
 
 local cjson = require "cjson"
 local utils = require "lib/utils"
