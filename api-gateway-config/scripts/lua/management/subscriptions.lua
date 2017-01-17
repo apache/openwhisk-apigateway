@@ -33,7 +33,7 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 local _M = {}
 
 --- Add an apikey/subscription to redis
--- PUT /subscriptions
+-- PUT /v1/subscriptions
 -- Body:
 -- {
 --    key: *(String) key for tenant/api/resource
@@ -54,7 +54,7 @@ function _M.addSubscription()
 end
 
 --- Delete apikey/subscription from redis
--- DELETE /subscriptions
+-- DELETE /v1/subscriptions
 -- Body:
 -- {
 --    key: *(String) key for tenant/api/resource

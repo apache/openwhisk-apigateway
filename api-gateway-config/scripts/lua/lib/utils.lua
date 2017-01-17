@@ -50,12 +50,12 @@ function _Utils.serializeTable(t)
       first = false
     end
     if type(k) == 'string' then
-      tt[#tt+1] = concatStrings({tostring(k), ' = '})
+      tt[#tt+1] = _Utils.concatStrings({tostring(k), ' = '})
     end
     if type(v) == 'table' then
-      tt[#tt+1] = serializeTable(v)
+      tt[#tt+1] = _Utils.serializeTable(v)
     elseif type(v) == 'string' then
-      tt[#tt+1] = concatStrings({'"', tostring(v), '"'})
+      tt[#tt+1] = _Utils.concatStrings({'"', tostring(v), '"'})
     else
       tt[#tt+1] = tostring(v)
     end

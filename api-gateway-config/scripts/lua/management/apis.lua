@@ -245,6 +245,7 @@ end
 -- GET /v1/apis
 function _M.getAPIs()
   local uri = string.gsub(ngx.var.request_uri, "?.*", "")
+  local queryParams = ngx.req.get_uri_args()
   local id
   local index = 1
   local tenantQuery = false
@@ -261,7 +262,7 @@ function _M.getAPIs()
     index = index + 1
   end
   if id == nil then
-    getAllAPIs()
+    getAllAPIs(queryParams)
   else
     if tenantQuery == false then
       getAPI(id)
@@ -272,19 +273,51 @@ function _M.getAPIs()
 end
 
 --- Get all APIs in redis
-function getAllAPIs()
+-- @param queryParams object containing optional query parameters
+function getAllAPIs(queryParams)
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
-  local res = redis.getAllAPIs(red)
+  local apis = redis.getAllAPIs(red)
   redis.close(red)
-  local apiList = {}
-  for k, v in pairs(res) do
-    if k%2 == 0 then
-      apiList[#apiList+1] = cjson.decode(v)
-    end
+  local apiList
+  if next(queryParams) ~= nil then
+    apiList = filterAPIs(apis, queryParams);
   end
-  apiList = cjson.encode(apiList)
+  if apiList == nil then
+    apiList = {}
+    for k, v in pairs(apis) do
+      if k%2 == 0 then
+        apiList[#apiList+1] = cjson.decode(v)
+      end
+    end
+    apiList = cjson.encode(apiList)
+  end
   ngx.header.content_type = "application/json; charset=utf-8"
   request.success(200, apiList)
+end
+
+--- Filter APIs based on query parameters
+-- @param apis list of apis
+-- @param queryParams query parameters to filter tenants
+function filterAPIs(apis, queryParams)
+  local basePath = queryParams['filter[where][basePath]']
+  local name = queryParams['filter[where][name]']
+  -- missing or invalid query parameters
+  if (basePath == nil and name == nil) then
+    return nil
+  end
+  -- filter tenants
+  local apiList = {}
+  for k, v in pairs(apis) do
+    if k%2 == 0 then
+      local api = cjson.decode(v)
+      if (basePath ~= nil and name == nil and api.basePath == basePath) or
+              (name ~= nil and basePath == nil and api.name == name) or
+              (basePath ~= nil and name ~= nil and api.basePath == basePath and api.name == name) then
+        apiList[#apiList+1] = api
+      end
+    end
+  end
+  return cjson.encode(apiList)
 end
 
 --- Get API by its id
