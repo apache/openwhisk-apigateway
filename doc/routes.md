@@ -237,7 +237,7 @@ _returns:_
 
 
 ## Subscriptions
-### PUT /subscriptions
+### PUT /v1/subscriptions
 Add/update an api key for the specified tenant, resource, or api.
 
 _body:_
@@ -256,7 +256,7 @@ _Returns:_
 Subscription created.
 ```
 
-### DELETE /subscriptions
+### DELETE /v1/subscriptions
 Delete an api key associated with the specified tenant, resource or api.
 
 _body:_
