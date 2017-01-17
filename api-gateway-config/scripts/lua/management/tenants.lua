@@ -160,8 +160,8 @@ end
 -- @param tenants list of tenants
 -- @param queryParams query parameters to filter tenants
 function filterTenants(tenants, queryParams)
-  local namespace = queryParams.namespace
-  local instance = queryParams.instance
+  local namespace = queryParams['filter[where][namespace]']
+  local instance = queryParams['filter[where][instance]']
   -- missing or invalid query parameters
   if (namespace == nil and instance == nil) or (instance ~= nil and namespace == nil) then
     return nil
@@ -223,8 +223,8 @@ end
 --- Filter apis based on query paramters
 -- @param queryParams query parameters to filter apis
 function filterTenantAPIs(id, apis, queryParams)
-  local basePath = queryParams.basePath
-  local name = queryParams.name
+  local basePath = queryParams['filter[where][basePath]']
+  local name = queryParams['filter[where][name]']
   -- missing query parameters
   if (basePath == nil and name == nil)then
     return nil
