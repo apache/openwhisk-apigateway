@@ -95,5 +95,17 @@ function _Utils.tableContains(table, element)
   return false
 end
 
+--- Check if all required fields exist in the table
+-- @param table table to check
+-- @param requiredFields list of required fields
+function _Utils.tableContainsAll(table, requiredFields)
+  for i, field in ipairs(requiredFields) do
+    if not table[field] then
+      return false, { statusCode = 400, message = _Utils.concatStrings({"\"", field, "\" missing from request body."}) }
+    end
+  end
+  return true
+end
+
 return _Utils
 
