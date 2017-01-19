@@ -526,19 +526,6 @@ function _M.deleteTenant()
   request.success(200, {})
 end
 
-------------------------------
------ Pub/Sub with Redis -----
-------------------------------
-
---- Subscribe to redis
--- GET /v1/subscribe
-function _M.subscribe()
-  redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS)
-  logger.info(utils.concatStrings({"Connected to redis at ", REDIS_HOST, ":", REDIS_PORT}))
-  while true do end
-  ngx.exit(200)
-end
-
 ----------------------------
 ------- Health Check -------
 ----------------------------
