@@ -31,6 +31,23 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {};
 
+--- Request handler for routing tenant calls appropriately
+function _M.requestHandler()
+  local requestMethod = ngx.req.get_method()
+  if requestMethod == "GET" then
+    getTenants()
+  elseif requestMethod == "PUT" then
+    addTenant()
+  elseif requestMethod == "POST" then
+    addTenant()
+  elseif requestMethod == "DELETE" then
+    deleteTenant()
+  else
+    ngx.status = 400
+    ngx.say("Invalid verb")
+  end
+end
+
 --- Add a tenant to the Gateway
 -- PUT /v1/tenants
 -- body:
@@ -38,12 +55,11 @@ local _M = {};
 --    "namespace": *(String) tenant namespace
 --    "instance": *(String) tenant instance
 -- }
-function _M.addTenant()
+function addTenant()
   -- Open connection to redis or use one from connection pool
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   -- Check for tenant id and use existingTenant if it already exists in redis
-  local uri = string.gsub(ngx.var.request_uri, "?.*", "")
-  local existingTenant = checkURIForExistingTenant(red, uri)
+  local existingTenant = checkForExistingTenant(red)
   -- Read in the PUT JSON Body
   ngx.req.read_body()
   local args = ngx.req.get_body_data()
@@ -60,11 +76,9 @@ function _M.addTenant()
     end
   end
   -- Error checking
-  local fields = {"namespace", "instance"}
-  for k, v in pairs(fields) do
-    if not decoded[v] then
-      request.err(400, utils.concatStrings({"Missing field '", v, "' in request body."}))
-    end
+  local res, err = utils.tableContainsAll(decoded, {"namespace", "instance"})
+  if res == false then
+    request.err(err.statusCode, err.message)
   end
   -- Return tenant object
   local uuid = existingTenant ~= nil and existingTenant.id or utils.uuid()
@@ -81,19 +95,11 @@ end
 
 --- Check for tenant id from uri and use existing tenant if it already exists in redis
 -- @param red Redis client instance
--- @param uri Uri of request. Eg. /v1/tenants/{id}
-function checkURIForExistingTenant(red, uri)
-  local id, existing
-  local index = 1
-  -- Check if id is in the uri
-  for word in string.gmatch(uri, '([^/]+)') do
-    if index == 3 then
-      id = word
-    end
-    index = index + 1
-  end
+function checkForExistingTenant(red)
+  local id = ngx.var.tenant_id
+  local existing
   -- Get object from redis
-  if id ~= nil then
+  if id ~= nil and id ~= '' then
     existing = redis.getTenant(red, id)
     if existing == nil then
       request.err(404, utils.concatStrings({"Unknown Tenant id ", id}))
@@ -104,31 +110,21 @@ end
 
 --- Get one or all tenants from the gateway
 -- GET /v1/tenants
-function _M.getTenants()
-  local uri = string.gsub(ngx.var.request_uri, "?.*", "")
+function getTenants()
   local queryParams = ngx.req.get_uri_args()
-  local id
-  local index = 1
-  local apiQuery = false
-  for word in string.gmatch(uri, '([^/]+)') do
-    if index == 3 then
-      id = word
-    elseif index == 4 then
-      if word:lower() == 'apis' then
-        apiQuery = true
-      else
-        request.err(400, "Invalid request")
-      end
-    end
-    index = index + 1
-  end
-  if id == nil then
+  local id = ngx.var.tenant_id
+  if id == nil or id == '' then
     getAllTenants(queryParams)
   else
-    if apiQuery == false then
-      getTenant(id)
+    local query = ngx.var.query
+    if (query ~= nil and query ~= '') then
+      if query ~= "apis" then
+        request.err(400, "Invalid request")
+      else
+        getTenantAPIs(id, queryParams)
+      end
     else
-      getTenantAPIs(id, queryParams)
+      getTenant(id)
     end
   end
 end
@@ -172,7 +168,7 @@ function filterTenants(tenants, queryParams)
     if k%2 == 0 then
       local tenant = cjson.decode(v)
       if (namespace ~= nil and instance == nil and tenant.namespace == namespace) or
-          (namespace ~= nil and instance ~= nil and tenant.namespace == namespace and tenant.instance == instance) then
+         (namespace ~= nil and instance ~= nil and tenant.namespace == namespace and tenant.instance == instance) then
         tenantList[#tenantList+1] = tenant
       end
     end
@@ -235,10 +231,10 @@ function filterTenantAPIs(id, apis, queryParams)
     if k%2 == 0 then
       local api = cjson.decode(v)
       if api.tenantId == id and
-          ((basePath ~= nil and name == nil and api.basePath == basePath) or
-              (name ~= nil and basePath == nil and api.name == name) or
-              (basePath ~= nil and name ~= nil and api.basePath == basePath and api.name == name)) then
-        apiList[#apiList+1] = api
+        ((basePath ~= nil and name == nil and api.basePath == basePath) or
+        (name ~= nil and basePath == nil and api.name == name) or
+        (basePath ~= nil and name ~= nil and api.basePath == basePath and api.name == name)) then
+          apiList[#apiList+1] = api
       end
     end
   end
@@ -247,20 +243,16 @@ end
 
 --- Delete tenant from gateway
 -- DELETE /v1/tenants/<id>
-function _M.deleteTenant()
-  local uri = string.gsub(ngx.var.request_uri, "?.*", "")
-  local index = 1
-  local id
-  for word in string.gmatch(uri, '([^/]+)') do
-    if index == 3 then
-      id = word
-    end
-    index = index + 1
-  end
-  if id == nil then
+function deleteTenant()
+  local id = ngx.var.tenant_id
+  if id == nil or id == '' then
     request.err(400, "No id specified.")
   end
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
+  local tenant = redis.getTenant(red, id)
+  if tenant == nil then
+    request.err(404, utils.concatStrings({"Unknown tenant id ", id}))
+  end
   redis.deleteTenant(red, id)
   redis.close(red)
   request.success(200, {})

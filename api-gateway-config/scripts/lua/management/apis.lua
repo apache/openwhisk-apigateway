@@ -37,6 +37,23 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
+--- Request handler for routing API calls appropriately
+function _M.requestHandler()
+  local requestMethod = ngx.req.get_method()
+  if requestMethod == "GET" then
+    getAPIs()
+  elseif requestMethod == "PUT" then
+    addAPI()
+  elseif requestMethod == "POST" then
+    addAPI()
+  elseif requestMethod == "DELETE" then
+    deleteAPI()
+  else
+    ngx.status = 400
+    ngx.say("Invalid verb")
+  end
+end
+
 --- Add an api to the Gateway
 -- PUT /v1/apis
 -- body:
@@ -46,12 +63,11 @@ local _M = {}
 --    "tenantId": *(String) tenant id
 --    "resources": *(String) resources to add
 -- }
-function _M.addAPI()
+function addAPI()
   -- Open connection to redis or use one from connection pool
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   -- Check for api id from uri and use existingAPI if it already exists in redis
-  local uri = string.gsub(ngx.var.request_uri, "?.*", "")
-  local existingAPI = checkURIForExistingAPI(red, uri)
+  local existingAPI = checkForExistingAPI(red)
   -- Read in the PUT JSON Body
   ngx.req.read_body()
   local args = ngx.req.get_body_data()
@@ -108,19 +124,11 @@ end
 
 --- Check for api id from uri and use existing API if it already exists in redis
 -- @param red Redis client instance
--- @param uri Uri of request. Eg. /v1/apis/{id}
-function checkURIForExistingAPI(red, uri)
-  local id, existing
-  local index = 1
-  -- Check if id is in the uri
-  for word in string.gmatch(uri, '([^/]+)') do
-    if index == 3 then
-      id = word
-    end
-    index = index + 1
-  end
+function checkForExistingAPI(red)
+  local id = ngx.var.api_id
+  local existing
   -- Get object from redis
-  if id ~= nil then
+  if id ~= nil and id ~= '' then
     existing = redis.getAPI(red, id)
     if existing == nil then
       request.err(404, utils.concatStrings({"Unknown API id ", id}))
@@ -274,31 +282,21 @@ end
 
 --- Get one or all APIs from the gateway
 -- GET /v1/apis
-function _M.getAPIs()
-  local uri = string.gsub(ngx.var.request_uri, "?.*", "")
+function getAPIs()
   local queryParams = ngx.req.get_uri_args()
-  local id
-  local index = 1
-  local tenantQuery = false
-  for word in string.gmatch(uri, '([^/]+)') do
-    if index == 3 then
-      id = word
-    elseif index == 4 then
-      if word == 'tenant' then
-        tenantQuery = true
-      else
-        request.err(400, "Invalid request")
-      end
-    end
-    index = index + 1
-  end
-  if id == nil then
+  local id = ngx.var.api_id
+  if id == nil or id == '' then
     getAllAPIs(queryParams)
   else
-    if tenantQuery == false then
-      getAPI(id)
+    local query = ngx.var.query
+    if (query ~= nil and query ~= '') then
+      if query ~= "tenant" then
+        request.err(400, "Invalid request")
+      else
+        getAPITenant(id)
+      end
     else
-      getAPITenant(id)
+      getAPI(id)
     end
   end
 end
@@ -342,9 +340,9 @@ function filterAPIs(apis, queryParams)
     if k%2 == 0 then
       local api = cjson.decode(v)
       if (basePath ~= nil and name == nil and api.basePath == basePath) or
-              (name ~= nil and basePath == nil and api.name == name) or
-              (basePath ~= nil and name ~= nil and api.basePath == basePath and api.name == name) then
-        apiList[#apiList+1] = api
+         (name ~= nil and basePath == nil and api.name == name) or
+         (basePath ~= nil and name ~= nil and api.basePath == basePath and api.name == name) then
+       apiList[#apiList+1] = api
       end
     end
   end
@@ -384,17 +382,9 @@ end
 
 --- Delete API from gateway
 -- DELETE /v1/apis/<id>
-function _M.deleteAPI()
-  local uri = string.gsub(ngx.var.request_uri, "?.*", "")
-  local index = 1
-  local id
-  for word in string.gmatch(uri, '([^/]+)') do
-    if index == 3 then
-      id = word
-    end
-    index = index + 1
-  end
-  if id == nil then
+function deleteAPI()
+  local id = ngx.var.api_id
+  if id == nil or id == '' then
     request.err(400, "No id specified.")
   end
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)

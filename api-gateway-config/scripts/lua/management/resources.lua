@@ -36,14 +36,8 @@ function _M.addResource(red, resource, gatewayPath, tenantId)
   -- Create resource object and add to redis
   local redisKey = utils.concatStrings({"resources", ":", tenantId, ":", gatewayPath})
   local apiId
-  local operations
-  for k, v in pairs(resource) do
-    if k == 'apiId' then
-      apiId = v
-    elseif k == 'operations' then
-      operations = v
-    end
-  end
+  local operations = resource.operations
+  local apiId = resource.apiId
   local resourceObj = redis.generateResourceObj(operations, apiId)
   redis.createResource(red, redisKey, REDIS_FIELD, resourceObj)
 end

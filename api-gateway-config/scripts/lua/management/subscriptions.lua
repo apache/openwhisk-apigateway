@@ -32,6 +32,19 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
+--- Request handler for routing API calls appropriately
+function _M.requestHandler()
+  local requestMethod = ngx.req.get_method()
+  if requestMethod == "PUT" then
+    addSubscription()
+  elseif requestMethod == "DELETE" then
+    deleteSubscription()
+  else
+    ngx.status = 400
+    ngx.say("Invalid verb")
+  end
+end
+
 --- Add an apikey/subscription to redis
 -- PUT /v1/subscriptions
 -- Body:
@@ -42,7 +55,7 @@ local _M = {}
 --    resource: (String) url-encoded resource path
 --    apiId: (String) api id
 -- }
-function _M.addSubscription()
+function addSubscription()
   -- Validate body and create redisKey
   local redisKey = validateSubscriptionBody()
   -- Open connection to redis or use one from connection pool
@@ -63,7 +76,7 @@ end
 --    resource: (String) url-encoded resource path
 --    apiId: (String) api id
 -- }
-function _M.deleteSubscription()
+function deleteSubscription()
   -- Validate body and create redisKey
   local redisKey = validateSubscriptionBody()
   -- Initialize and connect to redis
@@ -87,11 +100,9 @@ function validateSubscriptionBody()
   -- Convert json into Lua table
   local decoded = cjson.decode(args)
   -- Check required fields
-  local requiredFieldList = {"key", "scope", "tenantId"}
-  for i, field in ipairs(requiredFieldList) do
-    if not decoded[field] then
-      request.err(400, utils.concatStrings({"\"", field, "\" missing from request body."}))
-    end
+  local res, err = utils.tableContainsAll(decoded, {"key", "scope", "tenantId"})
+  if res == false then
+    request.err(err.statusCode, err.message)
   end
   -- Check if we're using tenant or resource or api
   local resource = decoded.resource
