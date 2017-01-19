@@ -138,6 +138,20 @@ RUN echo " ... installing lua-resty-http..." \
             INSTALL=${_prefix}/api-gateway/bin/resty-install \
     && rm -rf /tmp/api-gateway
 
+ENV LUA_RESTY_STRING_VERSION 0.09
+RUN echo " ... installing lua-resty-string" \
+    && apk update \
+    && apk add make \
+    && mkdir -p /tmp/api-gateway \
+    && curl -k -L https://github.com/openresty/lua-resty-string/archive/v${LUA_RESTY_STRING_VERSION}.tar.gz -o /tmp/api-gateway/lua-resty-string-${LUA_RESTY_STRING_VERSION}.tar.gz \
+    && tar -xf /tmp/api-gateway/lua-resty-string-${LUA_RESTY_STRING_VERSION}.tar.gz -C /tmp/api-gateway/ \
+    && cd /tmp/api-gateway/lua-resty-string-${LUA_RESTY_STRING_VERSION} \
+    && export LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
+    && export INSTALL=${_prefix}/api-gateway/bin/resty-install \
+    && $INSTALL -d ${LUA_LIB_DIR}/resty \
+    && $INSTALL lib/resty/*.lua ${LUA_LIB_DIR}/resty/ \
+    && rm -rf /tmp/api-gateway
+
 ENV LUA_RESTY_IPUTILS_VERSION 0.2.0
 RUN echo " ... installing lua-resty-iputils..." \
     && apk update \
