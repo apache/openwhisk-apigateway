@@ -16,9 +16,7 @@ test-build:
 .PHONY: test-run
 test-run:
 	cd api-gateway-config/tests/unit; ./run-tests.sh
-.PHONY: fvtest-run
-fvtest-run:
-	cd api-gateway-config/tests/fv; ./run-tests.sh
+
 
 .PHONY: docker-run
 docker-run:
@@ -26,6 +24,20 @@ docker-run:
 		-e PUBLIC_MANAGEDURL_HOST=${PUBLIC_MANAGEDURL_HOST} -e PUBLIC_MANAGEDURL_PORT=${PUBLIC_MANAGEDURL_PORT} \
 		-e REDIS_HOST=${REDIS_HOST} -e REDIS_PORT=${REDIS_PORT} -e REDIS_PASS=${REDIS_PASS} \
 		openwhisk/apigateway:latest
+
+
+.PHONY: docker-run-detatched
+docker-run-detatched:
+	docker run -d --name="apigateway" -p 80:80 -p ${PUBLIC_MANAGEDURL_PORT}:8080 -p 9000:9000 \
+		-e PUBLIC_MANAGEDURL_HOST=${PUBLIC_MANAGEDURL_HOST} -e PUBLIC_MANAGEDURL_PORT=${PUBLIC_MANAGEDURL_PORT} \
+		-e REDIS_HOST=${REDIS_HOST} -e REDIS_PORT=${REDIS_PORT} -e REDIS_PASS=${REDIS_PASS} \
+		openwhisk/apigateway:latest
+
+
+.PHONY: fvtest-run
+fvtest-run: docker-run-detatched
+	cd api-gateway-config/tests/fv; ./run-tests.sh
+
 
 .PHONY: docker-debug
 docker-debug:

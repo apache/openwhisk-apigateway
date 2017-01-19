@@ -608,7 +608,7 @@ function validateSubscriptionBody()
   local decoded = cjson.decode(args)
 
   -- Check required fields
-  local requiredFieldList = {"key", "scope", "tenantId"}
+  local requiredFieldList = {"scope", "tenantId"}
   for i, field in ipairs(requiredFieldList) do
     if not decoded[field] then
       request.err(400, utils.concatStrings({"\"", field, "\" missing from request body."}))
@@ -653,7 +653,9 @@ function validateSubscriptionBody()
   else 
     request.err(400, "Invalid scope")
   end
-
+  if not decoded.key then
+    request.err(400, "No API Key or authorization header supplied.")
+  end
   redisKey = utils.concatStrings({redisKey, ":key:", decoded.key})
   return redisKey
 end
