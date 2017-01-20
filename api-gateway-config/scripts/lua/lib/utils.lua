@@ -19,8 +19,7 @@
 --   DEALINGS IN THE SOFTWARE.
 
 --- @module utils
--- Holds the common supporting functions in one file to be referenced else where
--- @author Alex Song (songs), Cody Walker (cmwalker), David Green (greend)
+-- Holds the common supporting functions in one file to be referenced elsewhere
 
 local _Utils = {}
 
@@ -28,7 +27,7 @@ local _Utils = {}
 -- strings together with "..", which creates a new string every time
 -- @param list List of strings to concatenate
 -- @return concatenated string
-function concatStrings(list)
+function _Utils.concatStrings(list)
   local t = {}
   for k,v in ipairs(list) do
     t[#t+1] = tostring(v)
@@ -41,7 +40,7 @@ end
 -- Useful for saving a lua table to a file, as if not serialized it will save as "Table x35252"
 -- @param t The lua table
 -- @return String representing the serialized lua table
-function serializeTable(t)
+function _Utils.serializeTable(t)
   local first = true
   local tt = { '{' }
   for k, v in pairs(t) do
@@ -51,12 +50,12 @@ function serializeTable(t)
       first = false
     end
     if type(k) == 'string' then
-      tt[#tt+1] = concatStrings({tostring(k), ' = '})
+      tt[#tt+1] = _Utils.concatStrings({tostring(k), ' = '})
     end
     if type(v) == 'table' then
-      tt[#tt+1] = serializeTable(v)
+      tt[#tt+1] = _Utils.serializeTable(v)
     elseif type(v) == 'string' then
-      tt[#tt+1] = concatStrings({'"', tostring(v), '"'})
+      tt[#tt+1] = _Utils.concatStrings({'"', tostring(v), '"'})
     else
       tt[#tt+1] = tostring(v)
     end
@@ -69,13 +68,13 @@ end
 -- at time of being called by the user
 -- @param m where m is the string "{pathParam}"
 -- @return concatenated string of (?<path_pathParam>(\\w+))
-function convertTemplatedPathParam(m)
+function _Utils.convertTemplatedPathParam(m)
   local x = m:gsub("{", ""):gsub("}", "")
   return concatStrings({"(?<path_" , x , ">([a-zA-Z0-9\\-\\s\\_\\%]*))"})
 end
 
 --- Generate random uuid
-function uuid()
+function _Utils.uuid()
   local template ='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
   math.randomseed(os.clock())
   return string.gsub(template, '[xy]', function (c)
@@ -87,7 +86,7 @@ end
 --- Check if element exists in table as value
 -- @param table table to check
 -- @param element element to check in table
-function tableContains(table, element)
+function _Utils.tableContains(table, element)
   for i, value in pairs(table) do
     if value == element then
       return true
@@ -96,11 +95,17 @@ function tableContains(table, element)
   return false
 end
 
-_Utils.concatStrings = concatStrings
-_Utils.serializeTable = serializeTable
-_Utils.convertTemplatedPathParam = convertTemplatedPathParam
-_Utils.uuid = uuid
-_Utils.tableContains = tableContains
+--- Check if all required fields exist in the table
+-- @param table table to check
+-- @param requiredFields list of required fields
+function _Utils.tableContainsAll(table, requiredFields)
+  for i, field in ipairs(requiredFields) do
+    if not table[field] then
+      return false, { statusCode = 400, message = _Utils.concatStrings({"\"", field, "\" missing from request body."}) }
+    end
+  end
+  return true
+end
 
 return _Utils
 

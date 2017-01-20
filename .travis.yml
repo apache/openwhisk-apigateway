@@ -1,0 +1,17 @@
+language: python
+sudo: false
+
+env:
+  - LUA="lua=5.1"
+
+before_install:
+  - pip install hererocks
+  - hererocks lua_install -r^ --$LUA
+  - export PATH=$PATH:$PWD/lua_install/bin # Add directory with all installed binaries to PATH
+
+install:
+  - cd api-gateway-config/tests
+  - ./install-deps.sh
+
+script:
+  - busted --output=TAP --helper=set_paths spec/test.lua

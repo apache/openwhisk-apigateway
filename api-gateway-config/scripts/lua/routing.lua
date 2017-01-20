@@ -59,7 +59,7 @@ function processCall()
       -- Check if auth is required
       local apiKey
       if (opFields.security and opFields.security.type ~= nil and string.lower(opFields.security.type) == 'apikey') then
-        apiKey = security.processAPIKey(opFields.security)
+        apiKey = security.process(opFields.security)
       end
       -- Parse backend url
       local u = url.parse(opFields.backendUrl)
