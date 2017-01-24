@@ -146,7 +146,7 @@ function getAllTenants(queryParams)
         tenantList[#tenantList+1] = cjson.decode(v)
       end
     end
-    tenantList = cjson.encode(tenantList)
+    tenantList = (next(tenantList) == nil) and "[]" or cjson.encode(tenantList) 
   end
   ngx.header.content_type = "application/json; charset=utf-8"
   request.success(200, tenantList)
@@ -210,7 +210,7 @@ function getTenantAPIs(id, queryParams)
         end
       end
     end
-    apiList = cjson.encode(apiList)
+    apiList = (next(apiList) == nil) and "[]" cjson.encode(apiList) 
   end
   ngx.header.content_type = "application/json; charset=utf-8"
   request.success(200, apiList)

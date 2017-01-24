@@ -318,7 +318,7 @@ function getAllAPIs(queryParams)
         apiList[#apiList+1] = cjson.decode(v)
       end
     end
-    apiList = cjson.encode(apiList)
+    apiList = (next(apiList) == nil) and "[]" or cjson.encode(apiList)
   end
   ngx.header.content_type = "application/json; charset=utf-8"
   request.success(200, apiList)
