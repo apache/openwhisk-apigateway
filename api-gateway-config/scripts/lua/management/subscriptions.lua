@@ -57,9 +57,11 @@ end
 -- }
 function addSubscription()
   -- Validate body and create redisKey
-  local redisKey = validateSubscriptionBody()
-  -- Open connection to redis or use one from connection pool
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
+  ngx.req.read_body()
+  local args = ngx.req.get_body_data()
+  local redisKey = validateSubscriptionBody(red,args)
+  -- Open connection to redis or use one from connection pool
   redis.createSubscription(red, redisKey)
   -- Add current redis connection in the ngx_lua cosocket connection pool
   redis.close(red)
@@ -78,9 +80,11 @@ end
 -- }
 function deleteSubscription()
   -- Validate body and create redisKey
-  local redisKey = validateSubscriptionBody()
-  -- Initialize and connect to redis
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
+  ngx.req.read_body()
+  local args = ngx.req.get_body_data()
+  local redisKey = validateSubscriptionBody(red, args)
+  -- Initialize and connect to redis
   -- Return if subscription doesn't exist
   redis.deleteSubscription(red, redisKey)
   -- Add current redis connection in the ngx_lua cosocket connection pool
@@ -90,10 +94,8 @@ end
 
 --- Check the request JSON body for correct fields
 -- @return redisKey subscription key for redis
-function validateSubscriptionBody()
+function validateSubscriptionBody(red, args)
   -- Read in the PUT JSON Body
-  ngx.req.read_body()
-  local args = ngx.req.get_body_data()
   if not args then
     request.err(400, "Missing request body.")
   end
