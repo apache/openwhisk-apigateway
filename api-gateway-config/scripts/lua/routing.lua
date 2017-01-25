@@ -45,6 +45,11 @@ function processCall()
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local redisKey = utils.concatStrings({"resources:", ngx.var.tenant, ":", ngx.var.gatewayPath})
   local obj = redis.getResource(red, redisKey, "resources")
+  -- Check for "/" resource
+  if obj == nil then
+    redisKey = utils.concatStrings({redisKey, "/"})
+    obj = redis.getResource(red, redisKey, "resources")
+  end
   -- Check for path parameters
   if obj == nil then
     obj = checkForPathParams(red)
