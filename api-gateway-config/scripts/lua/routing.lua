@@ -37,50 +37,18 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
---- Find the correct redis key based on the path that's passed in
--- @param red
-function findRedisKey(red)
-  local resourceKeys = redis.getAllResourceKeys(red, ngx.var.tenant)
-  -- Construct a table of redisKeys based on number of slashes in the path
-  local keyTable = {}
-  for i, key in pairs(resourceKeys) do
-    local _, count = string.gsub(key, "/", "")
-    count = tostring(count)
-    if keyTable[count] == nil then
-      keyTable[count] = {}
-    end
-    table.insert(keyTable[count], key)
-  end
-  -- Find the correct redisKey
-  local redisKey = utils.concatStrings({"resources:", ngx.var.tenant, ":", ngx.var.gatewayPath})
-  local _, count = string.gsub(redisKey, "/", "")
-  for i = count, 0, -1 do
-    local countString = tostring(i)
-    if keyTable[countString] ~= nil then
-      for i, key in pairs(keyTable[countString]) do
-        if redisKey == key then
-          local res = {string.match(key, "([^:]+):([^:]+):([^:]+)") }
-          ngx.var.gatewayPath = res[3]
-          return key
-        end
-      end
-      -- substring redisKey upto last "/"
-      local index = redisKey:match("^.*()/")
-      redisKey = string.sub(redisKey, 1, index - 1)
-    end
-  end
-  return nil
-end
-
 --- Main function that handles parsing of invocation details and carries out implementation
 function processCall()
   -- Get resource object from redis
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local redisKey = findRedisKey(red)
+  local obj
   if redisKey == nil then
     return request.err(404, 'Not found.')
+    --obj = checkForPathParams(red)
+  else
+    obj = redis.getResource(red, redisKey, "resources")
   end
-  local obj = redis.getResource(red, redisKey, "resources")
   obj = cjson.decode(obj)
   local found = false
   for verb, opFields in pairs(obj.operations) do
@@ -117,31 +85,63 @@ function processCall()
   end
 end
 
---- Check redis for path parameters
--- @param red redis client instance
-function checkForPathParams(red)
+--- Find the correct redis key based on the path that's passed in
+-- @param red
+function findRedisKey(red)
   local resourceKeys = redis.getAllResourceKeys(red, ngx.var.tenant)
+  -- Construct a table of redisKeys based on number of slashes in the path
+  local keyTable = {}
   for i, key in pairs(resourceKeys) do
-    local res = {string.match(key, "([^,]+):([^,]+):([^,]+)")}
-    local path = res[3] -- gatewayPath portion of redis key
-    local pathParamVars = {}
-    for w in string.gfind(path, "({%w+})") do
-      w = string.gsub(w, "{", "")
-      w = string.gsub(w, "}", "")
-      pathParamVars[#pathParamVars + 1] = w
+    local _, count = string.gsub(key, "/", "")
+    count = tostring(count)
+    if keyTable[count] == nil then
+      keyTable[count] = {}
     end
-    if next(pathParamVars) ~= nil then
-      local pathPattern, count = string.gsub(path, "%{(%w*)%}", "([^,]+)")
-      local obj = {string.match(ngx.var.gatewayPath, pathPattern)}
-      if (#obj == count) then
-        for i, v in pairs(obj) do
-          ngx.ctx[pathParamVars[i]] = v
+    table.insert(keyTable[count], key)
+  end
+  -- Find the correct redisKey
+  local redisKey = utils.concatStrings({"resources:", ngx.var.tenant, ":", ngx.var.gatewayPath})
+  local _, count = string.gsub(redisKey, "/", "")
+  for i = count, 0, -1 do
+    local countString = tostring(i)
+    if keyTable[countString] ~= nil then
+      for i, key in pairs(keyTable[countString]) do
+        -- Check for exact match or path parameter match
+        if key == redisKey or pathParamMatch(key, redisKey) == true then
+          local res = {string.match(key, "([^:]+):([^:]+):([^:]+)") }
+          ngx.var.gatewayPath = res[3]
+          return key
         end
-        return redis.getResource(red, key, "resources")
       end
+      -- substring redisKey upto last "/"
+      local index = redisKey:match("^.*()/")
+      redisKey = string.sub(redisKey, 1, index - 1)
     end
   end
   return nil
+end
+
+--- Check redis if resourceKey matches path parameters
+-- @param key key that may have path parameter variables
+-- @param resourceKey redis resourceKey to check if it matches path parameter
+function pathParamMatch(key, resourceKey)
+  local pathParamVars = {}
+  for w in string.gfind(key, "({%w+})") do
+    w = string.sub(w, 2, string.len(w) - 1)
+    pathParamVars[#pathParamVars + 1] = w
+  end
+  if next(pathParamVars) ~= nil then
+    local pathPattern, count = string.gsub(key, "%{(%w*)%}", "([^:]+)")
+    pathPattern = string.gsub(pathPattern, "%-", "%%-")
+    local obj = {string.match(resourceKey, pathPattern)}
+    if (#obj == count) then
+      for i, v in pairs(obj) do
+        ngx.ctx[pathParamVars[i]] = v
+      end
+      return true
+    end
+  end
+  return false
 end
 
 --- Function to read the list of policies and send implementation to the correct backend
