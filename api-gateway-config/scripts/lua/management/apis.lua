@@ -318,9 +318,9 @@ function getAllAPIs(queryParams)
         apiList[#apiList+1] = cjson.decode(v)
       end
     end
-    apiList = (next(apiList) == nil) and "[]" or cjson.encode(apiList)
   end
   ngx.header.content_type = "application/json; charset=utf-8"
+  apiList = (next(apiList) == nil) and "[]" or cjson.encode(apiList)
   request.success(200, apiList)
 end
 
@@ -346,7 +346,7 @@ function filterAPIs(apis, queryParams)
       end
     end
   end
-  return cjson.encode(apiList)
+  return apiList
 end
 
 --- Get API by its id
