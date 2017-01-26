@@ -20,7 +20,6 @@
 
 --- @module Routing
 -- Used to dynamically handle nginx routing based on an object containing implementation details
--- @author Cody Walker (cmwalker), Alex Song (songs)
 
 local cjson = require "cjson"
 local utils = require "lib/utils"
@@ -31,7 +30,6 @@ local url = require "url"
 local security = require "policies/security"
 local mapping = require "policies/mapping"
 local rateLimit = require "policies/rateLimit"
-local logger = require "lib/logger"
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
@@ -39,19 +37,50 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
+--- Find the correct redis key based on the path that's passed in
+-- @param red
+function findRedisKey(red)
+  local resourceKeys = redis.getAllResourceKeys(red, ngx.var.tenant)
+  -- Construct a table of redisKeys based on number of slashes in the path
+  local keyTable = {}
+  for i, key in pairs(resourceKeys) do
+    local _, count = string.gsub(key, "/", "")
+    count = tostring(count)
+    if keyTable[count] == nil then
+      keyTable[count] = {}
+    end
+    table.insert(keyTable[count], key)
+  end
+  -- Find the correct redisKey
+  local redisKey = utils.concatStrings({"resources:", ngx.var.tenant, ":", ngx.var.gatewayPath})
+  local _, count = string.gsub(redisKey, "/", "")
+  for i = count, 0, -1 do
+    local countString = tostring(i)
+    if keyTable[countString] ~= nil then
+      for i, key in pairs(keyTable[countString]) do
+        if redisKey == key then
+          local res = {string.match(key, "([^:]+):([^:]+):([^:]+)") }
+          ngx.var.gatewayPath = res[3]
+          return key
+        end
+      end
+      -- substring redisKey upto last "/"
+      local index = redisKey:match("^.*()/")
+      redisKey = string.sub(redisKey, 1, index - 1)
+    end
+  end
+  return nil
+end
+
 --- Main function that handles parsing of invocation details and carries out implementation
 function processCall()
   -- Get resource object from redis
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
-  local redisKey = utils.concatStrings({"resources:", ngx.var.tenant, ":", ngx.var.gatewayPath})
-  local obj = redis.getResource(red, redisKey, "resources")
-  -- Check for path parameters
-  if obj == nil then
-    obj = checkForPathParams(red)
-    if obj == nil then
-      return request.err(404, 'Not found.')
-    end
+  local redisKey = findRedisKey(red)
+  if redisKey == nil then
+    return request.err(404, 'Not found.')
   end
+  local obj = redis.getResource(red, redisKey, "resources")
   obj = cjson.decode(obj)
   local found = false
   for verb, opFields in pairs(obj.operations) do
