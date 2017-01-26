@@ -146,9 +146,9 @@ function getAllTenants(queryParams)
         tenantList[#tenantList+1] = cjson.decode(v)
       end
     end
-    tenantList = (next(tenantList) == nil) and "[]" or cjson.encode(tenantList) 
   end
   ngx.header.content_type = "application/json; charset=utf-8"
+  tenantList = (next(tenantList) == nil) and "[]" or cjson.encode(tenantList)
   request.success(200, tenantList)
 end
 
@@ -173,7 +173,7 @@ function filterTenants(tenants, queryParams)
       end
     end
   end
-  return cjson.encode(tenantList)
+  return tenantList
 end
 
 --- Get tenant by its id
@@ -210,9 +210,9 @@ function getTenantAPIs(id, queryParams)
         end
       end
     end
-    apiList = (next(apiList) == nil) and "[]" cjson.encode(apiList) 
   end
   ngx.header.content_type = "application/json; charset=utf-8"
+  apiList = (next(apiList) == nil) and "[]" or cjson.encode(apiList)
   request.success(200, apiList)
 end
 
@@ -238,7 +238,7 @@ function filterTenantAPIs(id, apis, queryParams)
       end
     end
   end
-  return cjson.encode(apiList)
+  return apiList
 end
 
 --- Delete tenant from gateway
