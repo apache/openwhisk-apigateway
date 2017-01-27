@@ -6,6 +6,7 @@ f:close()
 package.path = package.path ..
     ';' .. pwd .. '/lua_modules/share/lua/' .. version .. '/?.lua' ..
     ';' .. pwd .. '/lua_modules/share/lua/' .. version .. '/?/init.lua' ..
+    ';' .. pwd .. '/lua_modules/share/lua/' .. version .. '/net/?.lua' ..
     ';' .. pwd .. '/../scripts/lua/?.lua'
 package.cpath = package.cpath ..
     ';' .. pwd .. '/lua_modules/lib/lua/' .. version .. '/?.so'

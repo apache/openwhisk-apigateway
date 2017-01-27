@@ -18,15 +18,9 @@
 --   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 --   DEALINGS IN THE SOFTWARE.
 
--- Unit tests for the apigateway using the busted framework.
--- @author Alex Song (songs)
-
 local fakengx = require 'fakengx'
 local fakeredis = require 'fakeredis'
 local cjson = require 'cjson'
-local request = require 'lib/request'
-local utils = require 'lib/utils'
-local logger = require 'lib/logger'
 local redis = require 'lib/redis'
 local mapping = require 'policies/mapping'
 
@@ -116,17 +110,17 @@ describe('Testing Redis module', function()
   before_each(function()
     _G.ngx = fakengx.new()
     red = fakeredis.new()
-  end)
-
-  it('should generate resource object to store in redis', function()
-    -- Resource object with no policies or security
-    local apiId = 12345
-    local operations = {
+    operations = {
       GET = {
         backendUrl = 'https://httpbin.org/get',
         backendMethod = 'GET'
       }
     }
+  end)
+
+  it('should generate resource object to store in redis', function()
+    -- Resource object with no policies or security
+    local apiId = 12345
     local resourceObj = {
       apiId = apiId,
       operations = operations
@@ -167,9 +161,9 @@ describe('Testing Redis module', function()
 
     -- Resource object with multiple operations
     resourceObj.operations.PUT = {
-        backendUrl = 'https://httpbin.org/get',
-        backendMethod = 'PUT',
-        security = {}
+      backendUrl = 'https://httpbin.org/get',
+      backendMethod = 'PUT',
+      security = {}
     }
     expected = resourceObj
     generated = cjson.decode(redis.generateResourceObj(operations, apiId))
@@ -184,7 +178,7 @@ describe('Testing Redis module', function()
     assert.are.same(nil, generated)
 
     -- resource exists in redis
-    local expected = redis.generateResourceObj(red, key, 'GET', 'https://httpbin.org/get', 'GET', '12345', nil, nil)
+    local expected = redis.generateResourceObj(operations, nil)
     red:hset(key, field, expected)
     generated = redis.getResource(red, key, field)
     assert.are.same(expected, generated)
@@ -193,7 +187,7 @@ describe('Testing Redis module', function()
   it('should create a resource in redis', function()
     local key = 'resources:guest:hello'
     local field = 'resources'
-    local expected = redis.generateResourceObj(red, key, 'GET', 'https://httpbin.org/get', 'GET', '12345', nil, nil)
+    local expected = redis.generateResourceObj(operations, nil)
     redis.createResource(red, key, field, expected)
     local generated = redis.getResource(red, key, field)
     assert.are.same(expected, generated)
@@ -206,7 +200,7 @@ describe('Testing Redis module', function()
     redis.deleteResource(red, key, field)
     assert.are.equal(ngx._exit, 404)
     -- Key exists - deleted properly
-    local resourceObj = redis.generateResourceObj(red, key, 'GET', 'https://httpbin.org/get', 'GET', '12345', nil, nil)
+    local resourceObj = redis.generateResourceObj(operations, nil)
     redis.createResource(red, key, field, resourceObj)
     local expected = 1
     local generated = redis.deleteResource(red, key, field)
@@ -230,7 +224,7 @@ describe('Testing Redis module', function()
     redis.deleteSubscription(red, key)
     assert.are.equal(false, red:exists(key))
   end)
-  it('should create an OAuth Token', function()
+ it('should create an OAuth Token', function()
     local key = 'oauth:providers:test:tokens:test'
     redis.createOAuthToken(red, key)
     assert.are.same(true, red:exists(key))
@@ -243,22 +237,3 @@ describe('Testing Redis module', function()
 end)
 
 --TODO: filemgmt
-
----------------------------------------
----- Unit tests for policy modules ----
----------------------------------------
-describe('Testing security module', function () 
-  it('Should allow an api to be created', function()
-    
-
-  end)
-  it('Should prevent an API from being created with an unsupported OAuth provider', function () 
-
-  end)
-  it('Should cache OAuth tokens correctly', function() 
-
-
-  end) 
-
-end) 
---TODO: mapping, rateLimit, security

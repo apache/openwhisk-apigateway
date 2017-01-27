@@ -1,4 +1,4 @@
 #!/bin/sh
 
 # Run unit tests
-busted --output=TAP --helper=set_paths spec/test.lua
+busted --output=TAP --helper=set_paths --pattern=.lua scripts
