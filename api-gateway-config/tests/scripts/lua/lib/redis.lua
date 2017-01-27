@@ -18,116 +18,26 @@
 --   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 --   DEALINGS IN THE SOFTWARE.
 
--- Unit tests for the apigateway using the busted framework.
--- @author Alex Song (songs)
-
 local fakengx = require 'fakengx'
 local fakeredis = require 'fakeredis'
 local cjson = require 'cjson'
-local request = require 'lib/request'
-local utils = require 'lib/utils'
-local logger = require 'lib/logger'
 local redis = require 'lib/redis'
-local mapping = require 'policies/mapping'
-
-
-------------------------------------
----- Unit tests for lib modules ----
-------------------------------------
-
-describe('Testing Request module', function()
-  before_each(function()
-    _G.ngx = fakengx.new()
-  end)
-
-  it('should return correct error response', function()
-    local code = 500
-    local msg = 'Internal server error\n'
-    request.err(code, msg)
-    assert.are.equal('Error: ' .. msg .. '\n', ngx._body)
-    assert.are.equal(code, ngx._exit)
-  end)
-
-  it('should return correct success response', function()
-    local code = 200
-    local msg ='Success!\n'
-    request.success(code, msg)
-    assert.are.equal(msg .. '\n', ngx._body)
-    assert.are.equal(code, ngx._exit)
-  end)
-end)
-
-
-describe('Testing utils module', function()
-  before_each(function()
-    _G.ngx = fakengx.new()
-  end)
-
-  it('should concatenate strings properly', function()
-    local expected = 'hello' .. 'gateway' .. 'world'
-    local generated = utils.concatStrings({'hello', 'gateway', 'world'})
-    assert.are.equal(expected, generated)
-  end)
-
-  it('should serialize lua table', function()
-    -- Empty table
-    local expected = {}
-    local serialized = utils.serializeTable(expected)
-    loadstring('generated = ' .. serialized)() -- convert serialzed string to lua table
-    assert.are.same(expected, generated)
-
-    -- Simple table
-    expected = {
-      test = true
-    }
-    serialized = utils.serializeTable(expected)
-    loadstring('generated = ' .. serialized)() -- convert serialzed string to lua table
-    assert.are.same(expected, generated)
-
-    -- Complex nested table
-    expected = {
-      test1 = {
-        nested = 'value'
-      },
-      test2 = true
-    }
-    serialized = utils.serializeTable(expected)
-    loadstring('generated = ' .. serialized)() -- convert serialzed string to lua table
-    assert.are.same(expected, generated)
-  end)
-
-  it('should convert templated path parameter', function()
-    -- TODO: Add test cases for convertTemplatedPathParam(m)
-  end)
-end)
-
-
-describe('Testing logger module', function()
-  it('Should handle error stream', function()
-    local msg = 'Error!'
-    logger.err(msg)
-    local expected = 'LOG(4): ' .. msg .. '\n'
-    local generated = ngx._log
-    assert.are.equal(expected, generated)
-  end)
-end)
-
 
 describe('Testing Redis module', function()
   before_each(function()
     _G.ngx = fakengx.new()
     red = fakeredis.new()
-  end)
-
-  it('should generate resource object to store in redis', function()
-    -- Resource object with no policies or security
-    local apiId = 12345
-    local operations = {
+    operations = {
       GET = {
         backendUrl = 'https://httpbin.org/get',
         backendMethod = 'GET'
       }
     }
+  end)
+
+  it('should generate resource object to store in redis', function()
+    -- Resource object with no policies or security
+    local apiId = 12345
     local resourceObj = {
       apiId = apiId,
       operations = operations
@@ -168,9 +78,9 @@ describe('Testing Redis module', function()
 
     -- Resource object with multiple operations
     resourceObj.operations.PUT = {
-        backendUrl = 'https://httpbin.org/get',
-        backendMethod = 'PUT',
-        security = {}
+      backendUrl = 'https://httpbin.org/get',
+      backendMethod = 'PUT',
+      security = {}
     }
     expected = resourceObj
     generated = cjson.decode(redis.generateResourceObj(operations, apiId))
@@ -185,7 +95,7 @@ describe('Testing Redis module', function()
     assert.are.same(nil, generated)
 
     -- resource exists in redis
-    local expected = redis.generateResourceObj(red, key, 'GET', 'https://httpbin.org/get', 'GET', '12345', nil, nil)
+    local expected = redis.generateResourceObj(operations, nil)
     red:hset(key, field, expected)
     generated = redis.getResource(red, key, field)
     assert.are.same(expected, generated)
@@ -194,7 +104,7 @@ describe('Testing Redis module', function()
   it('should create a resource in redis', function()
     local key = 'resources:guest:hello'
     local field = 'resources'
-    local expected = redis.generateResourceObj(red, key, 'GET', 'https://httpbin.org/get', 'GET', '12345', nil, nil)
+    local expected = redis.generateResourceObj(operations, nil)
     redis.createResource(red, key, field, expected)
     local generated = redis.getResource(red, key, field)
     assert.are.same(expected, generated)
@@ -207,7 +117,7 @@ describe('Testing Redis module', function()
     redis.deleteResource(red, key, field)
     assert.are.equal(ngx._exit, 404)
     -- Key exists - deleted properly
-    local resourceObj = redis.generateResourceObj(red, key, 'GET', 'https://httpbin.org/get', 'GET', '12345', nil, nil)
+    local resourceObj = redis.generateResourceObj(operations, nil)
     redis.createResource(red, key, field, resourceObj)
     local expected = 1
     local generated = redis.deleteResource(red, key, field)
@@ -233,11 +143,3 @@ describe('Testing Redis module', function()
   end)
 
 end)
-
---TODO: filemgmt
-
----------------------------------------
----- Unit tests for policy modules ----
----------------------------------------
-
---TODO: mapping, rateLimit, security

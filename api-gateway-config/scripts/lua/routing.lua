@@ -38,10 +38,11 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 local _M = {}
 
 --- Main function that handles parsing of invocation details and carries out implementation
-function processCall()
+function _M.processCall()
   -- Get resource object from redis
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
-  local redisKey = findRedisKey(red)
+  local resourceKeys = redis.getAllResourceKeys(red, ngx.var.tenant)
+  local redisKey = _M.findRedisKey(resourceKeys, ngx.var.tenant, ngx.var.gatewayPath)
   if redisKey == nil then
     return request.err(404, 'Not found.')
   end
@@ -82,9 +83,10 @@ function processCall()
 end
 
 --- Find the correct redis key based on the path that's passed in
--- @param red
-function findRedisKey(red)
-  local resourceKeys = redis.getAllResourceKeys(red, ngx.var.tenant)
+-- @param resourceKeys list of resourceKeys to search through
+-- @param tenant tenantId
+-- @param path path to look for
+function _M.findRedisKey(resourceKeys, tenant, path)
   -- Construct a table of redisKeys based on number of slashes in the path
   local keyTable = {}
   for i, key in pairs(resourceKeys) do
@@ -100,14 +102,14 @@ function findRedisKey(red)
     table.insert(keyTable[count], key)
   end
   -- Find the correct redisKey
-  local redisKey = utils.concatStrings({"resources:", ngx.var.tenant, ":", ngx.var.gatewayPath})
+  local redisKey = utils.concatStrings({"resources:", tenant, ":", path})
   local _, count = string.gsub(redisKey, "/", "")
   for i = count, 0, -1 do
     local countString = tostring(i)
     if keyTable[countString] ~= nil then
       for _, key in pairs(keyTable[countString]) do
         -- Check for exact match or path parameter match
-        if key == redisKey or key == utils.concatStrings({redisKey, "/"}) or pathParamMatch(key, redisKey) == true then
+        if key == redisKey or key == utils.concatStrings({redisKey, "/"}) or _M.pathParamMatch(key, redisKey) == true then
           local res = {string.match(key, "([^:]+):([^:]+):([^:]+)")}
           ngx.var.gatewayPath = res[3]
           return key
@@ -127,7 +129,7 @@ end
 --- Check redis if resourceKey matches path parameters
 -- @param key key that may have path parameter variables
 -- @param resourceKey redis resourceKey to check if it matches path parameter
-function pathParamMatch(key, resourceKey)
+function _M.pathParamMatch(key, resourceKey)
   local pathParamVars = {}
   for w in string.gfind(key, "({%w+})") do
     w = string.sub(w, 2, string.len(w) - 1)
@@ -184,7 +186,5 @@ function getUriPath(backendPath)
     return utils.concatStrings({backendPath, incomingPath})
   end
 end
-
-_M.processCall = processCall
 
 return _M
