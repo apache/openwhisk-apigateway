@@ -42,14 +42,10 @@ function processCall()
   -- Get resource object from redis
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local redisKey = findRedisKey(red)
-  local obj
   if redisKey == nil then
     return request.err(404, 'Not found.')
-    --obj = checkForPathParams(red)
-  else
-    obj = redis.getResource(red, redisKey, "resources")
   end
-  obj = cjson.decode(obj)
+  local obj = cjson.decode(redis.getResource(red, redisKey, "resources"))
   local found = false
   for verb, opFields in pairs(obj.operations) do
     if string.upper(verb) == ngx.req.get_method() then
@@ -98,6 +94,10 @@ function findRedisKey(red)
   local keyTable = {}
   for i, key in pairs(resourceKeys) do
     local _, count = string.gsub(key, "/", "")
+    -- handle cases where resource path is "/"
+    if count == 1 and string.sub(key, -1) == "/" then
+      count = count - 1
+    end
     count = tostring(count)
     if keyTable[count] == nil then
       keyTable[count] = {}
@@ -110,16 +110,19 @@ function findRedisKey(red)
   for i = count, 0, -1 do
     local countString = tostring(i)
     if keyTable[countString] ~= nil then
-      for i, key in pairs(keyTable[countString]) do
+      for _, key in pairs(keyTable[countString]) do
         -- Check for exact match or path parameter match
-        if key == redisKey or pathParamMatch(key, redisKey) == true then
-          local res = {string.match(key, "([^:]+):([^:]+):([^:]+)") }
+        if key == redisKey or key == utils.concatStrings({redisKey, "/"}) or pathParamMatch(key, redisKey) == true then
+          local res = {string.match(key, "([^:]+):([^:]+):([^:]+)")}
           ngx.var.gatewayPath = res[3]
           return key
         end
       end
       -- substring redisKey upto last "/"
       local index = redisKey:match("^.*()/")
+      if index == nil then
+        return nil
+      end
       redisKey = string.sub(redisKey, 1, index - 1)
     end
   end
@@ -179,7 +182,9 @@ function getUriPath(backendPath)
   local incomingPath = ((j and ngx.var.uri:sub(j + 1)) or nil)
   -- Check for backendUrl path
   if backendPath == nil or backendPath == '' or backendPath == '/' then
-    return (incomingPath and incomingPath ~= '') and incomingPath or '/'
+    incomingPath = (incomingPath and incomingPath ~= '') and incomingPath or '/'
+    incomingPath = string.sub(incomingPath, 1, 1) == '/' and incomingPath or utils.concatStrings({'/', incomingPath})
+    return incomingPath
   else
     return utils.concatStrings({backendPath, incomingPath})
   end
