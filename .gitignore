@@ -15,3 +15,6 @@ lua_modules
 
 # Concourse
 secrets.yml
+
+# npm
+npm-debug.log

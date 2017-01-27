@@ -14,4 +14,4 @@ install:
   - ./install-deps.sh
 
 script:
-  - busted --output=TAP --helper=set_paths spec/test.lua
+  - busted --output=TAP --helper=set_paths --pattern=.lua scripts

@@ -1,5 +1,7 @@
 apigateway
 =============
+[![Build Status](https://travis-ci.org/openwhisk/apigateway.svg?branch=master)](https://travis-ci.org/openwhisk/apigateway)
+
 A performant API Gateway based on Openresty and NGINX.
 
 Project status
@@ -54,8 +56,6 @@ See [here](doc/routes.md) for the management interface for creating tenants/APIs
  
 ### Testing
 
- Unit tests can be found in the `api-gateway-config/tests/spec` directory.
-
  First install the necessary dependencies:
  ```
   make test-build
@@ -64,5 +64,4 @@ See [here](doc/routes.md) for the management interface for creating tenants/APIs
  ```
   make test-run
  ```
- This will output the results of the tests as well as generate a code coverage report.
 
