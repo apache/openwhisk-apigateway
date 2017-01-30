@@ -52,9 +52,10 @@ function _M.processCall()
     if string.upper(verb) == ngx.req.get_method() then
       -- Check if auth is required
       local apiKey
-      local oauthId
-      if (opFields.security and opFields.security.type ~= nil and string.lower(opFields.security.type) == 'apikey') then
-        apiKey = security.process(opFields.security)
+      if (opFields.security) then
+        for k, sec in ipairs(opFields.security) do  
+          validated = security.process(sec)
+        end
       end
       -- if not api key then do oauth
       if (opFields.security and opFields.security.type ~= nil and string.lower(opFields.security.type) == 'oauth') then
