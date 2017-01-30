@@ -152,6 +152,23 @@ RUN echo " ... installing lua-resty-iputils..." \
     && $INSTALL lib/resty/*.lua ${LUA_LIB_DIR}/resty/ \
     && rm -rf /tmp/api-gateway
 
+
+
+ENV LUA_RESTY_STRING_VERSION 0.09
+RUN echo " ... installing lua-resty-string..." \
+    && apk update \
+    && apk add make \
+    && mkdir -p /tmp/api-gateway \
+    && curl -k -L https://github.com/openresty/lua-resty-string/archive/v${LUA_RESTY_STRING_VERSION}.tar.gz -o /tmp/api-gateway/lua-resty-string-${LUA_RESTY_STRING_VERSION}.tar.gz \
+    && tar -xf /tmp/api-gateway/lua-resty-string-${LUA_RESTY_STRING_VERSION}.tar.gz -C /tmp/api-gateway/ \
+    && cd /tmp/api-gateway/lua-resty-string-${LUA_RESTY_STRING_VERSION} \
+    && make install \
+            LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
+            INSTALL=${_prefix}/api-gateway/bin/resty-install \
+    && rm -rf /tmp/api-gateway
+
+
+
 ENV NETURL_LUA_VERSION 0.9-1
 RUN echo " ... installing neturl.lua ... " \
     && mkdir -p /tmp/api-gateway \
