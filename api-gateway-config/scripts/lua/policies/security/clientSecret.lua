@@ -40,14 +40,25 @@ function process(securityObj)
   local gatewayPath = ngx.var.gatewayPath
   local apiId = ngx.var.apiId
   local scope = securityObj.scope
-  local clientId = ngx.var[utils.concatStrings({'http_', 'X-Client-ID'}):gsub("-", "_")]
+
+  local location = (securityObj.keyLocation == nil) and 'http_' or securityObj.keyLocation  
+  if location == 'header' then
+    location = 'http_'
+  end
+  
+  local clientIdName = (securityObj.idFieldName == nil) and 'X-Client-ID' or securityObj.idFieldName
+  
+  local clientId = ngx.var[utils.concatStrings({location, clientIdName}):gsub("-", "_")]
+  
   if not clientId then
-    request.err(401, "X-Client-ID is required.")
+    request.err(401, clientIdName .. " required")
   end
 
-  local clientSecret = ngx.var[utils.concatStrings({'http_', 'X-Client-Secret'}):gsub("-","_")]
+  local clientSecretName = (securityObj.secretFieldName == nil) and 'X-Client-Secret' or securityObj.secretFieldName 
+
+  local clientSecret = ngx.var[utils.concatStrings({location, clientSecretName}):gsub("-","_")]
   if not clientSecret then
-    request.err(401, "X-Client-Secret is required")
+    request.err(401, clientSecretName .. " required")
   end
   
   local sha256 = resty_sha256:new() 

@@ -109,9 +109,13 @@ If a path is then invoked on `/serverless/Hello World/restified`, then the value
 
 
 ##Security
-Supported types: `apiKey, oauth`.  
+Supported types: `apiKey, clientSecret`.  
 _scope:_ `api`, `tenant`, `resource`.  
 _header:_ _(optional)_ custom name of auth header (default is x-api-key)  
+
+_keyLocation:_ _(optional)_ custom location for client secret keys. header, query_string (default is header)
+_idFieldName:_ _(optional)_ key for locating client id. default (X-Client-ID)
+_secretFieldName:_ _(optional)_ key for locating client secret. default (X-Client-Secret)
 
 ```
 "security":[{
