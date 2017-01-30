@@ -114,11 +114,12 @@ _scope:_ `api`, `tenant`, `resource`.
 _header:_ _(optional)_ custom name of auth header (default is x-api-key)  
 
 ```
-"security": {
+"security":[{
         "type":"apiKey",
         "scope":"api",
         "header":"<MyCustomAuthHeader>"
     }
+]
 ```
 This will add security of an `apiKey`, at the API level, and uses the header call `myCustomAuthHeader`.  
 NOTE: Security added at the Tenant level will affect all APIs and resources under that Tenant. Likewise, security added at the API level will affect all resources under that API.
