@@ -14,32 +14,46 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 -- @return oauthId oauth identification
 local _M = {}
 function process(securityObj) 
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  
-  local tenant = ngx.var.tenant
-  local gatewayPath = ngx.var.gatewayPath
-  local apiId = ngx.var.apiId
-  local scope = securityObj.scope
-
-  local loaded, provider = pcall(require, utils.concatStrings({'oauth/', securityObj.provider}))
-  if not loaded then 
-    request.err(500, 'Error loading OAuth provider authentication module')
-  end
-  local token = ngx.var[utils.concatStrings({'http_', 'Authorization'}):gsub("-", "_")]
-
-  if token == nil then
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000) 
+  local accessToken = ngx.var['http_Authorization']
+  if accessToken == nil then
     request.err(401, "No Authorization header provided")
   end
- 
-  local key = utils.concatStrings({"oauth:providers:", securityObj.provider, ":tokens:", token})
-  if not redis.existsOAuthToken(red, key) then
-    local res = provider(token)
-    if not res then
-      request.err(401, "Token didn't work") 
-    end
-    redis.createOAuthToken(red, key, res.expires_in)
+  local token = {}
+  local key = utils.concatStrings({"oauth:providers:", securityObj.provider, ":tokens:", accessToken})
+  if not (red:exists(key) == 1) then
+    token = exchange(red, accessToken, securityObj.provider)
+  else 
+    token = cjson.decode(red:get(key))
   end
-  -- only check with the provider if we haven't cached the token. 
-end 
+
+  if token == nil or token.email == nil then
+    request.err(401, "Token didn't work or provider doesn't support OpenID connect.") 
+    return
+  end
+ 
+  red:set(key, cjson.encode(token))
+  
+  if not token.expires == nil then
+    red:expire(key, token.expires)
+  end
+  
+  return token
+-- only check with the provider if we haven't cached the token. 
+end
+
+function exchange(red, token, provider) 
+    local loaded, provider = pcall(require, utils.concatStrings({'oauth/', provider}))
+    
+    if not loaded then 
+      request.err(500, 'Error loading OAuth provider authentication module')
+      return 
+    end
+
+    local token = provider(token)
+    -- cache the token
+    return token
+end
+
 _M.process = process
 return _M
