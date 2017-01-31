@@ -1,6 +1,6 @@
 apigateway
 =============
-[![Build Status](https://travis-ci.org/openwhisk/apigateway.svg?branch=master)](https://travis-ci.org/openwhisk/apigateway)
+[![Build Status](https://travis-ci.org/openwhisk/openwhisk-apigateway.svg?branch=master)](https://travis-ci.org/openwhisk/openwhisk-apigateway)
 
 A performant API Gateway based on Openresty and NGINX.
 

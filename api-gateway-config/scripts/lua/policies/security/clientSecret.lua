@@ -18,9 +18,7 @@
 --   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 --   DEALINGS IN THE SOFTWARE.
 
---- @module mapping
--- Process mapping object, turning implementation details into request transformations
--- @author Cody Walker (cmwalker), Alex Song (songs)
+--- @module clientSecret
 
 local _M = {}
 
