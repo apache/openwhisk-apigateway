@@ -1,3 +1,4 @@
+
 -- Copyright (c) 2016 IBM. All rights reserved.
 --
 --   Permission is hereby granted, free of charge, to any person obtaining a
@@ -17,25 +18,27 @@
 --   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 --   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 --   DEALINGS IN THE SOFTWARE.
-
---- @module security
--- A module to load all and execute the security policies
--- @author David Green (greend), Alex Song (songs)
-
-local _M = {}
-
-local utils = require "lib/utils"
---- Allow or block a request by calling a loaded security policy
--- @param securityObj an object out of the security array in a given tenant / api / resource
-function process(securityObj)
-  local ok, result = pcall(require, utils.concatStrings({'policies/security/', securityObj.type}))
-  if not ok then
-    ngx.err(500, 'An unexpected error ocurred while processing the security policy') 
+---
+-- A fake oauth provider for testing
+local cjson = require "cjson"   
+function validateOAuthToken (token)
+  if token == "test" then
+    local goodResult = [[
+      {
+        "email":"test@test.com"
+      }
+    ]]
+    return cjson.decode(goodResult)
+  else 
+    local badResult = [[
+      {
+        "error":{
+          "text":"bad"
+        }
+      }
+    ]]
+    return cjson.decode(badResult)
   end 
-  result.process(securityObj)
 end
 
--- Wrap process in code to load the correct module 
-_M.process = process
-
-return _M 
+return validateOAuthToken

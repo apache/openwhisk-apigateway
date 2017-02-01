@@ -17,25 +17,39 @@
 --   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 --   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 --   DEALINGS IN THE SOFTWARE.
+---
+-- A Proxy for Github OAuth API
 
---- @module security
--- A module to load all and execute the security policies
--- @author David Green (greend), Alex Song (songs)
+function validateOAuthToken (token) 
+  local cjson = require "cjson"
+  local http = require "resty.http"
+  local httpc = http.new()
+  local request = require "lib/request"
+  local request_options = {
+    headers = {
+      ["Accept"] = "application/json"
+    },
+    ssl_verify = false
+  }
+  local request_uri = utils.concatStrings({"https://", "api.github.com", "/user?access_token=", token})
+  local res, err = httpc:request_uri(request_uri, request_options)
+-- convert response
+  if not res then
+    ngx.log(ngx.WARN, utils.concatStrings({"Could not invoke Github API. Error=", err}))
+    request.err(500, 'OAuth provider error.')
+    return
+  end
+  local json_resp = cjson.decode(res.body)
+  
+  if (json_resp.error_description) then
+    return
+  end
 
-local _M = {}
-
-local utils = require "lib/utils"
---- Allow or block a request by calling a loaded security policy
--- @param securityObj an object out of the security array in a given tenant / api / resource
-function process(securityObj)
-  local ok, result = pcall(require, utils.concatStrings({'policies/security/', securityObj.type}))
-  if not ok then
-    ngx.err(500, 'An unexpected error ocurred while processing the security policy') 
-  end 
-  result.process(securityObj)
+  -- convert Github's response
+  -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
+  return json_resp
 end
 
--- Wrap process in code to load the correct module 
-_M.process = process
+return validateOAuthToken
 
-return _M 
+
