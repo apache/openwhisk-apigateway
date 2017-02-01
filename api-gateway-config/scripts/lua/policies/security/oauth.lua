@@ -1,9 +1,8 @@
 
 local utils = require "lib/utils"
 local request = require "lib/request"
-local cjson = require "cjson" 
 local redis = require "lib/redis"
-
+local cjson = require "cjson"
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
@@ -15,6 +14,7 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 local _M = {}
 function process(securityObj) 
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000) 
+  
   local accessToken = ngx.var['http_Authorization']
   if accessToken == nil then
     request.err(401, "No Authorization header provided")
@@ -27,7 +27,7 @@ function process(securityObj)
     token = cjson.decode(red:get(key))
   end
 
-  if token == nil or token.email == nil then
+  if token == nil then
     request.err(401, "Token didn't work or provider doesn't support OpenID connect.") 
     return
   end

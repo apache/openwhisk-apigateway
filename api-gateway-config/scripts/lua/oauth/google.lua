@@ -29,14 +29,6 @@ function validateOAuthToken (token)
 
   -- convert Google's response
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
-  local oauth_response = {
-    token = {
-      scope = json_resp.scope,
-      user_id = json_resp.email
-    },
-    expires_at = tonumber(json_resp.exp) * 1000,
-    valid = true
-  }
   return json_resp
 end
 
