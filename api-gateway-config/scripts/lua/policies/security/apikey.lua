@@ -19,8 +19,8 @@
 --   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 --   DEALINGS IN THE SOFTWARE.
 
---- @module mapping
--- Process mapping object, turning implementation details into request transformations
+--- @module apiKey
+-- Check a subscription with an API Key
 -- @author Cody Walker (cmwalker), Alex Song (songs)
 
 local redis = require "lib/redis"

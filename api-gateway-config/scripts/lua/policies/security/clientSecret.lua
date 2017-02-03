@@ -19,7 +19,7 @@
 --   DEALINGS IN THE SOFTWARE.
 
 --- @module clientSecret
-
+-- Check a subscription with a client id and a hashed secret
 local _M = {}
 
 local redis = require "lib/redis"
@@ -30,15 +30,29 @@ local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
 local REDIS_PASS = os.getenv("REDIS_PASS")
 
-local resty_sha256 = require "resty.sha256"
-local resty_str = require "resty.string" 
+--- Process function main entry point for the security block.
+--  Takes 2 headers and decides if the request should be allowed based on a hashed secret key
+--@param securityObj the security object loaded from nginx.conf 
+--@return a string representation of what this looks like in redis :clientsecret:clientid:hashed secret
+function process(securityObj)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  processWithHashFunction(red, securityObj, hash)
+  redis.close(red)
+end 
 
-function process(securityObj) 
+--- In order to properly test this functionallity, I use this function to do all of the business logic with injected dependencies
+-- Takes 2 headers and decides if the request should be allowed based on a hashed secret key
+-- @param red the redis instance to perform the lookup on 
+-- @param securityObj the security configuration for the tenant/resource/api we are verifying
+-- @param hashFunction the function used to perform the hash of the api secret
+function processWithHashFunction(red, securityObj, hashFunction) 
+  -- pull the configuration from nginx
   local tenant = ngx.var.tenant
   local gatewayPath = ngx.var.gatewayPath
   local apiId = ngx.var.apiId
   local scope = securityObj.scope
-
+ 
+  -- allow support for custom headers
   local location = (securityObj.keyLocation == nil) and 'http_' or securityObj.keyLocation  
   if location == 'header' then
     location = 'http_'
@@ -47,31 +61,49 @@ function process(securityObj)
   local clientIdName = (securityObj.idFieldName == nil) and 'X-Client-ID' or securityObj.idFieldName
   
   local clientId = ngx.var[utils.concatStrings({location, clientIdName}):gsub("-", "_")]
-  
+  -- if they didn't supply whatever header this is configured to require, error out
   if not clientId then
     request.err(401, clientIdName .. " required")
+    return false
   end
-
   local clientSecretName = (securityObj.secretFieldName == nil) and 'X-Client-Secret' or securityObj.secretFieldName 
-
+  
   local clientSecret = ngx.var[utils.concatStrings({location, clientSecretName}):gsub("-","_")]
   if not clientSecret then
     request.err(401, clientSecretName .. " required")
+    return false
   end
-  
-  local sha256 = resty_sha256:new() 
-  sha256:update(clientSecret)  
-  local digest = sha256:final()
-  local result = validate(tenant, gatewayPath, apiId, scope, clientId, resty_str.to_hex(digest))
+-- hash the secret  
+  local result = validate(red, tenant, gatewayPath, apiId, scope, clientId, hashFunction(clientSecret))
   if not result then
     request.err(401, "Secret mismatch or not subscribed to this api.")
   end
-
+  return true
 end
 
-function validate(tenant, gatewayPath, apiId, scope, clientId, clientSecret)
-  -- Open connection to redis or use one from connection pool
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+
+--- Takes a string and performs a SHA256 hash on it's input
+-- @param str the string to input into the hash function
+-- @returns a hashed string
+function hash(str) 
+  local resty_sha256 = require "resty.sha256"
+  local resty_str = require "resty.string" 
+
+  local sha256 = resty_sha256:new() 
+  sha256:update(str)
+  local digest = sha256:final()
+  return resty_str.to_hex(digest)
+end 
+
+--- Validate that the subscription exists in redis
+-- @param tenant the tenantId we are checking for 
+-- @param gatewayPath the possible resource we are checking for
+-- @param apiId if we are checking for an api 
+-- @param scope which values should we be using to find the location of the secret
+-- @param clientId the subscribed client id 
+-- @param clientSecret the hashed client secret
+function validate(red, tenant, gatewayPath, apiId, scope, clientId, clientSecret)
+-- Open connection to redis or use one from connection pool
   local k
   if scope == 'tenant' then
     k = utils.concatStrings({'subscriptions:tenant:', tenant})
@@ -80,14 +112,11 @@ function validate(tenant, gatewayPath, apiId, scope, clientId, clientSecret)
   elseif scope == 'api' then
     k = utils.concatStrings({'subscriptions:tenant:', tenant, ':api:', apiId})
   end
-
-
-
+  -- using the same key location in redis, just using :clientsecret: instead of :key: 
   k = utils.concatStrings({k, ':clientsecret:', clientId, ':', clientSecret})
   local exists = red:exists(k)
-  redis.close(red)
   return exists == 1
 end
-
+_M.processWithHashFunction = processWithHashFunction
 _M.process = process
 return _M 

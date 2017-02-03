@@ -51,10 +51,10 @@ function _M.processCall()
   for verb, opFields in pairs(obj.operations) do
     if string.upper(verb) == ngx.req.get_method() then
       -- Check if auth is required
-      local apiKey
+      local key
       if (opFields.security) then
         for k, sec in ipairs(opFields.security) do  
-          validated = security.process(sec)
+          key = security.process(sec)
         end
       end
       -- Parse backend url
@@ -73,7 +73,7 @@ function _M.processCall()
       end
       -- Parse policies
       if opFields.policies ~= nil then
-        parsePolicies(opFields.policies, apiKey)
+        parsePolicies(opFields.policies, key)
       end
       found = true
       break
