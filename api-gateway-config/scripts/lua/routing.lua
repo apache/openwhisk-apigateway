@@ -117,13 +117,13 @@ function _M.findRedisKey(resourceKeys, tenant, path)
           return key
         end
       end
-      -- substring redisKey upto last "/"
-      local index = redisKey:match("^.*()/")
-      if index == nil then
-        return nil
-      end
-      redisKey = string.sub(redisKey, 1, index - 1)
     end
+    -- substring redisKey upto last "/"
+    local index = redisKey:match("^.*()/")
+    if index == nil then
+      return nil
+    end
+    redisKey = string.sub(redisKey, 1, index - 1)
   end
   return nil
 end
