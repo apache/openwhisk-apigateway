@@ -46,7 +46,6 @@ function _M.processCall()
   if redisKey == nil then
     return request.err(404, 'Not found.')
   end
-  ngx.var.namespace = redis.getTenant(red, ngx.var.tenant).namespace
   local obj = cjson.decode(redis.getResource(red, redisKey, "resources"))
   local found = false
   for verb, opFields in pairs(obj.operations) do
