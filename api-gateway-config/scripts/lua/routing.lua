@@ -177,7 +177,9 @@ function setVerb(v)
 end
 
 function getUriPath(backendPath)
-  local i, j = ngx.var.uri:find(ngx.unescape_uri(ngx.var.gatewayPath))
+  local gatewayPath = ngx.unescape_uri(ngx.var.gatewayPath)
+  gatewayPath = gatewayPath:gsub('-', '%%-')
+  local _, j = ngx.var.uri:find(gatewayPath)
   local incomingPath = ((j and ngx.var.uri:sub(j + 1)) or nil)
   -- Check for backendUrl path
   if backendPath == nil or backendPath == '' or backendPath == '/' then
