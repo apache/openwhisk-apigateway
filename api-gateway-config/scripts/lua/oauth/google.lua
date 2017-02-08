@@ -26,7 +26,7 @@ function validateOAuthToken (token)
   local request = require "lib/request"
   local utils = require "lib/utils"
   local httpc = http.new()
-
+  
   local request_options = {
     headers = {
       ["Accept"] = "application/json"
