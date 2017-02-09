@@ -59,10 +59,15 @@ function _M.processCall()
       end
       -- Parse backend url
       local u = url.parse(opFields.backendUrl)
+      -- add http:// if no protocol is specified
+      if u.scheme == nil then
+        u = url.parse(utils.concatStrings({'http://', opFields.backendUrl}))
+      end
       ngx.req.set_uri(getUriPath(u.path))
       ngx.var.backendUrl = opFields.backendUrl
-      -- Set upstream - add port if it's in the backendURL
+      -- Set upstream
       local upstream = utils.concatStrings({u.scheme, '://', u.host})
+      -- add port if it's in the backendURL
       if u.port ~= nil and u.port ~= '' then
         upstream = utils.concatStrings({upstream, ':', u.port})
       end

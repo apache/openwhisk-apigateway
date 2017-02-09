@@ -104,8 +104,9 @@ function _M.addAPI(red, id, apiObj, existingAPI)
     -- Delete all resources for the existingAPI
     local basePath = existingAPI.basePath:sub(2)
     for path, v in pairs(existingAPI.resources) do
-      local gatewayPath = utils.concatStrings({basePath, ngx.escape_uri(path)})
-      local redisKey = utils.concatStrings({"resources:", existingAPI.tenantId, ":", ngx.unescape_uri(gatewayPath)})
+      local gatewayPath = ngx.unescape_uri(utils.concatStrings({basePath, ngx.escape_uri(path)}))
+      gatewayPath = gatewayPath:sub(1,1) == "/" and gatewayPath:sub(2) or gatewayPath
+      local redisKey = utils.concatStrings({"resources:", existingAPI.tenantId, ":", gatewayPath})
       _M.deleteResource(red, redisKey, REDIS_FIELD)
     end
   end
