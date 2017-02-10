@@ -218,14 +218,14 @@ end
 -- @param tenantId tenant id
 function _M.getAllResourceKeys(red, tenantId)
   -- Find all resourceKeys in redis
-  local resources, err = red:scan(0, "match", utils.concatStrings({"resources:", tenantId, ":*"}))
+  local resources, err = red:scan(0, "match", utils.concatStrings({"resources:", tenantId, ":*"}), "count", 10000)
   if not resources then
     request.err(500, util.concatStrings({"Failed to retrieve resource keys: ", err}))
   end
   local cursor = resources[1]
   local resourceKeys = resources[2]
   while cursor ~= "0" do
-    resources, err = red:scan(cursor, "match", utils.concatStrings({"resources:", tenantId, ":*"}))
+    resources, err = red:scan(cursor, "match", utils.concatStrings({"resources:", tenantId, ":*"}), "count", 10000)
     if not resources then
       request.err(500, util.concatStrings({"Failed to retrieve resource keys: ", err}))
     end
