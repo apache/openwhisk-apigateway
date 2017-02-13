@@ -31,6 +31,7 @@ function validateOAuthToken (token)
     },
     ssl_verify = false
   }
+  local utils = require "lib/utils"
   local request_uri = utils.concatStrings({"https://", "api.github.com", "/user?access_token=", token})
   local res, err = httpc:request_uri(request_uri, request_options)
 -- convert response

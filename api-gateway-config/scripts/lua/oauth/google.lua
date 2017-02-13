@@ -24,6 +24,7 @@ function validateOAuthToken (token)
   local cjson = require "cjson"
   local http = require "resty.http"
   local request = require "lib/request"
+  local utils = require "lib/utils"
   local httpc = http.new()
 
   local request_options = {
