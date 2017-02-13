@@ -40,9 +40,8 @@ local _M = {}
 -- @param scope scope of the subscription
 -- @param apiKey the subscription api key
 -- @param return boolean value indicating if the subscription exists in redis
-function validate(tenant, gatewayPath, apiId, scope, apiKey)
+function validate(red, tenant, gatewayPath, apiId, scope, apiKey)
   -- Open connection to redis or use one from connection pool
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
   local k
   if scope == 'tenant' then
     k = utils.concatStrings({'subscriptions:tenant:', tenant})
@@ -60,17 +59,12 @@ end
 --- Process the security object
 -- @param securityObj security object from nginx conf file
 -- @return apiKey api key for the subscription
-function process(securityObj)
-  local tenant = ngx.var.tenant
-  local gatewayPath = ngx.var.gatewayPath
-  local apiId = ngx.var.apiId
-  local scope = securityObj.scope
+function process(red, tenant, gatewayPath, apiId, scope, apiKey, securityObj)
   local header = (securityObj.header == nil) and 'x-api-key' or securityObj.header
-  local apiKey = ngx.var[utils.concatStrings({'http_', header}):gsub("-", "_")]
   if not apiKey then
     request.err(401, utils.concatStrings({'API key header "', header, '" is required.'}))
   end
-  local ok = validate(tenant, gatewayPath, apiId, scope, apiKey)
+  local ok = validate(red, tenant, gatewayPath, apiId, scope, apiKey)
   if not ok then
     request.err(401, 'Invalid API key.')
   end
