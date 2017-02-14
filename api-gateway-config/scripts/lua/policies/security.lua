@@ -24,13 +24,14 @@
 
 local _M = {}
 
+local request = require "lib/request"
 local utils = require "lib/utils"
 --- Allow or block a request by calling a loaded security policy
 -- @param securityObj an object out of the security array in a given tenant / api / resource
 function process(securityObj)
   local ok, result = pcall(require, utils.concatStrings({'policies/security/', securityObj.type}))
   if not ok then
-    ngx.err(500, 'An unexpected error ocurred while processing the security policy') 
+    request.err(500, 'An unexpected error ocurred while processing the security policy') 
   end 
   result.process(securityObj)
 end
