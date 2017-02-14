@@ -23,6 +23,7 @@
 -- @author David Green (greend), Alex Song (songs)
 
 local _M = {}
+
 local request = require "lib/request"
 local utils = require "lib/utils"
 --- Allow or block a request by calling a loaded security policy
@@ -30,7 +31,8 @@ local utils = require "lib/utils"
 function process(securityObj)
   local ok, result = pcall(require, utils.concatStrings({'policies/security/', securityObj.type}))
   if not ok then
-    request.err(500, 'An unexpected error ocurred while processing the security policy: ' .. securityObj.type) 
+    ngx.log(ngx.ERR, 'An unexpected error ocurred while processing the security policy: ' .. securityObj.type) 
+    request.err(500, 'Gateway error.')
   end 
   return result.process(securityObj)
 end
