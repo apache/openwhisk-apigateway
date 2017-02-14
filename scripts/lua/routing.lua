@@ -25,11 +25,11 @@ local cjson = require "cjson"
 local utils = require "lib/utils"
 local request = require "lib/request"
 local redis = require "lib/redis"
-local url = require "url"
 -- load policies
 local security = require "policies/security"
 local mapping = require "policies/mapping"
 local rateLimit = require "policies/rateLimit"
+local backendRouting = require "policies/backendRouting"
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
@@ -44,14 +44,13 @@ function _M.processCall()
   local resourceKeys = redis.getAllResourceKeys(red, ngx.var.tenant)
   local redisKey = _M.findRedisKey(resourceKeys, ngx.var.tenant, ngx.var.gatewayPath)
   if redisKey == nil then
-    return request.err(404, 'Not found.')
+    request.err(404, 'Not found.')
   end
   local obj = cjson.decode(redis.getResource(red, redisKey, "resources"))
-  local found = false
   for verb, opFields in pairs(obj.operations) do
     if string.upper(verb) == ngx.req.get_method() then
       -- Check if auth is required
-      local key = nil
+      local key
       if (opFields.security) then
         for k, sec in ipairs(opFields.security) do  
           local result = utils.concatStrings({key, security.process(sec)})
@@ -60,36 +59,20 @@ function _M.processCall()
           end
         end
       end
-      -- Parse backend url
-      local u = url.parse(opFields.backendUrl)
-      -- add http:// if no protocol is specified
-      if u.scheme == nil then
-        u = url.parse(utils.concatStrings({'http://', opFields.backendUrl}))
-      end
-      ngx.req.set_uri(getUriPath(u.path))
-      ngx.var.backendUrl = opFields.backendUrl
-      -- Set upstream
-      local upstream = utils.concatStrings({u.scheme, '://', u.host})
-      -- add port if it's in the backendURL
-      if u.port ~= nil and u.port ~= '' then
-        upstream = utils.concatStrings({upstream, ':', u.port})
-      end
-      ngx.var.upstream = upstream
       -- Set backend method
       if opFields.backendMethod ~= nil then
         setVerb(opFields.backendMethod)
       end
+      -- Set backend upstream and uri
+      backendRouting.setRoute(opFields.backendUrl)
       -- Parse policies
       if opFields.policies ~= nil then
         parsePolicies(opFields.policies, key)
       end
-      found = true
-      break
+      return
     end
   end
-  if found == false then
-    request.err(404, 'Whoops. Verb not supported.')
-  end
+  request.err(404, 'Whoops. Verb not supported.')
 end
 
 --- Find the correct redis key based on the path that's passed in
@@ -168,6 +151,8 @@ function parsePolicies(obj, apiKey)
       mapping.processMap(v.value)
     elseif v.type == 'rateLimit' then
       rateLimit.limit(v.value, apiKey)
+    elseif v.type == 'backendRouting' then
+      backendRouting.setDynamicRoute(v.value)
     end
   end
 end
@@ -177,25 +162,10 @@ end
 function setVerb(v)
   local allowedVerbs = {'GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'}
   local verb = string.upper(v)
-  if(utils.tableContains(allowedVerbs, verb)) then
+  if utils.tableContains(allowedVerbs, verb) then
     ngx.req.set_method(ngx[utils.concatStrings({"HTTP_", verb})])
   else
     ngx.req.set_method(ngx.HTTP_GET)
-  end
-end
-
-function getUriPath(backendPath)
-  local gatewayPath = ngx.unescape_uri(ngx.var.gatewayPath)
-  gatewayPath = gatewayPath:gsub('-', '%%-')
-  local _, j = ngx.var.uri:find(gatewayPath)
-  local incomingPath = ((j and ngx.var.uri:sub(j + 1)) or nil)
-  -- Check for backendUrl path
-  if backendPath == nil or backendPath == '' or backendPath == '/' then
-    incomingPath = (incomingPath and incomingPath ~= '') and incomingPath or '/'
-    incomingPath = string.sub(incomingPath, 1, 1) == '/' and incomingPath or utils.concatStrings({'/', incomingPath})
-    return incomingPath
-  else
-    return utils.concatStrings({backendPath, incomingPath})
   end
 end
 

@@ -231,22 +231,22 @@ end
 -- @param security security object
 function checkOptionalPolicies(policies, security)
   if policies then
-    for k, v in pairs(policies) do
-      local validTypes = {reqMapping = true, rateLimit = true}
+    for _, v in pairs(policies) do
+      local validTypes = {"reqMapping", "rateLimit", "backendRouting"}
       if (v.type == nil or v.value == nil) then
-        return false, { statusCode = 400, message = "Missing field in policy object. Need \"type\" and \"scope\"." }
-      elseif validTypes[v.type] == nil then
-        return false, { statusCode = 400, message = "Invalid type in policy object. Valid: \"reqMapping\", \"rateLimit\"" }
+        return false, { statusCode = 400, message = "Missing field in policy object. Need \"type\" and \"value\"." }
+      elseif utils.tableContains(validTypes, v.type) == false then
+        return false, { statusCode = 400, message = "Invalid type in policy object. Valid types: " .. cjson.encode(validTypes) }
       end
     end
   end
   if security then
-    for k, sec in ipairs(security) do
-      local validScopes = {tenant=true, api=true, resource=true}
+    for _, sec in ipairs(security) do
+      local validScopes = {"tenant", "api", "resource"}
       if (sec.type == nil or sec.scope == nil) then
         return false, { statusCode = 400, message = "Missing field in security object. Need \"type\" and \"scope\"." }
-      elseif validScopes[sec.scope] == nil then
-        return false, { statusCode = 400, message = "Invalid scope in security object. Valid: \"tenant\", \"api\", \"resource\"." }
+      elseif utils.tableContains(validScopes, sec.scope) == false == nil then
+        return false, { statusCode = 400, message = "Invalid scope in security object. Valid scopes:" .. cjson.encode(validScopes) }
       end
     end 
   end

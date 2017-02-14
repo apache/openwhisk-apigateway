@@ -28,10 +28,10 @@ local cjson = require "cjson"
 
 local _M = {}
 
-local body = nil
-local query = nil
-local headers = nil
-local path = nil
+local body
+local query
+local headers
+local path
 
 --- Implementation for the mapping policy.
 -- @param map The mapping object that contains details about request tranformations
