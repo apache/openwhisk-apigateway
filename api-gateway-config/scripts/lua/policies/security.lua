@@ -32,7 +32,7 @@ function process(securityObj)
   if not ok then
     request.err(500, 'An unexpected error ocurred while processing the security policy: ' .. securityObj.type) 
   end 
-  result.process(securityObj)
+  return result.process(securityObj)
 end
 
 -- Wrap process in code to load the correct module 

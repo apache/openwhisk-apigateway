@@ -69,8 +69,7 @@ function processWithRedis(red, securityObj)
   if not token.expires == nil then
     red:expire(key, token.expires)
   end
-   
-  return true
+  return ''    
 -- only check with the provider if we haven't cached the token. 
 end
 

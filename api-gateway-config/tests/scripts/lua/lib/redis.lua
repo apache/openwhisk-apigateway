@@ -34,7 +34,23 @@ describe('Testing Redis module', function()
       }
     }
   end)
-
+  it('should look up an api by one of it\'s member resources', function() 
+    local red = fakeredis.new() 
+    local sampleResource = cjson.decode([[
+      {
+        "apiId": "a12341234",
+        "operations": {
+          "GET": {
+            "backendUrl":"sample",
+            "backendMethod":"GET"
+          }
+        }
+      }
+    ]])
+    
+    red:hset('resources:test:v1/test', 'resources', cjson.encode(sampleResource))
+    assert.are.same('a12341234', redis.resourceToApi(red, 'resources:test:v1/test'))
+  end) 
   it('should generate resource object to store in redis', function()
     -- Resource object with no policies or security
     local apiId = 12345
@@ -127,7 +143,7 @@ describe('Testing Redis module', function()
   it('shoud create an API Key subscription', function()
     local key = 'subscriptions:test:apikey'
     redis.createSubscription(red, key)
-    assert.are.same(true, red:exists(key))
+    assert.are.same(1, red:exists(key))
   end)
 
   it('should delete an API Key subscription', function()
@@ -139,7 +155,7 @@ describe('Testing Redis module', function()
     -- API key to delete exists in redis
     red:set(key, '')
     redis.deleteSubscription(red, key)
-    assert.are.equal(false, red:exists(key))
+    assert.are.equal(0, red:exists(key))
   end)
 
 end)

@@ -153,6 +153,14 @@ function _M.deleteAPI(red, id)
   end
 end
 
+function _M.resourceToApi(red, resource) 
+  local resource = red:hget(resource, "resources")
+  if resource == ngx.null then
+    return nil
+  end 
+  resource = cjson.decode(resource)
+  return resource.apiId
+end 
 -----------------------------
 --------- Resources ---------
 -----------------------------
