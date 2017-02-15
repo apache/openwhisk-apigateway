@@ -1,4 +1,4 @@
-apigateway
+OpenWhisk API Gateway
 =============
 [![Build Status](https://travis-ci.org/openwhisk/openwhisk-apigateway.svg?branch=master)](https://travis-ci.org/openwhisk/openwhisk-apigateway)
 
@@ -10,9 +10,9 @@ This project is currently considered pre-alpha stage, and should not be used in 
 
 
 ## Table of Contents
-
+ 
 * [Quick Start](#quick-start)
-* [Routes](#routes)
+* [API](#api)
 * [Developer Guide](#developer-guide)
   * [Running locally](#running-locally)
   * [Testing](#testing)
@@ -27,15 +27,13 @@ docker run -p 80:80 -p <managedurl_port>:8080 -p 9000:9000 \
             -e REDIS_HOST=<redis_host> \
             -e REDIS_PORT=<redis_port> \
             -e REDIS_PASS=<redis_pass> \
-            openwhisk/apigateway:latest
+            openwhisk/openwhisk-apigateway:latest
 ```
 
-This command starts an API Gateway that subscribes to the Redis instance with the specified host and port. The `REDIS_PASS` variable is optional and is required only when redis needs authentication. 
-
-On startup, the API Gateway subscribes to redis and listens for changes in keys that are defined as `resources:<namespace>:<resourcePath>`.
-
-## Routes
-See [here](doc/routes.md) for the management interface for creating tenants/APIs. For detailed API policy definitions, see [here](doc/policies.md).
+## API
+- [Management interface](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/management_interface.md)
+  - [Policies](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/policies.md)
+  - [Security](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/security.md)
 
 
 ## Developer Guide

@@ -1,11 +1,11 @@
-Routes
+Management Interface
 ==============
 The following defines the interface for managing APIs and Tenants. These endpoints are exposed to port 9000.
 
 ## APIs
 
 ### PUT /v1/apis
-Create a new API. Note that you should first create a tenant and obtain its `tenantId`. For API policy definitions, see [here](policies.md).
+Create a new API. Note that you should first create a tenant and obtain its `tenantId`. 
 
 _body_:
 ```
@@ -18,16 +18,20 @@ _body_:
     "methods": *(string)
   },
   "resources": {
-    "path": {
+    "<path>": {
       "operations": {
-        "get": {
+        "<method>": {
           "backendMethod": *(string),
           "backendUrl": *(string),
           "policies": [
             {
               "type": *(string),
               "value": {}
-            }
+            },
+            ...
+          ],
+          "security": [
+            {...}
           ]
         },
         ...
@@ -37,6 +41,10 @@ _body_:
 }
 ```
 
+See below for details on how to implement different policies and security:
+
+- [policy definitions](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/policies.md)
+- [security definitions](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/security.md)
 
 _returns:_
 ```
@@ -65,16 +73,20 @@ _body_:
     "methods": *(string)
   }
   "resources": {
-    "path": {
+    "<path>": {
       "operations": {
-        "get": {
+        "<method>": {
           "backendMethod": *(string),
           "backendUrl": *(string),
           "policies": [
             {
               "type": *(string),
               "value": {}
-            }
+            },
+            ...
+          ],
+          "security": [
+            {...}
           ]
         },
         ...
