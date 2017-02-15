@@ -21,8 +21,8 @@
 
 local fakengx = require 'fakengx'
 local fakeredis = require 'fakeredis'
-local apikey = require 'policies/security/apikey'
-local oauth = require 'policies/security/oauth'
+local apikey = require 'policies/security/apiKey'
+local oauth = require 'policies/security/oauth2'
 local cjson = require "cjson" 
 
 describe('API Key module', function() 

@@ -34,10 +34,12 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 local _M = {}
 
 --- Validate that the given subscription is in redis
+-- @param red a redis instance to query against 
 -- @param tenant the namespace
 -- @param gatewayPath the gateway path to use, if scope is resource
 -- @param apiId api Id to use, if scope is api
 -- @param scope scope of the subscription
+-- @param header the name of the header we are checking for 
 -- @param apiKey the subscription api key
 -- @param return boolean value indicating if the subscription exists in redis
 function validate(red, tenant, gatewayPath, apiId, scope, header, apiKey)
@@ -62,13 +64,14 @@ function process(securityObj)
 end 
 
 --- Process the security object
+-- @param red a redis instance to query against
 -- @param securityObj security object from nginx conf file
+-- @param hashFunction a function that will be called to hash the string
 -- @return apiKey api key for the subscription
 function processWithRedis(red, securityObj, hashFunction)
   local tenant = ngx.var.tenant
   local gatewayPath = ngx.var.gatewayPath
   local apiId = redis.resourceToApi(red, utils.concatStrings({'resources:', tenant, ':', gatewayPath})) 
-  -- local apiId = ngx.var.apiI
   local scope = securityObj.scope
   local header = (securityObj.header == nil) and 'x-api-key' or securityObj.header
   local apiKey = ngx.var[utils.concatStrings({'http_', header}):gsub("-", "_")]
@@ -87,6 +90,9 @@ function processWithRedis(red, securityObj, hashFunction)
   return apiKey
 end
 
+--- Calculate the sha256 hash of a string 
+-- @param str the string you want to hash
+-- @return a hashed version of the string
 function sha256(str) 
   local resty_sha256 = require "resty.sha256" 
   local resty_str = require "resty.string" 
