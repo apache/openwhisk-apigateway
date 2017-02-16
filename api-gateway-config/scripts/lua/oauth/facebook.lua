@@ -39,7 +39,9 @@ function validateOAuthToken (token)
     },
     ssl_verify = false
   }
-  local request_uri = utils.concatStrings({'https://', 'graph.facebook.com', '/debug_token?input_token=', token,  '&access_token=', facebookAppToken})
+  local envUrl = os.getenv('TOKEN_FACEBOOK_URL')
+  envUrl = envUrl ~= nil and envUrl or 'https://graph.facebook.com/debug_token' 
+  local request_uri = utils.concatStrings({envUrl, '?input_token=', token,  '&access_token=', facebookAppToken})
   local res, err = httpc:request_uri(request_uri, request_options)
 -- convert response
   if not res then

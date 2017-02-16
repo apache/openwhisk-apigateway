@@ -33,7 +33,9 @@ function validateOAuthToken (token)
     },
     ssl_verify = false
   }
-  local request_uri = utils.concatStrings({"https://", "www.googleapis.com", "/oauth2/v3/tokeninfo?access_token=", token})
+  local envUrl = os.getenv('TOKEN_GOOGLE_URL') 
+  envUrl = envUrl ~= nil and envUrl or 'https://www.googleapis.com/oauth2/v3/tokeninfo'
+  local request_uri = utils.concatStrings({envUrl, "?access_token=", token})
   local res, err = httpc:request_uri(request_uri, request_options)
 -- convert response
   if not res then
