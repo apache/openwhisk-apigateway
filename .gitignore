@@ -1,6 +1,6 @@
-api-gateway-config/target
-api-gateway-config/target/*
-api-gateway-config/conf.d/includes/resolvers.conf
+target
+target/*
+conf.d/includes/resolvers.conf
 *.iml
 .DS_STORE
 lua_modules

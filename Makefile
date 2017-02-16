@@ -10,11 +10,11 @@ docker-ssh:
 
 .PHONY: test-build
 test-build:
-	cd api-gateway-config/tests; ./install-deps.sh
+	cd tests; ./install-deps.sh
 
 .PHONY: test-run
 test-run:
-	cd api-gateway-config/tests; ./run-tests.sh
+	cd tests; ./run-tests.sh
 
 .PHONY: docker-run
 docker-run:
@@ -30,17 +30,17 @@ docker-run:
 docker-debug:
 	#Volumes directories must be under your Users directory
 	mkdir -p ${HOME}/tmp/apiplatform/apigateway
-	rm -rf ${HOME}/tmp/apiplatform/apigateway/api-gateway-config
-	cp -r `pwd`/api-gateway-config ${HOME}/tmp/apiplatform/apigateway/
+	rm -rf ${HOME}/tmp/apiplatform/apigateway
+	cp -r `pwd` ${HOME}/tmp/apiplatform/apigateway/
 	docker run --name="apigateway" \
 			-p 80:80 -p 5000:5000 \
 			-e "LOG_LEVEL=info" -e "DEBUG=true" \
-			-v ${HOME}/tmp/apiplatform/apigateway/api-gateway-config/:/etc/api-gateway \
+			-v ${HOME}/tmp/apiplatform/apigateway/:/etc/api-gateway \
 			openwhisk/apigateway:latest ${DOCKER_ARGS}
 
 .PHONY: docker-reload
 docker-reload:
-	cp -r `pwd`/api-gateway-config ${HOME}/tmp/apiplatform/apigateway/
+	cp -r `pwd` ${HOME}/tmp/apiplatform/apigateway/
 	docker exec apigateway api-gateway -t -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway.conf
 	docker exec apigateway api-gateway -s reload
 
