@@ -105,6 +105,7 @@ function addAPI()
     name = decoded.name,
     basePath = utils.concatStrings({"/", basePath}),
     tenantId = decoded.tenantId,
+    cors = decoded.cors, 
     resources = decoded.resources,
     managedUrl = managedUrl
   }

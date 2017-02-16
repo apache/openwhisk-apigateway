@@ -18,24 +18,36 @@
 --   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 --   DEALINGS IN THE SOFTWARE.
 
---- @module security
--- A module to load all and execute the security policies
--- @author David Green (greend), Alex Song (songs)
+--- @module Cors
+-- Used to add a Cors header when none is present 
 
 local _M = {}
-local request = require "lib/request"
-local utils = require "lib/utils"
---- Allow or block a request by calling a loaded security policy
--- @param securityObj an object out of the security array in a given tenant / api / resource
-function process(securityObj)
-  local ok, result = pcall(require, utils.concatStrings({'policies/security/', securityObj.type}))
-  if not ok then
-    request.err(500, 'An unexpected error ocurred while processing the security policy: ' .. securityObj.type) 
+local utils = require "lib/utils" 
+local redis = require "lib/redis" 
+local cjson = require "cjson"
+local REDIS_HOST = os.getenv("REDIS_HOST")
+local REDIS_PORT = os.getenv("REDIS_PORT")
+local REDIS_PASS = os.getenv("REDIS_PASS")
+
+function processCall(tenant, gatewayPath) 
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
+  
+  local config = red:hget(utils.concatStrings({'resources:', tenant, ':', gatewayPath}), 'resources')
+  local resourceConfig = cjson.decode(config)
+  
+  if resourceConfig.apiId == nil then
+    return nil, nil
   end 
-  result.process(securityObj)
+
+  local apiConfig = cjson.decode(red:hget('apis', resourceConfig.apiId))
+
+  -- if they didn't set an apiId inside of their resource, we can't do this.. just silently error out
+  if apiConfig.cors == nil then
+    return nil, nil
+  end 
+  return apiConfig.cors.origin, apiConfig.cors.methods
 end
 
--- Wrap process in code to load the correct module 
-_M.process = process
+_M.processCall = processCall
 
-return _M 
+return _M

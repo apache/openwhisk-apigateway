@@ -13,6 +13,10 @@ _body_:
   "name": *(string),
   "basePath": *(string),
   "tenantId": *(string),
+  "cors":{
+    "origin": *(string),
+    "methods": *(string)
+  },
   "resources": {
     "path": {
       "operations": {
@@ -32,6 +36,7 @@ _body_:
   }
 }
 ```
+
 
 _returns:_
 ```
@@ -55,6 +60,10 @@ _body_:
   "name": *(string),
   "basePath": *(string),
   "tenantId": *(string),
+  "cors": { 
+    "origin": *(string),
+    "methods": *(string)
+  }
   "resources": {
     "path": {
       "operations": {
