@@ -10,5 +10,4 @@ luarocks install --tree=lua_modules luabitop
 luarocks install --tree=lua_modules luasocket
 luarocks install --tree=lua_modules sha1
 luarocks install --tree=lua_modules md5
-luarocks install --tree=lua_modules fakeredis
 luarocks install --tree=lua_modules net-url

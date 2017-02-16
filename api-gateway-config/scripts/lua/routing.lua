@@ -51,10 +51,13 @@ function _M.processCall()
   for verb, opFields in pairs(obj.operations) do
     if string.upper(verb) == ngx.req.get_method() then
       -- Check if auth is required
-      local key
+      local key = nil
       if (opFields.security) then
         for k, sec in ipairs(opFields.security) do  
-          key = security.process(sec)
+          local result = utils.concatStrings({key, security.process(sec)})
+          if key == nil then
+            key = result -- use the key from the first policy. 
+          end
         end
       end
       -- Parse backend url
