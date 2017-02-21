@@ -190,10 +190,10 @@ COPY init.sh /etc/init-container.sh
 ONBUILD COPY init.sh /etc/init-container.sh
 
 # add the default configuration for the Gateway
-COPY api-gateway-config /etc/api-gateway
+COPY . /etc/api-gateway
 RUN adduser -S nginx-api-gateway \
     && addgroup -S nginx-api-gateway
-ONBUILD COPY api-gateway-config /etc/api-gateway
+ONBUILD COPY . /etc/api-gateway
 
 EXPOSE 80 8080 8423 9000
 
