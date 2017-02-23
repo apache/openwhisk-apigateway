@@ -76,7 +76,7 @@ function processWithRedis(red, securityObj, hashFunction)
   local header = (securityObj.header == nil) and 'x-api-key' or securityObj.header
   local apiKey = ngx.var[utils.concatStrings({'http_', header}):gsub("-", "_")]
   if not apiKey then
-    request.err(401, utils.concatStrings({'API key header "', header, '" is required.'}))
+    request.err(401, 'Unauthorized')
     return nil
   end
   if securityObj.hashed then
@@ -84,7 +84,7 @@ function processWithRedis(red, securityObj, hashFunction)
   end 
   local ok = validate(red, tenant, gatewayPath, apiId, scope, header, apiKey)
   if not ok then
-    request.err(401, 'Invalid API key.')
+    request.err(401, 'Invalid API key')
     return nil
   end
   return apiKey
