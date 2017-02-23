@@ -29,6 +29,7 @@ local req = require "lib/resty/limit/req"
 local utils = require "lib/utils"
 local logger = require "lib/logger"
 local request = require "lib/request"
+local redis = require "lib/redis"
 
 local _M = {}
 
@@ -39,14 +40,19 @@ function limit(obj, apiKey)
   local i = 60 / obj.interval
   local r = i * obj.rate
   r = utils.concatStrings({tostring(r), 'r/m'})
+  local tenantId = ngx.var.tenant
+  local gatewayPath = ngx.var.gatewayPath
   local k
   -- Check scope
   if obj.scope == 'tenant' then
-    k = utils.concatStrings({"tenant:", ngx.var.tenant})
+    k = utils.concatStrings({"tenant:", tenantId})
   elseif obj.scope == 'api' then
-    k = utils.concatStrings({"tenant:", ngx.var.tenant, ":api:", ngx.var.apiId})
+    local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
+    local apiId = redis.resourceToApi(red, utils.concatStrings({'resources:', tenantId, ':', gatewayPath}))
+    k = utils.concatStrings({"tenant:", tenantId, ":api:", apiId})
+    redis.close(red)
   elseif obj.scope == 'resource' then
-    k = utils.concatStrings({"tenant:", ngx.var.tenant, ":resource:", ngx.var.gatewayPath})
+    k = utils.concatStrings({"tenant:", tenantId, ":resource:", gatewayPath})
   end
   -- Check subscription
   if obj.subscription ~= nil and obj.subscription == true and apiKey ~= nil then
