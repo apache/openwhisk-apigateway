@@ -66,8 +66,9 @@ end
 function getUriPath(backendPath)
   local gatewayPath = ngx.unescape_uri(ngx.var.gatewayPath)
   gatewayPath = gatewayPath:gsub('-', '%%-')
-  local _, j = ngx.var.request_uri:find(gatewayPath)
-  local incomingPath = ((j and ngx.var.request_uri:sub(j + 1)) or nil)
+  local uri = string.gsub(ngx.var.request_uri, '?.*', '')
+  local _, j = uri:find(gatewayPath)
+  local incomingPath = ((j and uri:sub(j + 1)) or nil)
   -- Check for backendUrl path
   if backendPath == nil or backendPath == '' or backendPath == '/' then
     incomingPath = (incomingPath and incomingPath ~= '') and incomingPath or '/'
