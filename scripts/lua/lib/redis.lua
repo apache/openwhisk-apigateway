@@ -168,7 +168,8 @@ end
 --- Generate Redis object for resource
 -- @param ops list of operations for a given resource
 -- @param apiId resource api id (nil if no api)
-function _M.generateResourceObj(ops, apiId)
+-- @param tenantObj tenant information
+function _M.generateResourceObj(ops, apiId, tenantObj)
   local resourceObj = {
     operations = {}
   }
@@ -187,6 +188,11 @@ function _M.generateResourceObj(ops, apiId)
   end
   if apiId then
     resourceObj.apiId = apiId
+  end
+  if tenantObj then
+    resourceObj.tenantId = tenantObj.id
+    resourceObj.tenantNamespace = tenantObj.namespace
+    resourceObj.tenantInstance = tenantObj.instance
   end
   return cjson.encode(resourceObj)
 end

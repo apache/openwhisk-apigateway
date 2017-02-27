@@ -47,6 +47,8 @@ function _M.processCall()
     request.err(404, 'Not found.')
   end
   local obj = cjson.decode(redis.getResource(red, redisKey, "resources"))
+  ngx.var.tenantNamespace = obj.tenantNamespace
+  ngx.var.tenantInstance = obj.tenantInstance
   for verb, opFields in pairs(obj.operations) do
     if string.upper(verb) == ngx.req.get_method() then
       -- Check if auth is required
