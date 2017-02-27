@@ -31,14 +31,13 @@ local _M = {}
 -- @param red
 -- @param resource
 -- @param gatewayPath
--- @param tenantId
-function _M.addResource(red, resource, gatewayPath, tenantId)
+-- @param tenantObj
+function _M.addResource(red, resource, gatewayPath, tenantObj)
   -- Create resource object and add to redis
-  local redisKey = utils.concatStrings({"resources", ":", tenantId, ":", gatewayPath})
-  local apiId
+  local redisKey = utils.concatStrings({"resources", ":", tenantObj.id, ":", gatewayPath})
   local operations = resource.operations
   local apiId = resource.apiId
-  local resourceObj = redis.generateResourceObj(operations, apiId)
+  local resourceObj = redis.generateResourceObj(operations, apiId, tenantObj)
   redis.createResource(red, redisKey, REDIS_FIELD, resourceObj)
 end
 

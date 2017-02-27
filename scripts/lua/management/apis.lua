@@ -100,11 +100,14 @@ function addAPI()
   if basePath:sub(1,1) ~= '' then
     managedUrl = utils.concatStrings({managedUrl, "/", basePath})
   end
+  local tenantObj = redis.getTenant(red, decoded.tenantId)
   local managedUrlObj = {
     id = uuid,
     name = decoded.name,
     basePath = utils.concatStrings({"/", basePath}),
     tenantId = decoded.tenantId,
+    tenantNamespace = tenantObj.namespace,
+    tenantInstance = tenantObj.instance,
     cors = decoded.cors, 
     resources = decoded.resources,
     managedUrl = managedUrl
@@ -115,7 +118,7 @@ function addAPI()
   for path, resource in pairs(decoded.resources) do
     local gatewayPath = utils.concatStrings({basePath, path})
     gatewayPath = (gatewayPath:sub(1,1) == '/') and gatewayPath:sub(2) or gatewayPath
-    resources.addResource(red, resource, gatewayPath, decoded.tenantId)
+    resources.addResource(red, resource, gatewayPath, tenantObj)
   end
   redis.close(red)
   -- Return managed url object

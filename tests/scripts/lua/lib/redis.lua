@@ -101,6 +101,21 @@ describe('Testing Redis module', function()
     expected = resourceObj
     generated = cjson.decode(redis.generateResourceObj(operations, apiId))
     assert.are.same(expected, generated)
+
+    local tenantObj = [[
+      {
+        "id": "123",
+        "namespace": "testname",
+        "instance": "testinstance"
+      }
+    ]]
+    tenantObj = cjson.decode(tenantObj)
+    resourceObj.tenantId = tenantObj.id
+    resourceObj.tenantNamespace = tenantObj.namespace
+    resourceObj.tenantInstance = tenantObj.instance
+    expected = resourceObj
+    generated = cjson.decode(redis.generateResourceObj(operations, apiId, tenantObj))
+    assert.are.same(expected, generated)
   end)
 
   it('should get a resource from redis', function()
