@@ -51,6 +51,7 @@ function processWithRedis(red, securityObj)
   if accessToken == nil then
     request.err(401, "No Authorization header provided")
   end
+  accessToken = string.gsub(accessToken, '^Bearer%s', '')
   local token = {}
   local key = utils.concatStrings({"oauth:providers:", securityObj.provider, ":tokens:", accessToken})
   -- If we haven't cached the token go to the oauth provider
@@ -85,7 +86,6 @@ end
       request.err(500, 'Error loading OAuth provider authentication module')
       return 
     end
-
     local token = provider(token)
     -- cache the token
     return token
