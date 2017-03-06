@@ -23,7 +23,6 @@
 -- @author Alex Song (songs)
 
 local utils = require "lib/utils"
-local cjson = require "cjson"
 
 local _Request = {}
 
@@ -31,24 +30,17 @@ local _Request = {}
 -- @param code error code
 -- @param msg error message
 function err(code, msg)
-  ngx.header.content_type = "application/json; charset=utf-8"
   ngx.status = code
-  local errObj = cjson.encode({
-    status = code,
-    message = utils.concatStrings({"Error: ", msg})
-  })
-  ngx.say(errObj)
+  ngx.say(utils.concatStrings({"Error: ", msg}))
   ngx.exit(ngx.status)
 end
 
 --- Function to call when request is successful
 -- @param code status code
--- @param obj JSON encoded object to return
+-- @param obj object to return
 function success(code, obj)
   ngx.status = code
-  if obj ~= nil then
-    ngx.say(obj)
-  end
+  ngx.say(obj)
   ngx.exit(ngx.status)
 end
 

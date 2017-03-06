@@ -116,7 +116,7 @@ function _M.addAPI(red, id, apiObj, existingAPI)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to save the API: ", err}))
   end
-  return cjson.decode(apiObj)
+  return apiObj
 end
 
 --- Get all APIs from redis
@@ -369,41 +369,6 @@ end
 --- Check health of gateway
 function _M.healthCheck()
   request.success(200,  "Status: Gateway ready.")
-end
-
------------------------------
--------- v2 Swagger ---------
------------------------------
-
-function _M.addSwagger(red, id, swagger)
-  swagger = cjson.encode(swagger)
-  local ok, err = red:hset("swagger", id, swagger)
-  if not ok then
-    request.err(500, utils.concatStrings({"Failed to add swagger: ", err}))
-  end
-  return cjson.decode(swagger)
-end
-
-function _M.getSwagger(red, id)
-  local swagger, err = red:hget("swagger", id)
-  if not swagger then
-    request.err(500, utils.concatStrings({"Failed to add swagger: ", err}))
-  end
-  if swagger == ngx.null then
-    return nil
-  end
-  return cjson.decode(swagger)
-end
-
-function _M.deleteSwagger(red, id)
-  local existing = _M.getSwagger(red, id)
-  if existing == nil then
-    request.err(404, 'Swagger doesn\'t exist')
-  end
-  local ok, err = red:hdel("swagger", id)
-  if not ok then
-    request.err(500, utils.concatStrings({"Failed to delete swagger: ", err}))
-  end
 end
 
 return _M
