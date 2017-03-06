@@ -20,7 +20,6 @@
 
 local fakengx = require 'fakengx'
 local request = require 'lib/request'
-local cjson = require 'cjson'
 
 describe('Testing Request module', function()
   before_each(function()
@@ -30,10 +29,8 @@ describe('Testing Request module', function()
   it('should return correct error response', function()
     local code = 500
     local msg = 'Internal server error\n'
-    request.err(code ,msg)
-    local expected = cjson.encode{status = code, message = 'Error: ' .. msg}
-    local actual = ngx._body
-    assert.are.same(expected .. '\n', actual)
+    request.err(code, msg)
+    assert.are.equal('Error: ' .. msg .. '\n', ngx._body)
     assert.are.equal(code, ngx._exit)
   end)
 

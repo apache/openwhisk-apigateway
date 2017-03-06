@@ -41,15 +41,12 @@ local _M = {}
 function _M.processCall()
   -- Get resource object from redis
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
-  local tenantId = ngx.var.tenant
-  local gatewayPath = ngx.var.gatewayPath
-  local resourceKeys = redis.getAllResourceKeys(red, tenantId)
-  local redisKey = _M.findRedisKey(resourceKeys, tenantId, gatewayPath)
+  local resourceKeys = redis.getAllResourceKeys(red, ngx.var.tenant)
+  local redisKey = _M.findRedisKey(resourceKeys, ngx.var.tenant, ngx.var.gatewayPath)
   if redisKey == nil then
     request.err(404, 'Not found.')
   end
   local obj = cjson.decode(redis.getResource(red, redisKey, "resources"))
-  redis.close(red)
   ngx.var.tenantNamespace = obj.tenantNamespace
   ngx.var.tenantInstance = obj.tenantInstance
   for verb, opFields in pairs(obj.operations) do
@@ -57,7 +54,7 @@ function _M.processCall()
       -- Check if auth is required
       local key
       if (opFields.security) then
-        for _, sec in ipairs(opFields.security) do
+        for k, sec in ipairs(opFields.security) do  
           local result = utils.concatStrings({key, security.process(sec)})
           if key == nil then
             key = result -- use the key from the first policy. 
