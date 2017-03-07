@@ -47,10 +47,8 @@ function limit(obj, apiKey)
   if obj.scope == 'tenant' then
     k = utils.concatStrings({"tenant:", tenantId})
   elseif obj.scope == 'api' then
-    local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
-    local apiId = redis.resourceToApi(red, utils.concatStrings({'resources:', tenantId, ':', gatewayPath}))
+    local apiId = ngx.var.apiId
     k = utils.concatStrings({"tenant:", tenantId, ":api:", apiId})
-    redis.close(red)
   elseif obj.scope == 'resource' then
     k = utils.concatStrings({"tenant:", tenantId, ":resource:", gatewayPath})
   end
