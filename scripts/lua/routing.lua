@@ -52,6 +52,7 @@ function _M.processCall()
   redis.close(red)
   ngx.var.tenantNamespace = obj.tenantNamespace
   ngx.var.tenantInstance = obj.tenantInstance
+  ngx.var.apiId = obj.apiId
   for verb, opFields in pairs(obj.operations) do
     if string.upper(verb) == ngx.req.get_method() then
       -- Check if auth is required
@@ -60,7 +61,7 @@ function _M.processCall()
         for _, sec in ipairs(opFields.security) do
           local result = utils.concatStrings({key, security.process(sec)})
           if key == nil then
-            key = result -- use the key from the first policy. 
+            key = result -- use the key from the first policy.
           end
         end
       end
