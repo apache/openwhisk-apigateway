@@ -1,17 +1,27 @@
-language: python
-sudo: false
+language: scala
+sudo: required
+
+scala:
+   - 2.11.8
 
 env:
   - LUA="lua=5.1"
 
+services:
+  - docker
+
 before_install:
+  - ./tools/travis/setup.sh
   - pip install hererocks
   - hererocks lua_install -r^ --$LUA
   - export PATH=$PATH:$PWD/lua_install/bin # Add directory with all installed binaries to PATH
+  
 
 install:
   - cd tests
   - ./install-deps.sh
 
+
 script:
   - busted --output=TAP --helper=set_paths --pattern=.lua scripts
+  - ../tools/travis/build.sh
