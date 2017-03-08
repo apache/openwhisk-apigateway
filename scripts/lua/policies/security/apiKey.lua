@@ -39,10 +39,9 @@ local _M = {}
 -- @param gatewayPath the gateway path to use, if scope is resource
 -- @param apiId api Id to use, if scope is api
 -- @param scope scope of the subscription
--- @param header the name of the header we are checking for 
 -- @param apiKey the subscription api key
 -- @param return boolean value indicating if the subscription exists in redis
-function validate(red, tenant, gatewayPath, apiId, scope, header, apiKey)
+function validate(red, tenant, gatewayPath, apiId, scope, apiKey)
   -- Open connection to redis or use one from connection pool
   local k
   if scope == 'tenant' then
@@ -52,7 +51,7 @@ function validate(red, tenant, gatewayPath, apiId, scope, header, apiKey)
   elseif scope == 'api' then
     k = utils.concatStrings({'subscriptions:tenant:', tenant, ':api:', apiId})
   end
-  k = utils.concatStrings({k, ':key:', header, ':', apiKey})
+  k = utils.concatStrings({k, ':key:', apiKey})
   return red:exists(k) == 1
 end
 
@@ -82,7 +81,7 @@ function processWithRedis(red, securityObj, hashFunction)
   if securityObj.hashed then
     apiKey = hashFunction(apiKey)
   end 
-  local ok = validate(red, tenant, gatewayPath, apiId, scope, header, apiKey)
+  local ok = validate(red, tenant, gatewayPath, apiId, scope, apiKey)
   if not ok then
     request.err(401, 'Invalid API key')
     return nil
