@@ -17,7 +17,14 @@ $ANSIBLE_CMD setup.yml
 $ANSIBLE_CMD prereq.yml
 $ANSIBLE_CMD couchdb.yml
 $ANSIBLE_CMD initdb.yml
-$ANSIBLE_CMD apigateway.yml
+
+#build docker docker image 
+pushd $ROOTDIR
+pwd
+docker build . -t "openwhisk/apigateway" 
+popd
+
+$ANSIBLE_CMD apigateway.yml -e apigateway_local_build=true
 
 cd $WHISKDIR
 
