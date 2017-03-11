@@ -66,8 +66,8 @@ function getAPIs()
       apiList = tenants.getTenantAPIs(red, tenantId, queryParams)
       for _, api in pairs(apiList) do
         v2ApiList[#v2ApiList+1] = {
-          id = api.id,
-          managedUrl = api.managedUrl,
+          artifact_id = api.id,
+          managed_url = api.managedUrl,
           open_api_doc = redis.getSwagger(red, api.id)
         }
       end
@@ -96,8 +96,8 @@ function getAPIs()
         request.success(200, api)
       elseif version == 'v2' then
         local returnObj = {
-          id = api.id,
-          managedUrl = api.managedUrl,
+          artifact_id = api.id,
+          managed_url = api.managedUrl,
           open_api_doc = redis.getSwagger(red, api.id)
         }
         redis.close(red)
@@ -155,8 +155,8 @@ function addAPI()
   elseif version == 'v2' then
     redis.addSwagger(red, managedUrlObj.id, swaggerTable)
     local returnObj = {
-      id = managedUrlObj.id,
-      managedUrl = managedUrlObj.managedUrl,
+      artifact_id = managedUrlObj.id,
+      managed_url = managedUrlObj.managedUrl,
       open_api_doc = swaggerTable
     }
     redis.close(red)
