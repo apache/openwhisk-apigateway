@@ -175,7 +175,7 @@ function deleteAPI()
   local version = ngx.var.version
   if version == 'v1' then
     redis.close(red)
-    request.success(200, {})
+    request.success(200, cjson.encode({}))
   elseif version == 'v2' then
     redis.deleteSwagger(red, id)
     redis.close(red)

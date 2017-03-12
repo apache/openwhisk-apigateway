@@ -34,11 +34,13 @@ local _M = {}
 -- @param tenantObj
 function _M.addResource(red, resource, gatewayPath, tenantObj)
   -- Create resource object and add to redis
-  local redisKey = utils.concatStrings({"resources", ":", tenantObj.id, ":", gatewayPath})
+  local redisKey = utils.concatStrings({"resources:", tenantObj.id, ":", gatewayPath})
   local operations = resource.operations
   local apiId = resource.apiId
   local resourceObj = redis.generateResourceObj(operations, apiId, tenantObj)
   redis.createResource(red, redisKey, REDIS_FIELD, resourceObj)
+  local indexKey = utils.concatStrings({"resources:", tenantObj.id, ":__index__"})
+  redis.addResourceToIndex(red, indexKey, redisKey)
 end
 
 --- Helper function for deleting resource in redis and appropriate conf files
@@ -48,6 +50,8 @@ end
 function _M.deleteResource(red, gatewayPath, tenantId)
   local redisKey = utils.concatStrings({"resources:", tenantId, ":", gatewayPath})
   redis.deleteResource(red, redisKey, REDIS_FIELD)
+  local indexKey = utils.concatStrings({"resources:", tenantId, ":__index__"})
+  redis.deleteResourceFromIndex(red, indexKey, redisKey)
 end
 
 return _M
