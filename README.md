@@ -10,7 +10,7 @@ This project is currently considered pre-alpha stage, and should not be used in 
 
 
 ## Table of Contents
- 
+
 * [Quick Start](#quick-start)
 * [API](#api)
 * [Developer Guide](#developer-guide)
@@ -27,7 +27,7 @@ docker run -p 80:80 -p <managedurl_port>:8080 -p 9000:9000 \
             -e REDIS_HOST=<redis_host> \
             -e REDIS_PORT=<redis_port> \
             -e REDIS_PASS=<redis_pass> \
-            openwhisk/openwhisk-apigateway:latest
+            openwhisk/apigateway:latest
 ```
 
 ## API
@@ -51,7 +51,7 @@ docker run -p 80:80 -p <managedurl_port>:8080 -p 9000:9000 \
     REDIS_HOST=<redis_host> REDIS_PORT=<redis_port> REDIS_PASS=<redis_pass>
  ```
 
- 
+
 ### Testing
 
  First install the necessary dependencies:
@@ -62,4 +62,3 @@ docker run -p 80:80 -p <managedurl_port>:8080 -p 9000:9000 \
  ```
   make test-run
  ```
-

@@ -75,7 +75,7 @@ function _M.close(red)
   -- put it into the connection pool of size 100, with 10 seconds max idle time
   local ok, err = red:set_keepalive(10000, 100)
   if not ok then
-    request.err(500, utils.concatStrings({"Failed to set keepalive: ", err}))  
+    request.err(500, utils.concatStrings({"Failed to set keepalive: ", err}))
   end
 end
 
@@ -153,14 +153,14 @@ function _M.deleteAPI(red, id)
   end
 end
 
-function _M.resourceToApi(red, resource) 
+function _M.resourceToApi(red, resource)
   local resource = red:hget(resource, "resources")
   if resource == ngx.null then
     return nil
-  end 
+  end
   resource = cjson.decode(resource)
   return resource.apiId
-end 
+end
 -----------------------------
 --------- Resources ---------
 -----------------------------
@@ -210,6 +210,28 @@ function _M.createResource(red, key, field, resourceObj)
   end
 end
 
+--- Add resource key to index set
+-- @param red redis client instance
+-- @param index index key
+-- @param resourceKey resource key to add
+function _M.addResourceToIndex(red, index, resourceKey)
+  local ok, err = red:sadd(index, resourceKey)
+  if not ok then
+    request.err(500, utils.concatStrings({"Failed to update the resource index set: ", err}))
+  end
+end
+
+--- Delete resource key from index set
+-- @param red redis client instance
+-- @param index index key
+-- @param key resourceKey key to delete
+function _M.deleteResourceFromIndex(red, index, resourceKey)
+  local ok, err = red:srem(index, resourceKey)
+  if not ok then
+    request.err(500, utils.concatStrings({"Failed to update the resource index set: ", err}))
+  end
+end
+
 --- Get resource in redis
 -- @param red redis client instance
 -- @param key redis resource key
@@ -231,24 +253,11 @@ end
 -- @param red redis client instance
 -- @param tenantId tenant id
 function _M.getAllResourceKeys(red, tenantId)
-  -- Find all resourceKeys in redis
-  local resources, err = red:scan(0, "match", utils.concatStrings({"resources:", tenantId, ":*"}), "count", 10000)
-  if not resources then
-    request.err(500, util.concatStrings({"Failed to retrieve resource keys: ", err}))
+  local keys, err = red:smembers(utils.concatStrings({"resources:", tenantId, ":__index__"}))
+  if not keys then
+    request.err(500, utils.concatStrings({"Failed to retrieve resource keys: ", err}))
   end
-  local cursor = resources[1]
-  local resourceKeys = resources[2]
-  while cursor ~= "0" do
-    resources, err = red:scan(cursor, "match", utils.concatStrings({"resources:", tenantId, ":*"}), "count", 10000)
-    if not resources then
-      request.err(500, util.concatStrings({"Failed to retrieve resource keys: ", err}))
-    end
-    cursor = resources[1]
-    for k, v in pairs(resources[2]) do
-      resourceKeys[#resourceKeys + 1] = v
-    end
-  end
-  return resourceKeys
+  return keys
 end
 
 --- Delete resource in redis
