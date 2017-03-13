@@ -26,7 +26,7 @@
 local redis = require "lib/redis"
 local utils = require "lib/utils"
 local request = require "lib/request"
-
+local basexx = require "lib/basexx"
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
 local REDIS_PASS = os.getenv("REDIS_PASS")
@@ -98,7 +98,8 @@ function sha256(str)
   local sha = resty_sha256:new() 
   sha:update(str) 
   local digest = sha:final()
-  return resty_str.to_hex(digest)
+  local raw = basexx.from_hex(resty_str.to_hex(digest)) 
+  return basexx.to_base64(raw)
 end 
 
 _M.process = process
