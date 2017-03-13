@@ -34,7 +34,7 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 local _M = {}
 
 --- Validate that the given subscription is in redis
--- @param red a redis instance to query against 
+-- @param red a redis instance to query against
 -- @param tenant the namespace
 -- @param gatewayPath the gateway path to use, if scope is resource
 -- @param apiId api Id to use, if scope is api
@@ -55,12 +55,12 @@ function validate(red, tenant, gatewayPath, apiId, scope, apiKey)
   return red:exists(k) == 1
 end
 
-function process(securityObj) 
+function process(securityObj)
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
   local result = processWithRedis(red, securityObj, sha256)
   redis.close(red)
   return result
-end 
+end
 
 --- Process the security object
 -- @param red a redis instance to query against
@@ -70,7 +70,7 @@ end
 function processWithRedis(red, securityObj, hashFunction)
   local tenant = ngx.var.tenant
   local gatewayPath = ngx.var.gatewayPath
-  local apiId = redis.resourceToApi(red, utils.concatStrings({'resources:', tenant, ':', gatewayPath})) 
+  local apiId = redis.resourceToApi(red, utils.concatStrings({'resources:', tenant, ':', gatewayPath}))
   local scope = securityObj.scope
   local header = (securityObj.header == nil) and 'x-api-key' or securityObj.header
   local apiKey = ngx.var[utils.concatStrings({'http_', header}):gsub("-", "_")]
@@ -80,26 +80,27 @@ function processWithRedis(red, securityObj, hashFunction)
   end
   if securityObj.hashed then
     apiKey = hashFunction(apiKey)
-  end 
+  end
   local ok = validate(red, tenant, gatewayPath, apiId, scope, apiKey)
   if not ok then
     request.err(401, 'Invalid API key')
     return nil
   end
+  ngx.var.apiKey = apiKey
   return apiKey
 end
 
---- Calculate the sha256 hash of a string 
+--- Calculate the sha256 hash of a string
 -- @param str the string you want to hash
 -- @return a hashed version of the string
-function sha256(str) 
-  local resty_sha256 = require "resty.sha256" 
-  local resty_str = require "resty.string" 
-  local sha = resty_sha256:new() 
-  sha:update(str) 
+function sha256(str)
+  local resty_sha256 = require "resty.sha256"
+  local resty_str = require "resty.string"
+  local sha = resty_sha256:new()
+  sha:update(str)
   local digest = sha:final()
   return resty_str.to_hex(digest)
-end 
+end
 
 _M.process = process
 _M.processWithRedis = processWithRedis
