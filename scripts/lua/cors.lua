@@ -35,20 +35,11 @@ function processCall(tenant, gatewayPath)
   local config = red:hget(utils.concatStrings({'resources:', tenant, ':', gatewayPath}), 'resources')
   local resourceConfig = cjson.decode(config)
   
-  if resourceConfig.apiId == nil then
+  if resourceConfig.cors == nil then
     return nil, nil
   end 
 
-  local apiConfig = red:hget('apis', resourceConfig.apiId)
-  if apiConfig == ngx.null then
-    return nil, nil
-  end
-  apiConfig = cjson.decode(apiConfig)
-  -- if they didn't set an apiId inside of their resource, we can't do this.. just silently error out
-  if apiConfig.cors == nil then
-    return nil, nil
-  end 
-  return apiConfig.cors.origin, apiConfig.cors.methods
+  return resourceConfig.cors.origin, resourceConfig.cors.methods
 end
 
 _M.processCall = processCall
