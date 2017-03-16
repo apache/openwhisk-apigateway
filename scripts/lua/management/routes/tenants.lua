@@ -116,10 +116,10 @@ function getTenants()
         redis.close(red)
         request.err(400, "Invalid request")
       else
-        local apis = tenants.getTenantAPIs(red, id, queryParams)
-        apis = cjson.encode(apis)
+        local apiList = tenants.getTenantAPIs(red, id, queryParams)
+        apiList = (next(apiList) == nil) and "[]" or cjson.encode(apiList)
         redis.close(red)
-        request.success(200, apis)
+        request.success(200, apiList)
       end
     else
       local tenant = tenants.getTenant(red, id)
