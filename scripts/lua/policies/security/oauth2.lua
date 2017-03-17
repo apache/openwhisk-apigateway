@@ -55,20 +55,20 @@ function processWithRedis(red, securityObj)
   local token = {}
   local key = utils.concatStrings({"oauth:providers:", securityObj.provider, ":tokens:", accessToken})
   -- If we haven't cached the token go to the oauth provider
-  if not (red:exists(key) == 1) then
+  if not (redis.exists(red, key) == 1) then
     token = exchange(accessToken, securityObj.provider)
   else 
-    token = cjson.decode(red:get(key))
+    token = cjson.decode(redis.getToken(red, key))
   end
 
   if token == nil or not (token.error == nil) then
     request.err(401, "Token didn't work or provider doesn't support OpenID connect.") 
     return false
   end
-  red:set(key, cjson.encode(token))
+  redis.set(red, key, cjson.encode(token))
   
   if not token.expires == nil then
-    red:expire(key, token.expires)
+    redis.expire(red, key, token.expires)
   end
   return ''    
 -- only check with the provider if we haven't cached the token. 
