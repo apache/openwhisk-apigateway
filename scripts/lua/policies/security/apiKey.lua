@@ -52,7 +52,7 @@ function validate(red, tenant, gatewayPath, apiId, scope, apiKey)
     k = utils.concatStrings({'subscriptions:tenant:', tenant, ':api:', apiId})
   end
   k = utils.concatStrings({k, ':key:', apiKey})
-  return red:exists(k) == 1
+  return redis.exists(red, k) == 1
 end
 
 function process(securityObj)

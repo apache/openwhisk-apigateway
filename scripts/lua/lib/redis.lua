@@ -25,6 +25,21 @@ local cjson = require "cjson"
 local utils = require "lib/utils"
 local logger = require "lib/logger"
 local request = require "lib/request"
+local lrucache 
+local CACHE_SIZE
+local CACHE_TTL
+local c, err
+local CACHING_ENABLED = os.getenv('CACHING_ENABLED')
+if CACHING_ENABLED then
+  lrucache = require "resty.lrucache"
+  CACHE_SIZE = tonumber(os.getenv('CACHE_SIZE'))
+  CACHE_TTL = tonumber(os.getenv('CACHE_TTL'))
+  c, err = lrucache.new(CACHE_SIZE)
+  if not c then 
+    return error("Failed to initialize LRU cache" .. (err or "unknown"))
+  end 
+end 
+
 
 local REDIS_FIELD = "resources"
 
@@ -114,7 +129,7 @@ function _M.addAPI(red, id, apiObj, existingAPI)
   end
   -- Add new API
   apiObj = cjson.encode(apiObj):gsub("\\", "")
-  local ok, err = red:hset("apis", id, apiObj)
+  local ok, err = hset(red, "apis", id, apiObj)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to save the API: ", err}))
   end
@@ -124,7 +139,7 @@ end
 --- Get all APIs from redis
 -- @param red Redis client instance
 function _M.getAllAPIs(red)
-  local res, err = red:hgetall("apis")
+  local res, err = hgetall(red, "apis")
   if not res then
     request.err(500, utils.concatStrings({"Failed to retrieve APIs: ", err}))
   end
@@ -135,7 +150,7 @@ end
 -- @param red Redis client instance
 -- @param id id of API to get
 function _M.getAPI(red, id)
-  local api, err = red:hget("apis", id)
+  local api, err = hget(red, "apis", id)
   if not api then
     request.err(500, utils.concatStrings({"Failed to retrieve the API: ", err}))
   end
@@ -149,14 +164,14 @@ end
 -- @param red Redis client instance
 -- @param id id of API to delete
 function _M.deleteAPI(red, id)
-  local ok, err = red:hdel("apis", id)
+  local ok, err = hdel(red, "apis", id)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to delete the API: ", err}))
   end
 end
 
 function _M.resourceToApi(red, resource)
-  local resource = red:hget(resource, "resources")
+  local resource = hget(red, resource, "resources")
   if resource == ngx.null then
     return nil
   end
@@ -206,7 +221,7 @@ end
 -- @param resourceObj redis object containing operations for resource
 function _M.createResource(red, key, field, resourceObj)
   -- Add/update resource to redis
-  local ok, err = red:hset(key, field, resourceObj)
+  local ok, err = hset(red, key, field, resourceObj)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to save the resource: ", err}))
   end
@@ -217,7 +232,7 @@ end
 -- @param index index key
 -- @param resourceKey resource key to add
 function _M.addResourceToIndex(red, index, resourceKey)
-  local ok, err = red:sadd(index, resourceKey)
+  local ok, err = sadd(red, index, resourceKey)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to update the resource index set: ", err}))
   end
@@ -228,7 +243,7 @@ end
 -- @param index index key
 -- @param key resourceKey key to delete
 function _M.deleteResourceFromIndex(red, index, resourceKey)
-  local ok, err = red:srem(index, resourceKey)
+  local ok, err = srem(red, index, resourceKey)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to update the resource index set: ", err}))
   end
@@ -240,7 +255,7 @@ end
 -- @param field redis resource field
 -- @return resourceObj redis object containing operations for resource
 function _M.getResource(red, key, field)
-  local resourceObj, err = red:hget(key, field)
+  local resourceObj, err = hget(red, key, field)
   if not resourceObj then
     request.err(500, utils.concatStrings({"Failed to retrieve the resource: ", err}))
   end
@@ -255,7 +270,7 @@ end
 -- @param red redis client instance
 -- @param tenantId tenant id
 function _M.getAllResourceKeys(red, tenantId)
-  local keys, err = red:smembers(utils.concatStrings({"resources:", tenantId, ":__index__"}))
+  local keys, err = smembers(red, utils.concatStrings({"resources:", tenantId, ":__index__"}))
   if not keys then
     request.err(500, utils.concatStrings({"Failed to retrieve resource keys: ", err}))
   end
@@ -267,7 +282,7 @@ end
 -- @param key redis resource key
 -- @param field redis resource field
 function _M.deleteResource(red, key, field)
-  local resourceObj, err = red:hget(key, field)
+  local resourceObj, err = hget(red, key, field)
   if not resourceObj then
     request.err(500, utils.concatStrings({"Failed to delete the resource: ", err}))
   end
@@ -275,7 +290,7 @@ function _M.deleteResource(red, key, field)
     request.err(404, "Resource doesn't exist.")
   end
   -- Delete redis resource
-  local ok, err = red:del(key)
+  local ok, err = del(red, key)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to delete the resource: ", err}))
   else
@@ -304,7 +319,7 @@ function _M.addTenant(red, id, tenantObj)
   end
   -- Add new tenant
   tenantObj = cjson.encode(tenantObj)
-  local ok, err = red:hset("tenants", id, tenantObj)
+  local ok, err = hset(red, "tenants", id, tenantObj)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to add the tenant: ", err}))
   end
@@ -314,7 +329,7 @@ end
 --- Get all tenants from redis
 -- @param red Redis client instance
 function _M.getAllTenants(red)
-  local res, err = red:hgetall("tenants")
+  local res, err = hgetall(red, "tenants")
   if not res then
     request.err(500, utils.concatStrings({"Failed to retrieve tenants: ", err}))
   end
@@ -325,7 +340,7 @@ end
 -- @param red Redis client instance
 -- @param id id of tenant to get
 function _M.getTenant(red, id)
-  local tenant, err = red:hget("tenants", id)
+  local tenant, err = hget(red, "tenants", id)
   if not tenant then
     request.err(500, utils.concatStrings({"Failed to retrieve the tenant: ", err}))
   end
@@ -339,7 +354,7 @@ end
 -- @param red Redis client instance
 -- @param id id of tenant to delete
 function _M.deleteTenant(red, id)
-  local ok, err = red:hdel("tenants", id)
+  local ok, err = hdel(red, "tenants", id)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to delete the tenant: ", err}))
   end
@@ -354,7 +369,7 @@ end
 -- @param key redis subscription key to create
 function _M.createSubscription(red, key)
   -- Add/update a subscription key to redis
-  local ok, err = red:set(key, '')
+  local ok, err = set(red, key, '')
   if not ok then
     request.err(500, utils.concatStrings({"Failed to add the subscription key", err}))
   end
@@ -364,14 +379,14 @@ end
 -- @param red redis client instance
 -- @param key redis subscription key to delete
 function _M.deleteSubscription(red, key)
-  local subscription, err = red:get(key)
+  local subscription, err = get(red, key)
   if not subscription then
     request.err(500, utils.concatStrings({"Failed to delete the subscription key: ", err}))
   end
   if subscription == ngx.null then
     request.err(404, "Subscription doesn't exist.")
   end
-  local ok, err = red:del(key)
+  local ok, err = del(red, key)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to delete the subscription key: ", err}))
   end
@@ -388,7 +403,7 @@ end
 
 function _M.addSwagger(red, id, swagger)
   swagger = cjson.encode(swagger)
-  local ok, err = red:hset("swagger", id, swagger)
+  local ok, err = hset(red, "swagger", id, swagger)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to add swagger: ", err}))
   end
@@ -396,7 +411,7 @@ function _M.addSwagger(red, id, swagger)
 end
 
 function _M.getSwagger(red, id)
-  local swagger, err = red:hget("swagger", id)
+  local swagger, err = hget(red, "swagger", id)
   if not swagger then
     request.err(500, utils.concatStrings({"Failed to add swagger: ", err}))
   end
@@ -411,10 +426,142 @@ function _M.deleteSwagger(red, id)
   if existing == nil then
     request.err(404, 'Swagger doesn\'t exist')
   end
-  local ok, err = red:hdel("swagger", id)
+  local ok, err = hdel(red, "swagger", id)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to delete swagger: ", err}))
   end
 end
 
+
+-- LRU Caching methods 
+
+function exists(red, key) 
+  if CACHING_ENABLED then 
+    local cached = c:get(key)
+    if cached ~= nil then 
+      return 1
+    end 
+  -- if it isn't in the cache, try and load it in there
+    local result = red:get(key)
+    if result ~= nil then
+      c:set(key, result, CACHE_TTL)
+      return 1
+    end 
+    return 0 
+  else 
+    return red:exists(key) 
+  end 
+end 
+
+function get(red, key) 
+  if CACHING_ENABLED then 
+    local cached, stale = c:get(key)
+    if cached ~= nil then
+      return cached 
+    else   
+      local result = red:get(key) 
+      c:set(key, result, CACHE_TTL) 
+      return result
+    end 
+  else
+    return red:get(key)
+  end
+end
+
+function hget(red, key, id) 
+  if CACHING_ENABLED then 
+    local cachedmap, stale = c:get(key)
+    if cachedmap ~= nil then
+      local cached = cachedmap:get(id)
+      if cached ~= nil then
+         return cached 
+      else
+        local result = red:hget(key, id) 
+        cachedmap:set(id, result, CACHE_TTL) 
+        c:set(key, cachedmap, CACHE_TTL)
+        return result
+      end
+    else
+      local result = red:hget(key, id)
+      local newcache = lrucache.new(CACHE_SIZE) 
+      newcache:set(id, result, CACHE_TTL) 
+      c:set(key, newcache, CACHE_TTL)
+      return result  
+    end
+  else
+    return red:hget(key, id)
+  end
+end 
+
+function hgetall(red, key) 
+  return red:hgetall(key)
+end 
+
+function hset(red, key, id, value)
+  if CACHING_ENABLED then 
+    local cachedmap = c:get(key)
+    if cachedmap ~= nil then 
+      cachedmap:set(id, value, CACHE_TTL) 
+      c:set(key, cachedmap, CACHE_TTL)
+      return red:hset(key, id, value)
+    else 
+      local val = lrucache.new(CACHE_SIZE)
+      val:set(id, value, CACHE_TTL) 
+      c:set(key, val, CACHE_TTL)
+    end 
+  end
+  return red:hset(key, id, value) 
+end 
+
+function expire(red, key, ttl) 
+  if CACHING_ENABLED then 
+    local cached = c:get(key) 
+    local value = '' 
+    if cached ~= nil then -- just put it back in the cache with a ttl 
+      value = cached 
+    end 
+    c:set(key, value, ttl)
+  end
+  return red:expire(key, ttl)
+end 
+
+function del(red, key) 
+  if CACHING_ENABLED then 
+    c:delete(key)
+  end
+  return red:del(key)
+end
+ 
+function hdel(red, key, id)
+  if CACHING_ENABLED then 
+    local cachecontents = c:get(key) 
+    if cachecontents ~= nil then
+      cachecontents:del(id)
+      c:set(key, cachecontents, CACHE_TTL)
+    end 
+  end
+  return red:hdel(key, id) 
+end 
+
+function set(red, key, value) 
+  return red:set(key, value) 
+end 
+
+function smembers(red, key) 
+  return red:smembers(key) 
+end
+
+function srem(red, key, id)
+  return red:srem(key, id) 
+end 
+
+function sadd(red, key, id)
+  return red:sadd(key, id) 
+end 
+
+
+_M.get = get
+_M.set = set
+_M.exists = exists
+_M.expire = expire
 return _M

@@ -167,6 +167,19 @@ RUN echo " ... installing lua-resty-string..." \
             INSTALL=${_prefix}/api-gateway/bin/resty-install \
     && rm -rf /tmp/api-gateway
 
+ENV LUA_RESTY_LRUCACHE_VERSION 0.04
+RUN echo " ... installing lua-resty-lrucache... " \
+    && apk update \
+    && apk add make \
+    && mkdir -p /tmp/api-gateway \
+    && curl -k -L https://github.com/openresty/lua-resty-lrucache/archive/v${LUA_RESTY_LRUCACHE_VERSION}.tar.gz -o /tmp/api-gateway/lua-resty-lrucache-${LUA_RESTY_LRUCACHE_VERSION}.tar.gz \
+    && tar -xf /tmp/api-gateway/lua-resty-lrucache-${LUA_RESTY_LRUCACHE_VERSION}.tar.gz -C /tmp/api-gateway/ \
+    && cd /tmp/api-gateway/lua-resty-lrucache-${LUA_RESTY_LRUCACHE_VERSION} \
+    && make install \
+            LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
+            INSTALL=${_prefix}/api-gateway/bin/resty-install \
+    && rm -rf /tmp/api-gateway
+
 
 
 ENV NETURL_LUA_VERSION 0.9-1
@@ -178,6 +191,7 @@ RUN echo " ... installing neturl.lua ... " \
     && cd /tmp/api-gateway/neturl-${NETURL_LUA_VERSION} \
     && cp lib/net/url.lua ${LUA_LIB_DIR} \
     && rm -rf /tmp/api-gateway
+
 
 RUN \
     curl -L -k -s -o /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 \
