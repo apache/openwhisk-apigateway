@@ -86,6 +86,16 @@ end
 -- @param tenant tenantId
 -- @param path path to look for
 function _M.findRedisKey(resourceKeys, tenant, path)
+  -- Check for exact match or case where resource is "/"
+  local redisKey = utils.concatStrings({"resources:", tenant, ":", path})
+  local redisKeyWithSlash = utils.concatStrings({redisKey, "/"})
+  for _, key in pairs(resourceKeys) do
+    if key == redisKey or key == redisKeyWithSlash then
+      local res = {string.match(key, "([^:]+):([^:]+):([^:]+)")}
+      ngx.var.gatewayPath = res[3]
+      return key
+    end
+  end
   -- Construct a table of redisKeys based on number of slashes in the path
   local keyTable = {}
   for i, key in pairs(resourceKeys) do
@@ -100,8 +110,7 @@ function _M.findRedisKey(resourceKeys, tenant, path)
     end
     table.insert(keyTable[count], key)
   end
-  -- Find the correct redisKey
-  local redisKey = utils.concatStrings({"resources:", tenant, ":", path})
+  -- Check for proxy or path parameter matching
   local _, count = string.gsub(redisKey, "/", "")
   for i = count, 0, -1 do
     local countString = tostring(i)
