@@ -1,4 +1,3 @@
--- Copyright (c) 2016 IBM. All rights reserved.
 --
 --   Permission is hereby granted, free of charge, to any person obtaining a
 --   copy of this software and associated documentation files (the "Software"),
@@ -40,8 +39,6 @@ if CACHING_ENABLED then
   end 
 end 
 
-
-local REDIS_FIELD = "resources"
 
 local _M = {}
 
@@ -122,9 +119,7 @@ function _M.addAPI(red, id, apiObj, existingAPI)
       local gatewayPath = ngx.unescape_uri(utils.concatStrings({basePath, ngx.escape_uri(path)}))
       gatewayPath = gatewayPath:sub(1,1) == "/" and gatewayPath:sub(2) or gatewayPath
       local redisKey = utils.concatStrings({"resources:", existingAPI.tenantId, ":", gatewayPath})
-      _M.deleteResource(red, redisKey, REDIS_FIELD)
-      local indexKey = utils.concatStrings({"resources:", existingAPI.tenantId, ":__index__"})
-      _M.deleteResourceFromIndex(red, indexKey, redisKey)
+      _M.deleteResource(red, redisKey)
     end
   end
   -- Add new API
@@ -217,13 +212,14 @@ end
 --- Create/update resource in redis
 -- @param red redis client instance
 -- @param key redis resource key
--- @param field redis resource field
 -- @param resourceObj redis object containing operations for resource
-function _M.createResource(red, key, field, resourceObj)
+function _M.createResource(red, key, resourceObj)
   -- Add/update resource to redis
-  local ok, err = hset(red, key, field, resourceObj)
+  local ok, err = set(red, key, resourceObj)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to save the resource: ", err}))
+  else 
+    return 1 
   end
 end
 
@@ -246,16 +242,17 @@ function _M.deleteResourceFromIndex(red, index, resourceKey)
   local ok, err = srem(red, index, resourceKey)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to update the resource index set: ", err}))
+  else 
+    return 1 
   end
 end
 
 --- Get resource in redis
 -- @param red redis client instance
 -- @param key redis resource key
--- @param field redis resource field
 -- @return resourceObj redis object containing operations for resource
-function _M.getResource(red, key, field)
-  local resourceObj, err = hget(red, key, field)
+function _M.getResource(red, key)
+  local resourceObj, err = get(red, key)
   if not resourceObj then
     request.err(500, utils.concatStrings({"Failed to retrieve the resource: ", err}))
   end
@@ -280,9 +277,8 @@ end
 --- Delete resource in redis
 -- @param red redis client instance
 -- @param key redis resource key
--- @param field redis resource field
 function _M.deleteResource(red, key, field)
-  local resourceObj, err = hget(red, key, field)
+  local resourceObj, err = get(red, key)
   if not resourceObj then
     request.err(500, utils.concatStrings({"Failed to delete the resource: ", err}))
   end

@@ -120,15 +120,14 @@ describe('Testing Redis module', function()
 
   it('should get a resource from redis', function()
     local key = 'resources:guest:hello'
-    local field = 'resources'
     -- resource doesn't exist in redis
-    local generated = redis.getResource(red, key, field)
+    local generated = redis.getResource(red, key)
     assert.are.same(nil, generated)
 
     -- resource exists in redis
     local expected = redis.generateResourceObj(operations, nil)
-    red:hset(key, field, expected)
-    generated = redis.getResource(red, key, field)
+    red:set(key, expected)
+    generated = redis.getResource(red, key)
     assert.are.same(expected, generated)
   end)
 
@@ -136,22 +135,21 @@ describe('Testing Redis module', function()
     local key = 'resources:guest:hello'
     local field = 'resources'
     local expected = redis.generateResourceObj(operations, nil)
-    redis.createResource(red, key, field, expected)
-    local generated = redis.getResource(red, key, field)
+    redis.createResource(red, key, expected)
+    local generated = redis.getResource(red, key)
     assert.are.same(expected, generated)
   end)
 
   it('should delete a resource in redis', function()
     -- Key doesn't exist - throw 404
     local key = 'resources:guest:hello'
-    local field = 'resources'
-    redis.deleteResource(red, key, field)
+    redis.deleteResource(red, key)
     assert.are.equal(ngx._exit, 404)
     -- Key exists - deleted properly
     local resourceObj = redis.generateResourceObj(operations, nil)
-    redis.createResource(red, key, field, resourceObj)
+    redis.createResource(red, key, resourceObj)
     local expected = 1
-    local generated = redis.deleteResource(red, key, field)
+    local generated = redis.deleteResource(red, key)
     assert.are.same(expected, generated)
   end)
 

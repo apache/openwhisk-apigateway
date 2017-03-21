@@ -24,7 +24,6 @@
 local redis = require "lib/redis"
 local utils = require "lib/utils"
 
-local REDIS_FIELD = "resources"
 local _M = {}
 
 --- Helper function for adding a resource to redis and creating an nginx conf file
@@ -38,7 +37,7 @@ function _M.addResource(red, resource, gatewayPath, tenantObj)
   local operations = resource.operations
   local apiId = resource.apiId
   local resourceObj = redis.generateResourceObj(operations, apiId, tenantObj)
-  redis.createResource(red, redisKey, REDIS_FIELD, resourceObj)
+  redis.createResource(red, redisKey, resourceObj)
   local indexKey = utils.concatStrings({"resources:", tenantObj.id, ":__index__"})
   redis.addResourceToIndex(red, indexKey, redisKey)
 end
@@ -49,7 +48,7 @@ end
 -- @param tenantId tenant id
 function _M.deleteResource(red, gatewayPath, tenantId)
   local redisKey = utils.concatStrings({"resources:", tenantId, ":", gatewayPath})
-  redis.deleteResource(red, redisKey, REDIS_FIELD)
+  redis.deleteResource(red, redisKey)
   local indexKey = utils.concatStrings({"resources:", tenantId, ":__index__"})
   redis.deleteResourceFromIndex(red, indexKey, redisKey)
 end

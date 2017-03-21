@@ -52,8 +52,9 @@ function _M.processCall()
   if redisKey == nil then
     request.err(404, 'Not found.')
   end
-  local obj = cjson.decode(redis.getResource(red, redisKey, "resources"))
+  local obj = cjson.decode(redis.getResource(red, redisKey))
   cors.processCall(obj)
+  
   redis.close(red)
   ngx.var.tenantNamespace = obj.tenantNamespace
   ngx.var.tenantInstance = obj.tenantInstance
