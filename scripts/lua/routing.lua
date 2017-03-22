@@ -59,7 +59,7 @@ function _M.processCall()
       local key
       if (opFields.security) then
         for _, sec in ipairs(opFields.security) do
-          local result = utils.concatStrings({key, security.process(sec)})
+          local result = security.process(sec)
           if key == nil then
             key = result -- use the key from the first policy.
           end
