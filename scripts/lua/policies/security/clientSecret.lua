@@ -36,8 +36,9 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 --@return a string representation of what this looks like in redis :clientsecret:clientid:hashed secret
 function process(securityObj)
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  processWithHashFunction(red, securityObj, hash)
+  local result = processWithHashFunction(red, securityObj, hash)
   redis.close(red)
+  return result
 end 
 
 --- In order to properly test this functionallity, I use this function to do all of the business logic with injected dependencies
@@ -78,7 +79,7 @@ function processWithHashFunction(red, securityObj, hashFunction)
   if not result then
     request.err(401, "Secret mismatch or not subscribed to this api.")
   end
-  return true
+  return result
 end
 
 
@@ -115,7 +116,11 @@ function validate(red, tenant, gatewayPath, apiId, scope, clientId, clientSecret
   -- using the same key location in redis, just using :clientsecret: instead of :key: 
   k = utils.concatStrings({k, ':clientsecret:', clientId, ':', clientSecret})
   local exists = red:exists(k)
-  return exists == 1
+  if exists == 1 then 
+    return k
+  else 
+    return nil
+  end
 end
 _M.processWithHashFunction = processWithHashFunction
 _M.process = process
