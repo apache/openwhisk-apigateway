@@ -22,6 +22,7 @@
 -- Used to dynamically handle nginx routing based on an object containing implementation details
 
 local cjson = require "cjson"
+local url = require "url"
 local utils = require "lib/utils"
 local request = require "lib/request"
 local redis = require "lib/redis"
@@ -89,6 +90,12 @@ function _M.findRedisKey(resourceKeys, tenant, path)
   -- Check for exact match or case where resource is "/"
   local redisKey = utils.concatStrings({"resources:", tenant, ":", path})
   local redisKeyWithSlash = utils.concatStrings({redisKey, "/"})
+  -- Check for x-cf-forwarded-url
+  local cfUrl = ngx.req.get_headers()["x-cf-forwarded-url"]
+  if cfUrl ~= nil and cfUrl ~= "" then
+    local u = url.parse(cfUrl)
+    redisKey = utils.concatStrings({"resources:", tenant, ":", path, u.path})
+  end
   for _, key in pairs(resourceKeys) do
     if key == redisKey or key == redisKeyWithSlash then
       local res = {string.match(key, "([^:]+):([^:]+):([^:]+)")}
@@ -97,6 +104,7 @@ function _M.findRedisKey(resourceKeys, tenant, path)
     end
   end
   -- Construct a table of redisKeys based on number of slashes in the path
+  local redisKey = utils.concatStrings({"resources:", tenant, ":", path})
   local keyTable = {}
   for i, key in pairs(resourceKeys) do
     local _, count = string.gsub(key, "/", "")
