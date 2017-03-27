@@ -108,6 +108,8 @@ function _M.addAPI(red, id, apiObj, existingAPI)
       gatewayPath = gatewayPath:sub(1,1) == "/" and gatewayPath:sub(2) or gatewayPath
       local redisKey = utils.concatStrings({"resources:", existingAPI.tenantId, ":", gatewayPath})
       _M.deleteResource(red, redisKey, REDIS_FIELD)
+      local indexKey = utils.concatStrings({"resources:", existingAPI.tenantId, ":__index__"})
+      _M.deleteResourceFromIndex(red, indexKey, redisKey)
     end
   end
   -- Add new API

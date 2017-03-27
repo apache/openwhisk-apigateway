@@ -476,6 +476,10 @@ function fakengx.new()
   function ngx.req.read_body()
   end
 
+  function ngx.req.get_headers()
+    return {}
+  end
+
   -- http://wiki.nginx.org/HttpLuaModule#ngx.socket.tcp
   function ngx.socket.tcp()
     local sock = TCP:new()

@@ -53,7 +53,9 @@ function _M.setDynamicRoute(obj)
       u = url.parse(utils.concatStrings({'http://', dynamicBackend}))
     end
     if utils.tableContains(whitelist, u.host) then
-      ngx.req.set_uri(getUriPath(u.path))
+      if header:lower() ~= 'x-cf-forwarded-url' then
+        ngx.req.set_uri(getUriPath(u.path))
+      end
       setUpstream(u)
     else
       request.err(403, 'Dynamic backend host not part of whitelist.')
