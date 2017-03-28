@@ -70,8 +70,9 @@ function processWithRedis(red, securityObj)
   if not token.expires == nil then
     redis.expire(red, key, token.expires)
   end
-  return ''    
+  return key
 -- only check with the provider if we haven't cached the token. 
+
 end
 
 --- Exchange tokens with an oauth provider. Loads a provider based on configuration in the nginx.conf
@@ -81,7 +82,7 @@ end
   function exchange(token, provider) 
     -- exchange tokens with the provider
     local loaded, provider = pcall(require, utils.concatStrings({'oauth/', provider}))
-    
+   
     if not loaded then 
       request.err(500, 'Error loading OAuth provider authentication module')
       return 
