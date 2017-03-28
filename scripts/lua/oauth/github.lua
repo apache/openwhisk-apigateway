@@ -42,8 +42,12 @@ function validateOAuthToken (token)
     request.err(500, 'OAuth provider error.')
     return
   end
-  local json_resp = cjson.decode(res.body)
   
+  local json_resp = cjson.decode(res.body)
+  if json_resp.id == nil then
+    return 
+  end
+ 
   if (json_resp.error_description) then
     return
   end
