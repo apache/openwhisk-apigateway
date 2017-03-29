@@ -44,7 +44,8 @@ function _M.processCall()
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local tenantId = ngx.var.tenant
   local gatewayPath = ngx.var.gatewayPath
-  ngx.var.analyticsUri = ngx.var.request_uri:gsub("/api/([^/]+)", "")
+  local i, j = ngx.var.request_uri:find("/api/([^/]+)")
+  ngx.var.analyticsUri = ngx.var.request_uri:sub(j+1)
   local resourceKeys = redis.getAllResourceKeys(red, tenantId)
   local redisKey = _M.findRedisKey(resourceKeys, tenantId, gatewayPath)
   if redisKey == nil then
