@@ -44,6 +44,7 @@ function _M.processCall()
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local tenantId = ngx.var.tenant
   local gatewayPath = ngx.var.gatewayPath
+  ngx.var.analyticsUri = ngx.var.request_uri:gsub("/api/([^/]+)", "")
   local resourceKeys = redis.getAllResourceKeys(red, tenantId)
   local redisKey = _M.findRedisKey(resourceKeys, tenantId, gatewayPath)
   if redisKey == nil then
@@ -95,6 +96,7 @@ function _M.findRedisKey(resourceKeys, tenant, path)
   if cfUrl ~= nil and cfUrl ~= "" then
     local u = url.parse(cfUrl)
     redisKey = utils.concatStrings({"resources:", tenant, ":", path, u.path})
+    ngx.var.analyticsUri = (u.path == "") and "/" or u.path
   end
   for _, key in pairs(resourceKeys) do
     if key == redisKey or key == redisKeyWithSlash then
