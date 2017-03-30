@@ -89,22 +89,24 @@ end
 -- @param tenant tenantId
 -- @param path path to look for
 function _M.findRedisKey(resourceKeys, tenant, path)
-  -- Check for exact match or case where resource is "/"
+  -- Check for exact match
   local redisKey = utils.concatStrings({"resources:", tenant, ":", path})
-  local redisKeyWithSlash = utils.concatStrings({redisKey, "/"})
-  -- Check for x-cf-forwarded-url
   local cfUrl = ngx.req.get_headers()["x-cf-forwarded-url"]
   if cfUrl ~= nil and cfUrl ~= "" then
     local u = url.parse(cfUrl)
-    redisKey = utils.concatStrings({"resources:", tenant, ":", path, u.path})
+    local cfPath = (u.path == "/") and "" or u.path
+    redisKey = utils.concatStrings({"resources:", tenant, ":", path, cfPath})
     ngx.var.analyticsUri = (u.path == "") and "/" or u.path
   end
   for _, key in pairs(resourceKeys) do
-    if key == redisKey or key == redisKeyWithSlash then
+    if key == redisKey then
       local res = {string.match(key, "([^:]+):([^:]+):([^:]+)")}
       ngx.var.gatewayPath = res[3]
       return key
     end
+  end
+  if cfUrl ~= nil and cfUrl ~= "" then
+    return nil
   end
   -- Construct a table of redisKeys based on number of slashes in the path
   local redisKey = utils.concatStrings({"resources:", tenant, ":", path})
