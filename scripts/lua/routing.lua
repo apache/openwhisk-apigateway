@@ -31,6 +31,7 @@ local security = require "policies/security"
 local mapping = require "policies/mapping"
 local rateLimit = require "policies/rateLimit"
 local backendRouting = require "policies/backendRouting"
+local cors = require "cors"
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
@@ -52,6 +53,7 @@ function _M.processCall()
     request.err(404, 'Not found.')
   end
   local obj = cjson.decode(redis.getResource(red, redisKey, "resources"))
+  cors.processCall(obj)
   redis.close(red)
   ngx.var.tenantNamespace = obj.tenantNamespace
   ngx.var.tenantInstance = obj.tenantInstance
