@@ -19,29 +19,35 @@
 --   DEALINGS IN THE SOFTWARE.
 
 --- @module Cors
--- Used to add a Cors header when none is present 
+-- Used to set cors headers for preflight and simple requests
 
 local _M = {}
-local utils = require "lib/utils" 
-local redis = require "lib/redis" 
-local cjson = require "cjson"
-local REDIS_HOST = os.getenv("REDIS_HOST")
-local REDIS_PORT = os.getenv("REDIS_PORT")
-local REDIS_PASS = os.getenv("REDIS_PASS")
+local request = require "lib/request"
 
-function processCall(tenant, gatewayPath) 
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
-  
-  local config = red:hget(utils.concatStrings({'resources:', tenant, ':', gatewayPath}), 'resources')
-  local resourceConfig = cjson.decode(config)
-  
-  if resourceConfig.cors == nil then
-    return nil, nil
-  end 
-
-  return resourceConfig.cors.origin, resourceConfig.cors.methods
+function _M.processCall(resourceConfig)
+  if resourceConfig.cors ~= nil then
+    _M.setCorsHeaders(resourceConfig.cors.origin, resourceConfig.cors.methods)
+    if ngx.req.get_method() == "OPTIONS" then
+      request.success(200)
+    end
+  end
 end
 
-_M.processCall = processCall
+function _M.setCorsHeaders(corsOrigin, corsMethods)
+  if corsOrigin ~= nil then
+    if corsOrigin == 'false' then
+      ngx.header['Access-Control-Allow-Origin'] = nil
+      ngx.header['Access-Control-Allow-Methods'] = nil
+    else
+      ngx.header['Access-Control-Allow-Origin'] = corsOrigin
+      ngx.header['Access-Control-Allow-Headers'] = ngx.req.get_headers()['Access-Control-Request-Headers']
+      if corsMethods ~= nil then
+        ngx.header['Access-Control-Allow-Methods'] = corsMethods
+      else
+        ngx.header['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS'
+      end
+    end
+  end
+end
 
 return _M
