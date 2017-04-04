@@ -58,7 +58,7 @@ function processWithRedis(red, securityObj)
   if not (redis.exists(red, key) == 1) then
     token = exchange(accessToken, securityObj.provider)
   else 
-    token = cjson.decode(redis.getToken(red, key))
+    token = cjson.decode(redis.get(red, key))
   end
 
   if token == nil or not (token.error == nil) then

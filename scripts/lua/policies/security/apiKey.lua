@@ -52,7 +52,11 @@ function validate(red, tenant, gatewayPath, apiId, scope, apiKey)
     k = utils.concatStrings({'subscriptions:tenant:', tenant, ':api:', apiId})
   end
   k = utils.concatStrings({k, ':key:', apiKey})
-  return redis.exists(red, k) == 1
+  if redis.exists(red, k) == 1 then
+    return k 
+  else 
+    return nil 
+  end
 end
 
 function process(securityObj)
@@ -74,18 +78,18 @@ function processWithRedis(red, securityObj, hashFunction)
   local scope = securityObj.scope
   local header = (securityObj.header == nil) and 'x-api-key' or securityObj.header
   local apiKey = ngx.var[utils.concatStrings({'http_', header}):gsub("-", "_")]
-  if not apiKey then
+  if apiKey == nil or apiKey == '' then
     request.err(401, 'Unauthorized')
     return nil
   end
   if securityObj.hashed then
     apiKey = hashFunction(apiKey)
   end
-  local ok = validate(red, tenant, gatewayPath, apiId, scope, apiKey)
-  if not ok then
-    request.err(401, 'Invalid API key')
+  local key = validate(red, tenant, gatewayPath, apiId, scope, apiKey)
+  if key == nil then
+    request.err(401, 'Unauthorized') 
     return nil
-  end
+  end 
   ngx.var.apiKey = apiKey
   return apiKey
 end
