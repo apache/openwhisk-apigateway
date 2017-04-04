@@ -1,5 +1,6 @@
 -- Copyright (c) 2016 IBM. All rights reserved.
 --
+--  
 --   Permission is hereby granted, free of charge, to any person obtaining a
 --   copy of this software and associated documentation files (the "Software"),
 --   to deal in the Software without restriction, including without limitation
@@ -63,20 +64,20 @@ function processWithHashFunction(red, securityObj, hashFunction)
   
   local clientId = ngx.var[utils.concatStrings({location, clientIdName}):gsub("-", "_")]
   -- if they didn't supply whatever header this is configured to require, error out
-  if not clientId then
+  if clientId == nil or clientId == '' then
     request.err(401, clientIdName .. " required")
     return false
   end
   local clientSecretName = (securityObj.secretFieldName == nil) and 'X-Client-Secret' or securityObj.secretFieldName 
   
   local clientSecret = ngx.var[utils.concatStrings({location, clientSecretName}):gsub("-","_")]
-  if not clientSecret then
+  if clientSecret == nil or clientSecret == '' then
     request.err(401, clientSecretName .. " required")
     return false
   end
 -- hash the secret  
   local result = validate(red, tenant, gatewayPath, apiId, scope, clientId, hashFunction(clientSecret))
-  if not result then
+  if result == nil then  
     request.err(401, "Secret mismatch or not subscribed to this api.")
   end
   return result
@@ -115,8 +116,7 @@ function validate(red, tenant, gatewayPath, apiId, scope, clientId, clientSecret
   end
   -- using the same key location in redis, just using :clientsecret: instead of :key: 
   k = utils.concatStrings({k, ':clientsecret:', clientId, ':', clientSecret})
-  local exists = redis.exists(red, k)
-  if exists == 1 then
+  if redis.exists(red, k) == 1 then
     return k 
   else 
     return nil

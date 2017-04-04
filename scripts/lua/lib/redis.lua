@@ -443,7 +443,7 @@ function exists(red, key)
     end 
   -- if it isn't in the cache, try and load it in there
     local result = red:get(key)
-    if result ~= nil then
+    if result ~= ngx.null then
       c:set(key, result, CACHE_TTL)
       return 1
     end 
