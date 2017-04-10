@@ -103,7 +103,6 @@ function _M.addAPI(red, decoded, existingAPI)
     tenantId = decoded.tenantId,
     tenantNamespace = tenantObj.namespace,
     tenantInstance = tenantObj.instance,
-    cors = decoded.cors,
     resources = decoded.resources,
     managedUrl = managedUrl
   }

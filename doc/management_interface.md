@@ -13,12 +13,12 @@ _body_:
   "name": *(string),
   "basePath": *(string),
   "tenantId": *(string),
-  "cors":{
-    "origin": *(string),
-    "methods": *(string)
-  },
   "resources": {
     "<path>": {
+      "cors":{
+        "origin": *(string),
+        "methods": *(string)
+      },
       "operations": {
         "<method>": {
           "backendMethod": *(string),
@@ -68,12 +68,12 @@ _body_:
   "name": *(string),
   "basePath": *(string),
   "tenantId": *(string),
-  "cors": { 
-    "origin": *(string),
-    "methods": *(string)
-  }
   "resources": {
     "<path>": {
+      "cors": { 
+        "origin": *(string),
+        "methods": *(string)
+      },
       "operations": {
         "<method>": {
           "backendMethod": *(string),
