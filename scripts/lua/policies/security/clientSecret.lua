@@ -80,6 +80,7 @@ function processWithHashFunction(red, securityObj, hashFunction)
   if result == nil then  
     request.err(401, "Secret mismatch or not subscribed to this api.")
   end
+  ngx.var.apiKey = clientId
   return result
 end
 
