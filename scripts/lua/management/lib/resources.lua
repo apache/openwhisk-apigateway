@@ -37,7 +37,8 @@ function _M.addResource(red, resource, gatewayPath, tenantObj)
   local redisKey = utils.concatStrings({"resources:", tenantObj.id, ":", gatewayPath})
   local operations = resource.operations
   local apiId = resource.apiId
-  local resourceObj = redis.generateResourceObj(operations, apiId, tenantObj)
+  local cors = resource.cors
+  local resourceObj = redis.generateResourceObj(operations, apiId, tenantObj, cors)
   redis.createResource(red, redisKey, REDIS_FIELD, resourceObj)
   local indexKey = utils.concatStrings({"resources:", tenantObj.id, ":__index__"})
   redis.addResourceToIndex(red, indexKey, redisKey)

@@ -186,7 +186,7 @@ end
 -- @param ops list of operations for a given resource
 -- @param apiId resource api id (nil if no api)
 -- @param tenantObj tenant information
-function _M.generateResourceObj(ops, apiId, tenantObj)
+function _M.generateResourceObj(ops, apiId, tenantObj, cors)
   local resourceObj = {
     operations = {}
   }
@@ -202,6 +202,9 @@ function _M.generateResourceObj(ops, apiId, tenantObj)
     if v.security then
       resourceObj.operations[op].security = v.security
     end
+  end
+  if cors then 
+    resourceObj.cors = cors
   end
   if apiId then
     resourceObj.apiId = apiId
