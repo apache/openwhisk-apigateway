@@ -47,6 +47,9 @@ function _M.processCall()
   local gatewayPath = ngx.var.gatewayPath
   local i, j = ngx.var.request_uri:find("/api/([^/]+)")
   ngx.var.analyticsUri = ngx.var.request_uri:sub(j+1)
+  if ngx.req.get_headers()["x-debug-mode"] == "true" then
+    setRequestLogs()
+  end
   local resourceKeys = redis.getAllResourceKeys(red, tenantId)
   local redisKey = _M.findRedisKey(resourceKeys, tenantId, gatewayPath)
   if redisKey == nil then
@@ -99,6 +102,9 @@ function _M.findRedisKey(resourceKeys, tenant, path)
     local u = url.parse(cfUrl)
     cfRedisKey = utils.concatStrings({"resources:", tenant, ":", path, u.path})
     ngx.var.analyticsUri = (u.path == "") and "/" or u.path
+    if u.query ~= nil and u.query ~= "" then
+      ngx.var.analyticsUri = utils.concatStrings({ngx.var.analyticsUri, '?', u.query})
+    end
   end
   for _, key in pairs(resourceKeys) do
     if key == redisKey or key == cfRedisKey then
@@ -195,6 +201,21 @@ function setVerb(v)
     ngx.req.set_method(ngx[utils.concatStrings({"HTTP_", verb})])
   else
     ngx.req.set_method(ngx.HTTP_GET)
+  end
+end
+
+function setRequestLogs()
+  ngx.var.requestHeaders = cjson.encode(ngx.req.get_headers())
+  ngx.req.read_body()
+  ngx.var.requestBody = ngx.req.get_body_data()
+end
+
+function _M.setResponseLogs()
+  ngx.var.responseHeaders = cjson.encode(ngx.resp.get_headers())
+  local resp_body = ngx.arg[1]
+  ngx.ctx.buffered = (ngx.ctx.buffered or '') .. resp_body
+  if ngx.arg[2] then
+    ngx.var.responseBody = ngx.ctx.buffered
   end
 end
 
