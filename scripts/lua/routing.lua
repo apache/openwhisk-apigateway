@@ -106,7 +106,7 @@ function _M.findRedisKey(resourceKeys, tenant, path)
     local u = url.parse(cfUrl)
     cfRedisKey = utils.concatStrings({"resources:", tenant, ":", path, u.path})
     ngx.var.analyticsUri = (u.path == "") and "/" or u.path
-    if u.query ~= nil and u.query ~= "" then
+    if next(u.query) ~= nil then
       ngx.var.analyticsUri = utils.concatStrings({ngx.var.analyticsUri, '?', u.query})
     end
   end
