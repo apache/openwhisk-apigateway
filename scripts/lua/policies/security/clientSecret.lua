@@ -69,6 +69,7 @@ function processWithHashFunction(red, securityObj, hashFunction)
     return false
   end
   local clientSecretName = (securityObj.secretFieldName == nil) and 'X-Client-Secret' or securityObj.secretFieldName 
+  _G.clientSecretName = clientSecretName:lower()
   
   local clientSecret = ngx.var[utils.concatStrings({location, clientSecretName}):gsub("-","_")]
   if clientSecret == nil or clientSecret == '' then

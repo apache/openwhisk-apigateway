@@ -83,6 +83,10 @@ function _M.processCall()
       if opFields.policies ~= nil then
         parsePolicies(opFields.policies, key)
       end
+      -- Log updated request headers/body info to access logs
+      if ngx.req.get_headers()["x-debug-mode"] == "true" then
+        setRequestLogs()
+      end
       return
     end
   end
@@ -205,7 +209,13 @@ function setVerb(v)
 end
 
 function setRequestLogs()
-  ngx.var.requestHeaders = cjson.encode(ngx.req.get_headers())
+  local requestHeaders = ngx.req.get_headers()
+  for k, v in pairs(requestHeaders) do
+    if k == 'authorization' or k == _G.clientSecretName then
+      requestHeaders[k] = '[redacted]'
+    end
+  end
+  ngx.var.requestHeaders = cjson.encode(requestHeaders)
   ngx.req.read_body()
   ngx.var.requestBody = ngx.req.get_body_data()
 end
