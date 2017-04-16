@@ -9,8 +9,9 @@ FROM alpine:latest
 # install dependencies
 RUN apk update \
     && apk add gcc tar libtool zlib jemalloc jemalloc-dev perl \
-    make musl-dev openssl-dev pcre-dev g++ zlib-dev curl python \
-    perl-test-longstring perl-list-moreutils perl-http-message geoip-dev
+    ca-certificates wget make musl-dev openssl-dev pcre-dev g++ zlib-dev curl python \
+    perl-test-longstring perl-list-moreutils perl-http-message geoip-dev \
+    && update-ca-certificates
 
 # openresty build
 ENV OPENRESTY_VERSION=1.9.7.3 \
@@ -200,6 +201,11 @@ RUN \
     && chmod 755 /usr/local/bin/jq \
     && rm -rf /var/cache/apk/*
 
+RUN \
+    echo " ... installing dumb-init ... " \
+    && wget -O /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.0/dumb-init_1.2.0_amd64 \
+    && chmod +x /usr/local/bin/dumb-init
+
 COPY init.sh /etc/init-container.sh
 ONBUILD COPY init.sh /etc/init-container.sh
 
@@ -212,4 +218,5 @@ ONBUILD COPY . /etc/api-gateway
 EXPOSE 80 8080 8423 9000
 
 
-ENTRYPOINT ["/etc/init-container.sh"]
+ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
+CMD ["/etc/init-container.sh"]
