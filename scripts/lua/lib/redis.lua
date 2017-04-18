@@ -41,6 +41,7 @@ if CACHING_ENABLED then
 end 
 
 
+local REDIS_RETRY_COUNT = os.getenv('REDIS_RETRY_COUNT') or 4 
 local REDIS_FIELD = "resources"
 
 local _M = {}
@@ -59,7 +60,7 @@ function _M.init(host, port, password, timeout)
   local red = redis:new()
   red:set_timeout(timeout)
   -- Connect to Redis server
-  local retryCount = 4
+  local retryCount = REDIS_RETRY_COUNT
   local connect, err = red:connect(host, port)
   while not connect and retryCount > 0 do
     local msg = utils.concatStrings({"Failed to conect to redis at ", host, ":", port, ". Retrying ", retryCount, " more times."})
