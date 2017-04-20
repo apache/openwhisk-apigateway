@@ -23,13 +23,13 @@ local fakengx = require 'fakengx'
 local fakeredis = require 'fakeredis'
 local apikey = require 'policies/security/apiKey'
 local oauth = require 'policies/security/oauth2'
-local cjson = require "cjson" 
+local cjson = require "cjson"
 
-describe('API Key module', function() 
-  it('Checks an apiKey correctly', function() 
-    local red = fakeredis.new() 
-    local ngx = fakengx.new() 
-    local ngxattrs = cjson.decode([[ 
+describe('API Key module', function()
+  it('Checks an apiKey correctly', function()
+    local red = fakeredis.new()
+    local ngx = fakengx.new()
+    local ngxattrs = cjson.decode([[
       {
         "tenant":"abcd",
         "gatewayPath":"v1/test",
@@ -48,11 +48,11 @@ describe('API Key module', function()
     red:set('subscriptions:tenant:abcd:api:bnez:key:a1234', 'true')
     local key = apikey.processWithRedis(red, securityObj, function() return "fakehash" end)
     assert.same(key, 'a1234')
-  end) 
-  it('Returns nil with a bad apikey', function() 
-    local red = fakeredis.new() 
-    local ngx = fakengx.new() 
-    local ngxattrs = cjson.decode([[ 
+  end)
+  it('Returns nil with a bad apikey', function()
+    local red = fakeredis.new()
+    local ngx = fakengx.new()
+    local ngxattrs = cjson.decode([[
       {
         "tenant":"abcd",
         "gatewayPath":"v1/test",
@@ -70,11 +70,11 @@ describe('API Key module', function()
     red:hset('resources:abcd:v1/test', 'resources', '{"apiId":"bnez"}')
     local key = apikey.processWithRedis(red, securityObj, function() return "fakehash" end)
     assert.falsy(key)
-  end) 
-  it('Checks for a key with a custom header', function() 
-    local red = fakeredis.new() 
-    local ngx = fakengx.new() 
-    local ngxattrs = cjson.decode([[ 
+  end)
+  it('Checks for a key with a custom header', function()
+    local red = fakeredis.new()
+    local ngx = fakengx.new()
+    local ngxattrs = cjson.decode([[
       {
         "tenant":"abcd",
         "gatewayPath":"v1/test",
@@ -94,11 +94,11 @@ describe('API Key module', function()
     red:set('subscriptions:tenant:abcd:api:bnez:key:a1234', 'true')
     local key = apikey.processWithRedis(red, securityObj, function() return "fakehash" end)
     assert.same(key, 'a1234')
-  end) 
-  it('Checks for a key with a custom header and hash configuration', function() 
-    local red = fakeredis.new() 
-    local ngx = fakengx.new() 
-    local ngxattrs = cjson.decode([[ 
+  end)
+  it('Checks for a key with a custom header and hash configuration', function()
+    local red = fakeredis.new()
+    local ngx = fakengx.new()
+    local ngxattrs = cjson.decode([[
       {
         "tenant":"abcd",
         "gatewayPath":"v1/test",
@@ -119,12 +119,12 @@ describe('API Key module', function()
     red:set('subscriptions:tenant:abcd:api:bnez:key:fakehash', 'true')
     local key = apikey.processWithRedis(red, securityObj, function() return "fakehash" end)
     assert.same(key, 'fakehash')
-  end) 
-end) 
-describe('OAuth security module', function() 
+  end)
+end)
+describe('OAuth security module', function()
   it('Exchanges a good secret', function ()
-    local red = fakeredis.new() 
-    local token = "test" 
+    local red = fakeredis.new()
+    local token = "test"
     local ngxattrs = [[
       {
         "http_Authorization":"]] .. token .. [[",
@@ -133,7 +133,7 @@ describe('OAuth security module', function()
       }
     ]]
     local ngx = fakengx.new()
-    ngx.var = cjson.decode(ngxattrs) 
+    ngx.var = cjson.decode(ngxattrs)
     _G.ngx = ngx
     local securityObj = [[
       {
@@ -142,13 +142,13 @@ describe('OAuth security module', function()
         "scope":"resource"
       }
     ]]
-    local result = oauth.processWithRedis(red, cjson.decode(securityObj)) 
+    local result = oauth.processWithRedis(red, cjson.decode(securityObj))
     assert.same(red:exists('oauth:providers:mock:tokens:test'), 1)
     assert(result)
   end)
-  it('Exchanges a bad token, doesn\'t cache it and returns false', function() 
-    local red = fakeredis.new()   
-    local token = "bad" 
+  it('Exchanges a bad token, doesn\'t cache it and returns false', function()
+    local red = fakeredis.new()  
+    local token = "bad"
     local ngxattrs = [[
       {
         "http_Authorization":"]] .. token .. [[",
@@ -157,7 +157,7 @@ describe('OAuth security module', function()
       }
     ]]
     local ngx = fakengx.new()
-    ngx.var = cjson.decode(ngxattrs) 
+    ngx.var = cjson.decode(ngxattrs)
     _G.ngx = ngx
     local securityObj = [[
       {
@@ -170,10 +170,89 @@ describe('OAuth security module', function()
     assert.same(red:exists('oauth:providers:mock:tokens:bad'), 0)
     assert.falsy(result)
   end)
-end) 
-describe('Client Secret Module', function() 
+  it('Loads a facebook token from the cache without a valid app id', function()
+    local red = fakeredis.new()
+    local token = "test"
+    local ngxattrs = [[
+      {
+        "http_Authorization":"]] .. token .. [[",
+        "tenant":"1234",
+        "gatewayPath":"v1/test"
+      }
+    ]]
+    local ngx = fakengx.new()
+    ngx.var = cjson.decode(ngxattrs)
+    _G.ngx = ngx
+    local securityObj = [[
+      {
+        "type":"oauth2",
+        "provider":"fake_facebook",
+        "scope":"resource"
+      }
+    ]]
+    red:set('oauth:providers:fake_facebook:tokens:test', '{ "token":"good"}')
+    local result = oauth.processWithRedis(red, cjson.decode(securityObj))
+    assert.truthy(result)
+  end)
+  it('Loads a facebook token from the cache with a valid app id', function()
+    local red = fakeredis.new()
+    local token = "test"
+    local appid = "app"
+    local ngxattrs = [[
+      {
+        "http_Authorization":"]] .. token .. [[",
+        "http_x_facebook_app_token":"]] .. appid .. [[",
+        "tenant":"1234",
+        "gatewayPath":"v1/test"
+      }
+    ]]
+    local ngx = fakengx.new()
+    ngx.var = cjson.decode(ngxattrs)
+    _G.ngx = ngx
+    local securityObj = [[
+      {
+        "type":"oauth2",
+        "provider":"fake_facebook",
+        "scope":"resource"
+      }
+    ]]
+    red:set('oauth:providers:fake_facebook:tokens:testapp', '{"token":"good"}')
+    local result = oauth.processWithRedis(red, cjson.decode(securityObj))
+    assert.truthy(result)
+  end)
+
+  it('Exchanges a facebook token and sets it in redis correctly with the appid.', function()
+    local red = fakeredis.new()
+    local token = "token"
+    local appid = "app"
+    local ngxattrs = [[
+      {
+        "http_Authorization":"]] .. token .. [[",
+        "http_x_facebook_app_token":"]] .. appid .. [[",
+        "tenant":"1234",
+        "gatewayPath":"v1/test"
+      }
+    ]]
+    local ngx = fakengx.new()
+    ngx.var = cjson.decode(ngxattrs)
+    _G.ngx = ngx
+    local result = oauth.processWithRedis(red, cjson.decode(ngxattrs))
+    local securityObj = [[
+      {
+        "type":"oauth2",
+        "provider":"fake_facebook",
+        "scope":"resource"
+      }
+    ]]
+    local result = oauth.processWithRedis(red, cjson.decode(securityObj))
+    assert.truthy(result)
+    assert.truthy(red:exists('oauth:providers:fake_facebook:tokens:tokenapp') == 1)
+    assert.truthy(red:exists('oauth:providers:fake_facebook:tokens:token') == 0)
+  end)
+end)
+describe('Client Secret Module', function()
   local clientSecret = require 'policies/security/clientSecret'
-  it('Validates a client secret pair with default names', function() 
+  it('Validates a client secret pair with default names', function()
     local ngx = fakengx.new()
     local red = fakeredis.new()
     local ngxattrs = [[
@@ -184,7 +263,7 @@ describe('Client Secret Module', function()
        "gatewayPath":"v1/test"
       }
     ]]
-    ngx.var = cjson.decode(ngxattrs) 
+    ngx.var = cjson.decode(ngxattrs)
     _G.ngx = ngx
     local securityObj = [[
       {
@@ -193,12 +272,12 @@ describe('Client Secret Module', function()
       }
     ]]
     red:set("subscriptions:tenant:1234:resource:v1/test:clientsecret:abcd:fakehash", "true")
-    local result = clientSecret.processWithHashFunction(red, cjson.decode(securityObj), function() return "fakehash" end) 
+    local result = clientSecret.processWithHashFunction(red, cjson.decode(securityObj), function() return "fakehash" end)
     assert(result)
-  end) 
-  it('Validates a client secret pair with new names', function() 
+  end)
+  it('Validates a client secret pair with new names', function()
     local ngx = fakengx.new()
-    local red = fakeredis.new() 
+    local red = fakeredis.new()
     local ngxattrs = [[
       {
         "http_test_id":"abcd",
@@ -217,11 +296,11 @@ describe('Client Secret Module', function()
         "secretFieldName":"test-secret"
       }
     ]]
-    red:set("subscriptions:tenant:1234:resource:v1/test:clientsecret:abcd:fakehash", "true") 
-    local result = clientSecret.processWithHashFunction(red, cjson.decode(securityObj), function() return "fakehash" end) 
+    red:set("subscriptions:tenant:1234:resource:v1/test:clientsecret:abcd:fakehash", "true")
+    local result = clientSecret.processWithHashFunction(red, cjson.decode(securityObj), function() return "fakehash" end)
     assert(result)
-  end) 
-  it('Doesn\'t work without a client id', function() 
+  end)
+  it('Doesn\'t work without a client id', function()
     local ngx = fakengx.new()
     local red = fakeredis.new()
     local ngxattrs = [[
@@ -231,7 +310,7 @@ describe('Client Secret Module', function()
        "gatewayPath":"v1/test"
       }
     ]]
-    ngx.var = cjson.decode(ngxattrs) 
+    ngx.var = cjson.decode(ngxattrs)
     _G.ngx = ngx
     local securityObj = [[
       {
@@ -240,7 +319,7 @@ describe('Client Secret Module', function()
       }
     ]]
   end)
-  it('Doesn\'t work without a Client Secret', function() 
+  it('Doesn\'t work without a Client Secret', function()
     local ngx = fakengx.new()
     local red = fakeredis.new()
     local ngxattrs = [[
@@ -250,7 +329,7 @@ describe('Client Secret Module', function()
        "gatewayPath":"v1/test"
       }
     ]]
-    ngx.var = cjson.decode(ngxattrs) 
+    ngx.var = cjson.decode(ngxattrs)
     _G.ngx = ngx
     local securityObj = [[
       {
@@ -259,7 +338,7 @@ describe('Client Secret Module', function()
       }
     ]]
     red:set("subscriptions:tenant:1234:resource:v1/test:clientsecret:abcd:fakehash", "true")
-    local result = clientSecret.processWithHashFunction(red, cjson.decode(securityObj), function() return "fakehash" end) 
+    local result = clientSecret.processWithHashFunction(red, cjson.decode(securityObj), function() return "fakehash" end)
     assert.falsy(result)
-  end) 
+  end)
 end)

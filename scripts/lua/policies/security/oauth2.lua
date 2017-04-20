@@ -34,19 +34,22 @@ local REDIS_PORT = os.getenv("REDIS_PORT")
 local REDIS_PASS = os.getenv("REDIS_PASS")
 
 -- Process the security object
--- @param securityObj security object from nginx conf file 
+-- @param securityObj security object from nginx conf file
 -- @return oauthId oauth identification
 local _M = {}
 
-function process(securityObj) 
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000) 
+function process(securityObj)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
   local result = processWithRedis(red, securityObj)
   redis.close(red)
   return result
 end
 
-function processWithRedis(red, securityObj) 
-  
+function processWithRedis(red, securityObj)
+ 
+  local headerName = utils.concatStrings({'http_', 'x-facebook-app-token'}):gsub("-", "_")
+  local facebookAppToken = ngx.var[headerName]
+ 
   local accessToken = ngx.var['http_Authorization']
   if accessToken == nil then
     request.err(401, "No Authorization header provided")
@@ -55,37 +58,50 @@ function processWithRedis(red, securityObj)
   local token = {}
   local key = utils.concatStrings({"oauth:providers:", securityObj.provider, ":tokens:", accessToken})
   -- If we haven't cached the token go to the oauth provider
-  if not (redis.exists(red, key) == 1) then
-    token = exchange(accessToken, securityObj.provider)
-  else 
-    token = cjson.decode(redis.get(red, key))
+  if redis.exists(red, key) == 1 then
+    return cjson.decode(redis.get(red, key))
+  end
+ 
+  if securityObj.provider == 'facebook' or securityObj.provider == 'fake_facebook' then
+    if redis.exists(red, utils.concatStrings({key, facebookAppToken})) == 1  then
+      return cjson.decode(redis.get(red, utils.concatStrings({key, facebookAppToken})))
+    end
+  end
+ 
+  local token = exchange(accessToken, securityObj.provider)
+  if token == nil then
+    request.err(401, 'Token didn\'t work or provider doesn\'t support OpenID connect. ')
+    return nil
+  end
+ 
+  if token.error ~= nil then
+    request.err(401, 'Token didn\'t work or provider doesn\'t support OpenID connect. ')
+    return nil
   end
 
-  if token == nil or not (token.error == nil) then
-    request.err(401, "Token didn't work or provider doesn't support OpenID connect.") 
-    return false
+  if securityObj.provider == 'facebook' or securityObj.provider == 'fake_facebook' then
+    key = utils.concatStrings({key, facebookAppToken})
   end
+ 
   redis.set(red, key, cjson.encode(token))
-  
-  if not token.expires == nil then
+
+  if token.expires ~= nil then
     redis.expire(red, key, token.expires)
   end
-  return key
--- only check with the provider if we haven't cached the token. 
-
+  return token
 end
 
 --- Exchange tokens with an oauth provider. Loads a provider based on configuration in the nginx.conf
 -- @param token the accessToken passed in the authorization header of the routing request
 -- @param provider the name of the provider we will load from a file. Currently supported google/github/facebook
 -- @return the json object recieved from exchanging tokens with the provider
-  function exchange(token, provider) 
+  function exchange(token, provider)
     -- exchange tokens with the provider
     local loaded, provider = pcall(require, utils.concatStrings({'oauth/', provider}))
-   
-    if not loaded then 
+  
+    if not loaded then
       request.err(500, 'Error loading OAuth provider authentication module')
-      return 
+      return
     end
     local token = provider(token)
     -- cache the token
