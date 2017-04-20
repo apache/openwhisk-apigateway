@@ -25,16 +25,36 @@ local cjson = require "cjson"
 local utils = require "lib/utils"
 local logger = require "lib/logger"
 local request = require "lib/request"
+
 local lrucache 
 local CACHE_SIZE
 local CACHE_TTL
 local c, err
 local CACHING_ENABLED = os.getenv('CACHING_ENABLED')
+
+
+function invalidateCacheItem(item) 
+  local ffi = require("ffi")
+  local key = string.gsub(ffi.string(item), '__keyspace@0__:', '')
+  print (utils.concatStrings({'Invalidating cache item with key: ', key})) 
+  if c:get(key) ~= nil then
+    c:del(key)
+  end
+end 
+
 if CACHING_ENABLED then
+  local ffi = require "ffi"
   lrucache = require "resty.lrucache"
   CACHE_SIZE = tonumber(os.getenv('CACHE_SIZE'))
   CACHE_TTL = tonumber(os.getenv('CACHE_TTL'))
+
   c, err = lrucache.new(CACHE_SIZE)
+  print("starting c cache_invalidator")
+  ffi.cdef [[ 
+    int invalidate_loop(void(*f)(char*));
+  ]]
+  local capi = ffi.load("cache_invalidator")
+  capi.invalidate_loop(invalidateCacheItem)
   if not c then 
     return error("Failed to initialize LRU cache" .. (err or "unknown"))
   end 
@@ -448,7 +468,7 @@ function exists(red, key)
   -- if it isn't in the cache, try and load it in there
     local result = red:get(key)
     if result ~= ngx.null then
-      c:set(key, result, CACHE_TTL)
+      c:set(key, result)
       return 1
     end 
     return 0 
@@ -461,10 +481,12 @@ function get(red, key)
   if CACHING_ENABLED then 
     local cached, stale = c:get(key)
     if cached ~= nil then
+      print (utils.concatStrings({'Cache Hit on key: ', key}))
       return cached 
     else   
+      print (utils.concatStrings({'Cache Miss on key: ', key}))
       local result = red:get(key) 
-      c:set(key, result, CACHE_TTL) 
+      c:set(key, result) 
       return result
     end 
   else
@@ -475,21 +497,23 @@ end
 function hget(red, key, id) 
   if CACHING_ENABLED then 
     local cachedmap, stale = c:get(key)
+    print (utils.concatStrings({'Cache Hit on key: ', key}))
     if cachedmap ~= nil then
       local cached = cachedmap:get(id)
       if cached ~= nil then
          return cached 
       else
         local result = red:hget(key, id) 
-        cachedmap:set(id, result, CACHE_TTL) 
-        c:set(key, cachedmap, CACHE_TTL)
+        cachedmap:set(id, result) 
+        c:set(key, cachedmap)
         return result
       end
     else
+      print (utils.concatStrings({'Cache Miss on key: ', key}))
       local result = red:hget(key, id)
       local newcache = lrucache.new(CACHE_SIZE) 
-      newcache:set(id, result, CACHE_TTL) 
-      c:set(key, newcache, CACHE_TTL)
+      newcache:set(id, result) 
+      c:set(key, newcache)
       return result  
     end
   else
@@ -505,13 +529,13 @@ function hset(red, key, id, value)
   if CACHING_ENABLED then 
     local cachedmap = c:get(key)
     if cachedmap ~= nil then 
-      cachedmap:set(id, value, CACHE_TTL) 
-      c:set(key, cachedmap, CACHE_TTL)
+      cachedmap:set(id, value) 
+      c:set(key, cachedmap)
       return red:hset(key, id, value)
     else 
       local val = lrucache.new(CACHE_SIZE)
-      val:set(id, value, CACHE_TTL) 
-      c:set(key, val, CACHE_TTL)
+      val:set(id, value) 
+      c:set(key, val)
     end 
   end
   return red:hset(key, id, value) 
@@ -541,7 +565,7 @@ function hdel(red, key, id)
     local cachecontents = c:get(key) 
     if cachecontents ~= nil then
       cachecontents:del(id)
-      c:set(key, cachecontents, CACHE_TTL)
+      c:set(key, cachecontents)
     end 
   end
   return red:hdel(key, id) 
