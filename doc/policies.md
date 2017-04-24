@@ -23,7 +23,7 @@ Example:
     "interval": 60,
     "rate": 120,
     "scope": "api"
-    "subscription": "true"
+    "subscription": true
   }
 }
 ```

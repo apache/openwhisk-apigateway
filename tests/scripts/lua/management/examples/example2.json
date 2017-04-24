@@ -63,12 +63,10 @@
       "name": "X-Api-Key",
       "in": "header"
     },
-    "google": {
-      "type": "oauth2",
-      "flow": "tokenIntrospect",
-      "x-tokenintrospect": {
-        "url": "https://www.googleapis.com/oauth2/v3/tokeninfo"
-      }
+    "client_secret": {
+      "type": "apiKey",
+      "name": "X-Api-Secret",
+      "in": "header"
     }
   },
   "security": [

@@ -42,18 +42,13 @@ describe('Testing v2 management interface', function()
                     "type": "rateLimit",
                     "value": {
                       "scope": "api",
-                      "subscription": "true",
+                      "subscription": true,
                       "interval": 180,
                       "rate": 100
                     }
                   }
                 ],
                 "security": [
-                  {
-                    "type": "oauth2",
-                    "provider": "google",
-                    "scope": "api"
-                  },
                   {
                     "type": "apiKey",
                     "header": "X-Api-Key",
@@ -109,14 +104,10 @@ describe('Testing v2 management interface', function()
                   ],
                   "security": [
                     {
-                      "type": "oauth2",
-                      "provider": "google",
-                      "scope": "api"
-                    },
-                    {
-                      "type": "apiKey",
-                      "header": "X-Api-Key",
-                      "scope": "api"
+                      "type": "clientSecret",
+                      "scope": "api",
+                      "idFieldName":"X-Api-Key",
+                      "secretFieldName":"X-Api-Secret"
                     }
                   ],
                   "backendMethod": "post"

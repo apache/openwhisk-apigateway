@@ -117,7 +117,7 @@ function parseRateLimit(swagger, policies)
         interval = rlObj.unit * rlObj.units,
         rate = rlObj.rate,
         scope = "api",
-        subscription = "true"
+        subscription = true
       }
     }
   end

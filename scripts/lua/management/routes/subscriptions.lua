@@ -25,6 +25,7 @@ local cjson = require "cjson"
 local redis = require "lib/redis"
 local utils = require "lib/utils"
 local request = require "lib/request"
+local subscriptions = require "management/lib/subscriptions"
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
@@ -32,64 +33,120 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
---- Request handler for routing API calls appropriately
 function _M.requestHandler()
+  local version = ngx.var.version
+  if version == "v2" then
+    v2()
+  elseif version == "v1" then
+    v1()
+  else
+    request.err(404, "404 Not found")
+  end
+end
+
+
+-- v2 -- 
+
+function v2()
   local requestMethod = ngx.req.get_method()
-  if requestMethod == "PUT" then
+  if requestMethod == "POST" or requestMethod == "PUT" then
+    v2AddSubscription()
+  elseif requestMethod == "GET" then
+    v2GetSubscriptions()
+  elseif requestMethod == "DELETE" then
+    v2DeleteSubscription()
+  else
+    request.err(400, "Invalid verb")
+  end
+end
+
+function v2AddSubscription()
+  ngx.req.read_body()
+  local args = ngx.req.get_body_data()
+  if not args then
+    request.err(400, "Missing request body.")
+  end
+  local decoded = cjson.decode(args)
+  local res, err = utils.tableContainsAll(decoded, {"client_id", "artifact_id"})
+  if res == false then
+    request.err(err.statusCode, err.message)
+  end
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
+  local artifactId = decoded.artifact_id
+  local tenantId = ngx.var.tenant_id
+  local clientId = decoded.client_id
+  local clientSecret = decoded.client_secret
+  subscriptions.addSubscription(red, artifactId, tenantId, clientId, clientSecret, utils.hash)
+  redis.close(red)
+  local result = {
+    message = utils.concatStrings({"Subscription '", clientId, "' created for API '", artifactId, "'"})
+  }
+  ngx.header.content_type = "application/json; charset=utf-8"
+  request.success(200, cjson.encode(result))
+end
+
+function v2GetSubscriptions()
+  local tenantId = ngx.var.tenant_id
+  local artifactId = ngx.req.get_uri_args()["artifact_id"]
+  if artifactId == nil or artifactId == "" then
+    request.err(400, "Missing artifact_id")
+  end
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
+  local subscriptionList = subscriptions.getSubscriptions(red, artifactId, tenantId)
+  redis.close(red)
+  ngx.header.content_type = "application/json; charset=utf-8"
+  request.success(200, cjson.encode(subscriptionList))
+end
+
+function v2DeleteSubscription()
+  local clientId = ngx.var.client_id
+  local tenantId = ngx.var.tenant_id
+  local artifactId = ngx.req.get_uri_args()["artifact_id"]
+  if clientId == nil or clientId == "" then
+    request.err(400, "Missing client_id")
+  end
+  if artifactId == nil or artifactId == "" then
+    request.err(400, "Missing artifact_id")
+  end
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
+  local res = subscriptions.deleteSubscription(red, artifactId, tenantId, clientId)
+  if res == false then
+    request.err(404, "Subscription doesn't exist")
+  end
+  redis.close(red)
+  request.success(204)
+end
+
+
+-- v1 --
+
+function v1()
+  local requestMethod = ngx.req.get_method()
+  if requestMethod == "POST" or requestMethod == "PUT" then
     addSubscription()
   elseif requestMethod == "DELETE" then
     deleteSubscription()
   else
-    ngx.status = 400
-    ngx.say("Invalid verb")
+    request.err(400, "Invalid verb")
   end
 end
 
---- Add an apikey/subscription to redis
--- PUT /v1/subscriptions
--- Body:
--- {
---    key: *(String) key for tenant/api/resource
---    scope: *(String) tenant or api or resource
---    tenantId: *(String) tenant id
---    resource: (String) url-encoded resource path
---    apiId: (String) api id
--- }
 function addSubscription()
-  -- Validate body and create redisKey
   local redisKey = validateSubscriptionBody()
-  -- Open connection to redis or use one from connection pool
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   redis.createSubscription(red, redisKey)
-  -- Add current redis connection in the ngx_lua cosocket connection pool
   redis.close(red)
   request.success(200, "Subscription created.")
 end
 
---- Delete apikey/subscription from redis
--- DELETE /v1/subscriptions
--- Body:
--- {
---    key: *(String) key for tenant/api/resource
---    scope: *(String) tenant or api or resource
---    tenantId: *(String) tenant id
---    resource: (String) url-encoded resource path
---    apiId: (String) api id
--- }
 function deleteSubscription()
-  -- Validate body and create redisKey
   local redisKey = validateSubscriptionBody()
-  -- Initialize and connect to redis
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
-  -- Return if subscription doesn't exist
   redis.deleteSubscription(red, redisKey)
-  -- Add current redis connection in the ngx_lua cosocket connection pool
   redis.close(red)
   request.success(200, "Subscription deleted.")
 end
 
---- Check the request JSON body for correct fields
--- @return redisKey subscription key for redis
 function validateSubscriptionBody()
   -- Read in the PUT JSON Body
   ngx.req.read_body()
