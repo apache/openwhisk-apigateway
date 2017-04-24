@@ -46,19 +46,11 @@
       "type": "apiKey",
       "name": "X-Api-Key",
       "in": "header"
-    },
-    "google": {
-      "type": "oauth2",
-      "flow": "tokenIntrospect",
-      "x-tokenintrospect": {
-        "url": "https://www.googleapis.com/oauth2/v3/tokeninfo"
-      }
     }
   },
   "security": [
     {
-      "client_id": [],
-      "google": []
+      "client_id": []
     }
   ],
   "x-gateway-rate-limit": [

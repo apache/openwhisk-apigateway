@@ -37,7 +37,7 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 --@return a string representation of what this looks like in redis :clientsecret:clientid:hashed secret
 function process(securityObj)
   local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  local result = processWithHashFunction(red, securityObj, hash)
+  local result = processWithHashFunction(red, securityObj, utils.hash)
   redis.close(red)
   return result
 end 
@@ -84,20 +84,6 @@ function processWithHashFunction(red, securityObj, hashFunction)
   ngx.var.apiKey = clientId
   return result
 end
-
-
---- Takes a string and performs a SHA256 hash on it's input
--- @param str the string to input into the hash function
--- @returns a hashed string
-function hash(str) 
-  local resty_sha256 = require "resty.sha256"
-  local resty_str = require "resty.string" 
-
-  local sha256 = resty_sha256:new() 
-  sha256:update(str)
-  local digest = sha256:final()
-  return resty_str.to_hex(digest)
-end 
 
 --- Validate that the subscription exists in redis
 -- @param tenant the tenantId we are checking for 
