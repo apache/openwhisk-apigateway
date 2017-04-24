@@ -31,6 +31,9 @@ describe('Testing v2 management interface', function()
         "name": "Hello World API",
         "resources": {
           "/hello": {
+            "cors": {
+              "origin": "true"
+            },
             "operations": {
               "get": {
                 "backendUrl": "https://appconnect.mybluemix.net",
