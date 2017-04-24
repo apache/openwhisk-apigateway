@@ -29,6 +29,7 @@ function _M.parseSwagger(swagger)
   local backends = parseBackends(swagger)
   local policies = parsePolicies(swagger)
   local security = parseSecurity(swagger)
+  local corsObj = parseCors(swagger)
   local decoded = {
     name = swagger.info.title,
     basePath = swagger.basePath,
@@ -36,6 +37,7 @@ function _M.parseSwagger(swagger)
   }
   for path, verbObj in pairs(swagger.paths) do
     decoded.resources[path] = { operations = {} }
+    decoded.resources[path].cors = corsObj
     for verb, value in pairs(verbObj) do
       decoded.resources[path].operations[verb] = {}
       local verbObj = decoded.resources[path].operations[verb]
@@ -182,6 +184,21 @@ function parseSecurity(swagger)
     end
   end
   return security
+end
+
+function parseCors(swagger)
+  local cors = { origin = nil, methods = nil }
+  local configObj = swagger["x-gateway-configuration"]
+  configObj = (configObj == nil) and swagger["x-ibm-configuration"] or configObj
+  if configObj.cors ~= nil then
+    if configObj.cors.enabled == true then
+      cors.origin = "true"
+    elseif configObj.cors.enabled == false then
+      cors.origin = "false"
+    end
+    return cors
+  end
+  return nil
 end
 
 return _M
