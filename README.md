@@ -31,9 +31,8 @@ docker run -p 80:80 -p <managedurl_port>:8080 -p 9000:9000 \
 ```
 
 ## API
-- [Management interface](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/management_interface.md)
-  - [Policies](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/policies.md)
-  - [Security](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/security.md)
+- [v2 Management Interface](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/v2/management_interface_v2.md)
+- [v1 Management Interface](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/v1/management_interface_v1.md)
 
 
 ## Developer Guide
