@@ -19,56 +19,38 @@
 --   DEALINGS IN THE SOFTWARE.
 
 --- @module rateLimit
--- Process a rateLimit object, setting the rate and interval to the request
--- @author David Green (greend), Alex Song (songs)
 
-local REDIS_HOST = os.getenv("REDIS_HOST")
-local REDIS_PORT = os.getenv("REDIS_PORT")
-local REDIS_PASS = os.getenv("REDIS_PASS")
-local req = require "lib/resty/limit/req"
 local utils = require "lib/utils"
-local logger = require "lib/logger"
 local request = require "lib/request"
-local redis = require "lib/redis"
 
 local _M = {}
 
 --- Limit a resource/api/tenant, based on the passed in rateLimit object
+-- @param red redis client instance
 -- @param obj rateLimit object containing interval, rate, scope, subscription fields
--- @param apiKey optional api key to use if subscription set to true
-function limit(obj, apiKey)
-  local i = 60 / obj.interval
-  local r = i * obj.rate
-  r = utils.concatStrings({tostring(r), 'r/m'})
+-- @param apiKey optional api key to use if subscription is set to true
+function limit(red, obj, apiKey)
+  local rate = obj.interval / obj.rate
   local tenantId = ngx.var.tenant
   local gatewayPath = ngx.var.gatewayPath
   local k
   -- Check scope
-  if obj.scope == 'tenant' then
-    k = utils.concatStrings({"tenant:", tenantId})
-  elseif obj.scope == 'api' then
+  if obj.scope == "tenant" then
+    k = utils.concatStrings({"ratelimit:tenant:", tenantId})
+  elseif obj.scope == "api" then
     local apiId = ngx.var.apiId
-    k = utils.concatStrings({"tenant:", tenantId, ":api:", apiId})
-  elseif obj.scope == 'resource' then
-    k = utils.concatStrings({"tenant:", tenantId, ":resource:", gatewayPath})
+    k = utils.concatStrings({"ratelimit:tenant:", tenantId, ":api:", apiId})
+  elseif obj.scope == "resource" then
+    k = utils.concatStrings({"ratelimit:tenant:", tenantId, ":resource:", gatewayPath})
   end
   -- Check subscription
   if obj.subscription ~= nil and obj.subscription == true and apiKey ~= nil then
-    k = utils.concatStrings({k, ':subscription:', apiKey})
+    k = utils.concatStrings({k, ":subscription:", apiKey})
   end
-  -- Perform rate limiting
-  local config = {
-    key = k,
-    zone = 'rateLimiting',
-    rate = r,
-    interval = obj.interval,
-    log_level = ngx.NOTICE,
-    rds = {host = REDIS_HOST, port = REDIS_PORT, pass = REDIS_PASS}
-  }
-  local ok = req.limit(config)
-  if not ok then
-    logger.err('Rate limit exceeded. Sending 429')
-    request.err(429, 'Rate limit exceeded.')
+  if red:get(k) == ngx.null then
+    red:set(k, "", "PX", math.floor(rate*1000))
+  else
+    return request.err(429, 'Rate limit exceeded')
   end
 end
 

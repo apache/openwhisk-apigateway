@@ -57,7 +57,6 @@ function _M.processCall()
   end
   local obj = cjson.decode(redis.getResource(red, redisKey, "resources"))
   cors.processCall(obj)
-  redis.close(red)
   ngx.var.tenantNamespace = obj.tenantNamespace
   ngx.var.tenantInstance = obj.tenantInstance
   ngx.var.apiId = obj.apiId
@@ -68,8 +67,8 @@ function _M.processCall()
       if (opFields.security) then
         for _, sec in ipairs(opFields.security) do
           local result = security.process(sec)
-          if key == nil then
-            key = result -- use the key from the first policy.
+          if key == nil and sec.type ~= "oauth2" then
+            key = result -- use key from either apiKey or clientSecret security policy
           end
         end
       end
@@ -81,12 +80,13 @@ function _M.processCall()
       backendRouting.setRoute(opFields.backendUrl)
       -- Parse policies
       if opFields.policies ~= nil then
-        parsePolicies(opFields.policies, key)
+        parsePolicies(red, opFields.policies, key)
       end
       -- Log updated request headers/body info to access logs
       if ngx.req.get_headers()["x-debug-mode"] == "true" then
         setRequestLogs()
       end
+      redis.close(red)
       return
     end
   end
@@ -182,14 +182,15 @@ function _M.pathParamMatch(key, resourceKey)
 end
 
 --- Function to read the list of policies and send implementation to the correct backend
+-- @param red redis client instance
 -- @param obj List of policies containing a type and value field. This function reads the type field and routes it appropriately.
 -- @param apiKey optional subscription api key
-function parsePolicies(obj, apiKey)
+function parsePolicies(red, obj, apiKey)
   for k, v in pairs (obj) do
     if v.type == 'reqMapping' then
       mapping.processMap(v.value)
     elseif v.type == 'rateLimit' then
-      rateLimit.limit(v.value, apiKey)
+      rateLimit.limit(red, v.value, apiKey)
     elseif v.type == 'backendRouting' then
       backendRouting.setDynamicRoute(v.value)
     end
