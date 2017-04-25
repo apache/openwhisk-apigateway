@@ -89,16 +89,6 @@ _Example body_:
     "assembly": {
       "execute": [
         {
-          "set-variable": {
-            "actions": [
-              {
-                "set": "message.headers.Authorization",
-                "value": "Basic xxx"
-              }
-            ]
-          }
-        },
-        {
           "operation-switch": {
             "case": [
               {

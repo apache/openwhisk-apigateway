@@ -98,23 +98,24 @@ end
 function parseRateLimit(swagger, policies)
   local rlObj = swagger["x-gateway-rate-limit"]
   rlObj = (rlObj == nil) and swagger["x-ibm-rate-limit"] or rlObj
+  local unit
   if rlObj ~= nil then
     rlObj = rlObj[1]
     if rlObj.unit == "second" then
-      rlObj.unit = 1
+      unit = 1
     elseif rlObj.unit == "minute" then
-      rlObj.unit = 60
+      unit = 60
     elseif rlObj.unit == "hour" then
-      rlObj.unit = 3600
+      unit = 3600
     elseif rlObj.unit == "day" then
-      rlObj.unit = 86400
+      unit = 86400
     else
-      rlObj.unit = 60   -- default to minute
+      unit = 60   -- default to minute
     end
     policies[#policies+1] = {
       type = "rateLimit",
       value = {
-        interval = rlObj.unit * rlObj.units,
+        interval = unit * rlObj.units,
         rate = rlObj.rate,
         scope = "api",
         subscription = true
