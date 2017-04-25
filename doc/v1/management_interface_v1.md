@@ -1,6 +1,6 @@
-Management Interface
+Management Interface v1
 ==============
-The following defines the interface for managing APIs and Tenants. These endpoints are exposed to port 9000.
+The following defines the v1 interface for managing APIs and Tenants. These endpoints are exposed on port 9000.
 
 ## APIs
 
@@ -43,8 +43,8 @@ _body_:
 
 See below for details on how to implement different policies and security:
 
-- [policy definitions](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/policies.md)
-- [security definitions](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/security.md)
+- [policy definitions](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/v1/policies.md)
+- [security definitions](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/v1/security.md)
 
 _returns:_
 ```
