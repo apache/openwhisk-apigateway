@@ -19,20 +19,36 @@
 --   DEALINGS IN THE SOFTWARE.
 
 local cjson = require 'cjson'
-local http = require 'resty.http'
-local request = require "lib/request"
-local httpc = http.new()
 local utils = require "lib/utils"
+local redis = require "lib/redis"
 
-function validateOAuthToken (token) 
+function validateOAuthToken (red, token)
 
   local headerName = utils.concatStrings({'http_', 'x-facebook-app-token'}):gsub("-", "_")
-  
-  local facebookAppToken = ngx.var[headerName] 
+ 
+  local facebookAppToken = ngx.var[headerName]
   if facebookAppToken == nil then
     request.err(401, 'Facebook requires you provide an app token to validate user tokens. Provide a X-Facebook-App-Token header')
+    return nil
   end
 
+  local key = utils.concatStrings({'oauth:providers:facebook:tokens:', token})
+  if redis.exists(red, key) == 1 then
+    return cjson.decode(redis.get(red,key))
+  end
+
+  local key = utils.concatStrings({'oauth:providers:facebook:tokens:', token, facebookAppToken})
+  if redis.exists(red, key) == 1 then
+    return cjson.decode(redis.get(red, key))
+  end
+  return exchangeOAuthToken(red, token, facebookAppToken)
+end
+
+function exchangeOAuthToken(red, token, facebookAppToken)
+  local http = require 'resty.http'
+  local request = require "lib/request"
+  local httpc = http.new()
+ 
   local request_options = {
     headers = {
       ['Accept'] = 'application/json'
@@ -40,7 +56,7 @@ function validateOAuthToken (token)
     ssl_verify = false
   }
   local envUrl = os.getenv('TOKEN_FACEBOOK_URL')
-  envUrl = envUrl ~= nil and envUrl or 'https://graph.facebook.com/debug_token' 
+  envUrl = envUrl ~= nil and envUrl or 'https://graph.facebook.com/debug_token'
   local request_uri = utils.concatStrings({envUrl, '?input_token=', token,  '&access_token=', facebookAppToken})
   local res, err = httpc:request_uri(request_uri, request_options)
 -- convert response
@@ -50,14 +66,17 @@ function validateOAuthToken (token)
     return
   end
   local json_resp = cjson.decode(res.body)
-  
+
   if (json_resp['error']) then
-    return
+    return nil
   end
   -- facebook uses a different expire field than others
   json_resp['expires'] = json_resp['expires_at']
   -- convert Facebook's response
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
+  redis.set(red, key, cjson.encode(json_resp))
+  redis.expire(red, json_resp, json_resp['expires'])
+  redis.close(red)
   return json_resp
 end
 

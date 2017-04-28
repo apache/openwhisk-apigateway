@@ -20,25 +20,20 @@
 --   DEALINGS IN THE SOFTWARE.
 ---
 -- A fake oauth provider for testing
-local cjson = require "cjson"   
-function validateOAuthToken (token)
+local cjson = require "cjson"  
+function validateOAuthToken (red, token)
+  local result
   if token == "test" then
     local goodResult = [[
       {
-        "email":"test@test.com"
+       "email":"test@test.com"
       }
     ]]
-    return cjson.decode(goodResult)
-  else 
-    local badResult = [[
-      {
-        "error":{
-          "text":"bad"
-        }
-      }
-    ]]
-    return cjson.decode(badResult)
-  end 
+    red:set('oauth:providers:mock:tokens:test', goodResult)
+    return cjson.encode(goodResult)
+  else
+    return nil
+  end
 end
 
 return validateOAuthToken

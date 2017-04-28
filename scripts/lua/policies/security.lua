@@ -31,13 +31,13 @@ local utils = require "lib/utils"
 function process(securityObj)
   local ok, result = pcall(require, utils.concatStrings({'policies/security/', securityObj.type}))
   if not ok then
-    ngx.log(ngx.ERR, 'An unexpected error ocurred while processing the security policy: ' .. securityObj.type) 
+    ngx.log(ngx.ERR, 'An unexpected error ocurred while processing the security policy: ' .. securityObj.type)
     request.err(500, 'Gateway error.')
-  end 
+  end
   return result.process(securityObj)
 end
 
--- Wrap process in code to load the correct module 
+-- Wrap process in code to load the correct module
 _M.process = process
 
-return _M 
+return _M
