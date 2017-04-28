@@ -76,7 +76,7 @@ function _M.init(host, port, password, timeout)
     request.err(500, utils.concatStrings({"Failed to connect to redis: ", err}))
   end
   -- Authenticate with Redis
-  if password ~= nil and password ~= "" then
+  if password ~= nil and password ~= "" and red:get_reused_times() < 1 then
     local res, err = red:auth(password)
     if not res then
       request.err(500, utils.concatStrings({"Failed to authenticate: ", err}))
