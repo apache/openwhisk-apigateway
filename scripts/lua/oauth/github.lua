@@ -19,21 +19,30 @@
 --   DEALINGS IN THE SOFTWARE.
 ---
 -- A Proxy for Github OAuth API
+local cjson = require "cjson"
+local http = require "resty.http"
+local httpc = http.new()
+local request = require "lib/request"
+local cjson = require "cjson"
+local utils = require "lib/utils"
 
-function validateOAuthToken (token) 
-  local cjson = require "cjson"
-  local http = require "resty.http"
-  local httpc = http.new()
-  local request = require "lib/request"
+function validateOAuthToken (red, token)
+ 
+  local key = utils.concatStrings({'oauth:provider:github:', token})
+  if redis.exists(red, key) == 1 then
+    redis.close(red)
+    return cjson.decode(redis.get(red, key))
+  end
+ 
   local request_options = {
     headers = {
       ["Accept"] = "application/json"
     },
     ssl_verify = false
   }
-  local utils = require "lib/utils"
-  local envUrl = os.getenv('TOKEN_GITHUB_URL') 
-  envUrl = envUrl ~= nil and envUrl or 'https://api.github.com/user' 
+
+  local envUrl = os.getenv('TOKEN_GITHUB_URL')
+  envUrl = envUrl ~= nil and envUrl or 'https://api.github.com/user'
   local request_uri = utils.concatStrings({envUrl, '?access_token=', token})
   local res, err = httpc:request_uri(request_uri, request_options)
 -- convert response
@@ -42,16 +51,18 @@ function validateOAuthToken (token)
     request.err(500, 'OAuth provider error.')
     return
   end
-  
+ 
   local json_resp = cjson.decode(res.body)
   if json_resp.id == nil then
-    return 
-  end
- 
-  if (json_resp.error_description) then
-    return
+    return nil
   end
 
+  if (json_resp.error_description) then
+    return nil
+  end
+
+  redis.set(red, key, cjson.encode(json_resp))
+  redis.close(red)
   -- convert Github's response
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
   return json_resp

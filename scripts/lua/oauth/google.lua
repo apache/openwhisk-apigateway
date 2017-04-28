@@ -19,21 +19,28 @@
 --   DEALINGS IN THE SOFTWARE.
 ---
 -- A Proxy for Google OAuth API
+local cjson = require "cjson"
+local http = require "resty.http"
+local request = require "lib/request"
+local utils = require "lib/utils"
+local httpc = http.new()
+local redis = require "lib/redis"
 
-function validateOAuthToken (token) 
-  local cjson = require "cjson"
-  local http = require "resty.http"
-  local request = require "lib/request"
-  local utils = require "lib/utils"
-  local httpc = http.new()
-  
+function validateOAuthToken (red, token)
+
+  local key = utils.concatStrings({'oauth:provider:google:', token})
+  if redis.exists(red, key) == 1 then
+    redis.close(red)
+    return cjson.decode(redis.get(red, key))
+  end
+
   local request_options = {
     headers = {
       ["Accept"] = "application/json"
     },
     ssl_verify = false
   }
-  local envUrl = os.getenv('TOKEN_GOOGLE_URL') 
+  local envUrl = os.getenv('TOKEN_GOOGLE_URL')
   envUrl = envUrl ~= nil and envUrl or 'https://www.googleapis.com/oauth2/v3/tokeninfo'
   local request_uri = utils.concatStrings({envUrl, "?access_token=", token})
   local res, err = httpc:request_uri(request_uri, request_options)
@@ -41,14 +48,17 @@ function validateOAuthToken (token)
   if not res then
     ngx.log(ngx.WARN, utils.concatStrings({"Could not invoke Google API. Error=", err}))
     request.err(500, 'OAuth provider error.')
-    return
+    return nil
   end
   local json_resp = cjson.decode(res.body)
-  
+ 
   if (json_resp.error_description) then
-    return
+    return nil
   end
 
+  redis.set(red, key, cjson.encode(json_resp))
+  redis.expire(red, key, json_resp['expires'])
+  redis.close(red)
   -- convert Google's response
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
   return json_resp

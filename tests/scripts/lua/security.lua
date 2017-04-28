@@ -176,6 +176,7 @@ describe('OAuth security module', function()
     local ngxattrs = [[
       {
         "http_Authorization":"]] .. token .. [[",
+        "http_x_facebook_app_token":"nothing",
         "tenant":"1234",
         "gatewayPath":"v1/test"
       }
@@ -186,11 +187,11 @@ describe('OAuth security module', function()
     local securityObj = [[
       {
         "type":"oauth2",
-        "provider":"fake_facebook",
+        "provider":"facebook",
         "scope":"resource"
       }
     ]]
-    red:set('oauth:providers:fake_facebook:tokens:test', '{ "token":"good"}')
+    red:set('oauth:providers:facebook:tokens:test', '{ "token":"good"}')
     local result = oauth.processWithRedis(red, cjson.decode(securityObj))
     assert.truthy(result)
   end)
@@ -212,42 +213,13 @@ describe('OAuth security module', function()
     local securityObj = [[
       {
         "type":"oauth2",
-        "provider":"fake_facebook",
+        "provider":"facebook",
         "scope":"resource"
       }
     ]]
-    red:set('oauth:providers:fake_facebook:tokens:testapp', '{"token":"good"}')
+    red:set('oauth:providers:facebook:tokens:testapp', '{"token":"good"}')
     local result = oauth.processWithRedis(red, cjson.decode(securityObj))
     assert.truthy(result)
-  end)
-
-  it('Exchanges a facebook token and sets it in redis correctly with the appid.', function()
-    local red = fakeredis.new()
-    local token = "token"
-    local appid = "app"
-    local ngxattrs = [[
-      {
-        "http_Authorization":"]] .. token .. [[",
-        "http_x_facebook_app_token":"]] .. appid .. [[",
-        "tenant":"1234",
-        "gatewayPath":"v1/test"
-      }
-    ]]
-    local ngx = fakengx.new()
-    ngx.var = cjson.decode(ngxattrs)
-    _G.ngx = ngx
-    local result = oauth.processWithRedis(red, cjson.decode(ngxattrs))
-    local securityObj = [[
-      {
-        "type":"oauth2",
-        "provider":"fake_facebook",
-        "scope":"resource"
-      }
-    ]]
-    local result = oauth.processWithRedis(red, cjson.decode(securityObj))
-    assert.truthy(result)
-    assert.truthy(red:exists('oauth:providers:fake_facebook:tokens:tokenapp') == 1)
-    assert.truthy(red:exists('oauth:providers:fake_facebook:tokens:token') == 0)
   end)
 end)
 describe('Client Secret Module', function()
