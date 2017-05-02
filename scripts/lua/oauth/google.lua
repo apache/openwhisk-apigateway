@@ -58,7 +58,6 @@ function validateOAuthToken (red, token)
 
   redis.set(red, key, cjson.encode(json_resp))
   redis.expire(red, key, json_resp['expires'])
-  redis.close(red)
   -- convert Google's response
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
   return json_resp
