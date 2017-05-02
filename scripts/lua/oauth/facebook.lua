@@ -17,7 +17,7 @@
 --   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 --   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 --   DEALINGS IN THE SOFTWARE.
-
+local request = require 'lib/request'
 local cjson = require 'cjson'
 local utils = require "lib/utils"
 local redis = require "lib/redis"
@@ -76,7 +76,6 @@ function exchangeOAuthToken(red, token, facebookAppToken)
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
   redis.set(red, key, cjson.encode(json_resp))
   redis.expire(red, json_resp, json_resp['expires'])
-  redis.close(red)
   return json_resp
 end
 

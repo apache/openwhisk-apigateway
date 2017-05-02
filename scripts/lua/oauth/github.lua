@@ -62,7 +62,6 @@ function validateOAuthToken (red, token)
   end
 
   redis.set(red, key, cjson.encode(json_resp))
-  redis.close(red)
   -- convert Github's response
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
   return json_resp
