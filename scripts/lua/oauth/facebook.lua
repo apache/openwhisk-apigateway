@@ -21,26 +21,26 @@ local request = require 'lib/request'
 local cjson = require 'cjson'
 local utils = require "lib/utils"
 
-local _M = {} 
+local _M = {}
 function _M.process(dataStore, token)
 
   local headerName = utils.concatStrings({'http_', 'x-facebook-app-token'}):gsub("-", "_")
- 
+
   local facebookAppToken = ngx.var[headerName]
   if facebookAppToken == nil then
     request.err(401, 'Facebook requires you provide an app token to validate user tokens. Provide a X-Facebook-App-Token header')
     return nil
   end
 
-  local result = dataStore:getOAuthToken('facebook', token) 
+  local result = dataStore:getOAuthToken('facebook', token)
   if result ~= ngx.null then
     return cjson.decode(result)
   end
   result = dataStore:getOAuthToken('facebook', utils.concatStrings({token, facebookAppToken}))
-  if result ~= ngx.null then 
-    return cjson.decode(result) 
+  if result ~= ngx.null then
+    return cjson.decode(result)
   end
- 
+
    return exchangeOAuthToken(dataStore, token, facebookAppToken)
 end
 
@@ -48,7 +48,7 @@ function exchangeOAuthToken(dataStore, token, facebookAppToken)
   local http = require 'resty.http'
   local request = require "lib/request"
   local httpc = http.new()
- 
+
   local request_options = {
     headers = {
       ['Accept'] = 'application/json'

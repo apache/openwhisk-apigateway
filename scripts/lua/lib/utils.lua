@@ -110,15 +110,15 @@ end
 --- Takes a string and performs a SHA256 hash on its input
 -- @param str the string to input into the hash function
 -- @returns a hashed string
-function _Utils.hash(str) 
+function _Utils.hash(str)
   local resty_sha256 = require "resty.sha256"
-  local resty_str = require "resty.string" 
+  local resty_str = require "resty.string"
 
-  local sha256 = resty_sha256:new() 
+  local sha256 = resty_sha256:new()
   sha256:update(str)
   local digest = sha256:final()
   return resty_str.to_hex(digest)
-end 
+end
 
 return _Utils
 

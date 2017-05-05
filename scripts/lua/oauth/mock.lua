@@ -20,7 +20,7 @@
 --   DEALINGS IN THE SOFTWARE.
 ---
 -- A fake oauth provider for testing
-local cjson = require "cjson"  
+local cjson = require "cjson"
 local _M = {}
 function _M.process (red, token)
   local result

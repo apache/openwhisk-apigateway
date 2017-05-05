@@ -33,8 +33,8 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
---- Validate that the given subscription is in redis
--- @param red a redis instance to query against
+--- Validate that the given subscription is in the datastore
+-- @param dataStore the datastore object
 -- @param tenant the namespace
 -- @param gatewayPath the gateway path to use, if scope is resource
 -- @param apiId api Id to use, if scope is api
@@ -64,7 +64,7 @@ function process(dataStore, securityObj)
 end
 
 --- Process the security object
--- @param red a redis instance to query against
+-- @param dataStore the datastore object
 -- @param securityObj security object from nginx conf file
 -- @param hashFunction a function that will be called to hash the string
 -- @return apiKey api key for the subscription

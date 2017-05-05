@@ -33,6 +33,7 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 --- Process function main entry point for the security block.
 --  Takes 2 headers and decides if the request should be allowed based on a hashed secret key
+--@param dataStore the datastore object
 --@param securityObj the security object loaded from nginx.conf
 --@return a string representation of what this looks like in redis :clientsecret:clientid:hashed secret
 function process(dataStore, securityObj)
@@ -41,7 +42,7 @@ end
 
 --- In order to properly test this functionallity, I use this function to do all of the business logic with injected dependencies
 -- Takes 2 headers and decides if the request should be allowed based on a hashed secret key
--- @param red the redis instance to perform the lookup on
+-- @param dataStore the datastore object
 -- @param securityObj the security configuration for the tenant/resource/api we are verifying
 -- @param hashFunction the function used to perform the hash of the api secret
 function processWithHashFunction(dataStore, securityObj, hashFunction)
@@ -93,7 +94,8 @@ function processWithHashFunction(dataStore, securityObj, hashFunction)
   return result
 end
 
---- Validate that the subscription exists in redis
+--- Validate that the subscription exists in the dataStore
+-- @param dataStore the datastore object
 -- @param tenant the tenantId we are checking for
 -- @param gatewayPath the possible resource we are checking for
 -- @param apiId if we are checking for an api
