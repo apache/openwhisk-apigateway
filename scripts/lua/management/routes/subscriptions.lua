@@ -45,7 +45,7 @@ function _M.requestHandler()
 end
 
 
--- v2 -- 
+-- v2 --
 
 function v2()
   local requestMethod = ngx.req.get_method()

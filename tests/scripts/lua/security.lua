@@ -29,6 +29,8 @@ describe('API Key module', function()
   it('Checks an apiKey correctly', function()
     local red = fakeredis.new()
     local ngx = fakengx.new()
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red) 
     local ngxattrs = cjson.decode([[
       {
         "tenant":"abcd",
@@ -46,11 +48,13 @@ describe('API Key module', function()
     ]])
     red:hset('resources:abcd:v1/test', 'resources', '{"apiId":"bnez"}')
     red:set('subscriptions:tenant:abcd:api:bnez:key:a1234', 'true')
-    local key = apikey.processWithRedis(red, securityObj, function() return "fakehash" end)
+    local key = apikey.process(dataStore, securityObj, function() return "fakehash" end)
     assert.same(key, 'a1234')
   end)
   it('Returns nil with a bad apikey', function()
     local red = fakeredis.new()
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red)
     local ngx = fakengx.new()
     local ngxattrs = cjson.decode([[
       {
@@ -68,11 +72,13 @@ describe('API Key module', function()
       }
     ]])
     red:hset('resources:abcd:v1/test', 'resources', '{"apiId":"bnez"}')
-    local key = apikey.processWithRedis(red, securityObj, function() return "fakehash" end)
+    local key = apikey.process(dataStore, securityObj, function() return "fakehash" end)
     assert.falsy(key)
   end)
   it('Checks for a key with a custom header', function()
     local red = fakeredis.new()
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red)
     local ngx = fakengx.new()
     local ngxattrs = cjson.decode([[
       {
@@ -92,11 +98,13 @@ describe('API Key module', function()
     ]])
     red:hset('resources:abcd:v1/test', 'resources', '{"apiId":"bnez"}')
     red:set('subscriptions:tenant:abcd:api:bnez:key:a1234', 'true')
-    local key = apikey.processWithRedis(red, securityObj, function() return "fakehash" end)
+    local key = apikey.process(dataStore, securityObj, function() return "fakehash" end)
     assert.same(key, 'a1234')
   end)
   it('Checks for a key with a custom header and hash configuration', function()
     local red = fakeredis.new()
+    local ds = require "lib/dataStore" 
+    local dataStore = ds.initWithDriver(red) 
     local ngx = fakengx.new()
     local ngxattrs = cjson.decode([[
       {
@@ -117,7 +125,7 @@ describe('API Key module', function()
     ]])
     red:hset('resources:abcd:v1/test', 'resources', '{"apiId":"bnez"}')
     red:set('subscriptions:tenant:abcd:api:bnez:key:fakehash', 'true')
-    local key = apikey.processWithRedis(red, securityObj, function() return "fakehash" end)
+    local key = apikey.processWithHashFunction(dataStore, securityObj, function() return "fakehash" end)
     assert.same(key, 'fakehash')
   end)
 end)
@@ -142,7 +150,7 @@ describe('OAuth security module', function()
         "scope":"resource"
       }
     ]]
-    local result = oauth.processWithRedis(red, cjson.decode(securityObj))
+    local result = oauth.process(red, cjson.decode(securityObj))
     assert.same(red:exists('oauth:providers:mock:tokens:test'), 1)
     assert(result)
   end)
@@ -166,12 +174,14 @@ describe('OAuth security module', function()
         "scope":"resource"
       }
     ]]
-    local result = oauth.processWithRedis(red, cjson.decode(securityObj))
+    local result = oauth.process(red, cjson.decode(securityObj))
     assert.same(red:exists('oauth:providers:mock:tokens:bad'), 0)
     assert.falsy(result)
   end)
   it('Loads a facebook token from the cache without a valid app id', function()
     local red = fakeredis.new()
+    local ds = require "lib/dataStore" 
+    local dataStore = ds.initWithDriver(red)
     local token = "test"
     local ngxattrs = [[
       {
@@ -192,11 +202,13 @@ describe('OAuth security module', function()
       }
     ]]
     red:set('oauth:providers:facebook:tokens:test', '{ "token":"good"}')
-    local result = oauth.processWithRedis(red, cjson.decode(securityObj))
+    local result = oauth.process(dataStore, cjson.decode(securityObj))
     assert.truthy(result)
   end)
   it('Loads a facebook token from the cache with a valid app id', function()
     local red = fakeredis.new()
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red)
     local token = "test"
     local appid = "app"
     local ngxattrs = [[
@@ -218,7 +230,7 @@ describe('OAuth security module', function()
       }
     ]]
     red:set('oauth:providers:facebook:tokens:testapp', '{"token":"good"}')
-    local result = oauth.processWithRedis(red, cjson.decode(securityObj))
+    local result = oauth.process(dataStore, cjson.decode(securityObj))
     assert.truthy(result)
   end)
 end)

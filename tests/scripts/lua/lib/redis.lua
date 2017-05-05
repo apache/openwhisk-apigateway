@@ -27,6 +27,8 @@ describe('Testing Redis module', function()
   before_each(function()
     _G.ngx = fakengx.new()
     red = fakeredis.new()
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red)
     operations = {
       GET = {
         backendUrl = 'https://httpbin.org/get',
@@ -36,6 +38,8 @@ describe('Testing Redis module', function()
   end)
   it('should look up an api by one of it\'s member resources', function() 
     local red = fakeredis.new() 
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red)
     local sampleResource = cjson.decode([[
       {
         "apiId": "a12341234",
@@ -49,9 +53,11 @@ describe('Testing Redis module', function()
     ]])
     
     red:hset('resources:test:v1/test', 'resources', cjson.encode(sampleResource))
-    assert.are.same('a12341234', redis.resourceToApi(red, 'resources:test:v1/test'))
+    assert.are.same('a12341234', dataStore:resourceToApi('resources:test:v1/test'))
   end) 
   it('should generate resource object to store in redis', function()
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red)
     -- Resource object with no policies or security
     local apiId = 12345
     local resourceObj = {
@@ -59,7 +65,7 @@ describe('Testing Redis module', function()
       operations = operations
     }
     local expected = resourceObj
-    local generated = cjson.decode(redis.generateResourceObj(operations, apiId))
+    local generated = cjson.decode(dataStore:generateResourceObj(operations, apiId))
     assert.are.same(expected, generated)
 
     -- Resource object with policy added
@@ -76,7 +82,7 @@ describe('Testing Redis module', function()
     ]]
     resourceObj.operations.GET.policies = cjson.decode(policyList)
     expected = resourceObj
-    generated = cjson.decode(redis.generateResourceObj(operations, apiId))
+    generated = cjson.decode(dataStore:generateResourceObj(operations, apiId))
     assert.are.same(expected, generated)
 
     -- Resource object with security added
@@ -89,7 +95,7 @@ describe('Testing Redis module', function()
     ]]
     resourceObj.operations.GET.security = cjson.decode(securityObj)
     expected = resourceObj
-    generated = cjson.decode(redis.generateResourceObj(operations, apiId))
+    generated = cjson.decode(dataStore:generateResourceObj(operations, apiId))
     assert.are.same(expected, generated)
 
     -- Resource object with multiple operations
@@ -99,7 +105,7 @@ describe('Testing Redis module', function()
       security = {}
     }
     expected = resourceObj
-    generated = cjson.decode(redis.generateResourceObj(operations, apiId))
+    generated = cjson.decode(dataStore:generateResourceObj(operations, apiId))
     assert.are.same(expected, generated)
 
     local tenantObj = [[
@@ -114,30 +120,35 @@ describe('Testing Redis module', function()
     resourceObj.tenantNamespace = tenantObj.namespace
     resourceObj.tenantInstance = tenantObj.instance
     expected = resourceObj
-    generated = cjson.decode(redis.generateResourceObj(operations, apiId, tenantObj))
+    generated = cjson.decode(dataStore:generateResourceObj(operations, apiId, tenantObj))
     assert.are.same(expected, generated)
   end)
 
   it('should get a resource from redis', function()
     local key = 'resources:guest:hello'
     local field = 'resources'
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red)
     -- resource doesn't exist in redis
-    local generated = redis.getResource(red, key, field)
+    local generated = dataStore:getResource(key, field)
     assert.are.same(nil, generated)
 
     -- resource exists in redis
-    local expected = redis.generateResourceObj(operations, nil)
+    local expected = dataStore:generateResourceObj(operations, nil)
     red:hset(key, field, expected)
-    generated = redis.getResource(red, key, field)
+    local dataStore = ds.initWithDriver(red)
+    generated = dataStore:getResource(key, field)
     assert.are.same(expected, generated)
   end)
 
   it('should create a resource in redis', function()
     local key = 'resources:guest:hello'
     local field = 'resources'
-    local expected = redis.generateResourceObj(operations, nil)
-    redis.createResource(red, key, field, expected)
-    local generated = redis.getResource(red, key, field)
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red)
+    local expected = dataStore:generateResourceObj(operations, nil)
+    dataStore:createResource(key, field, expected)
+    local generated = dataStore:getResource(key, field)
     assert.are.same(expected, generated)
   end)
 
@@ -145,31 +156,37 @@ describe('Testing Redis module', function()
     -- Key doesn't exist - throw 404
     local key = 'resources:guest:hello'
     local field = 'resources'
-    redis.deleteResource(red, key, field)
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red)
+    dataStore:deleteResource(key, field)
     assert.are.equal(ngx._exit, 404)
     -- Key exists - deleted properly
     local resourceObj = redis.generateResourceObj(operations, nil)
-    redis.createResource(red, key, field, resourceObj)
+    dataStore:createResource(key, field, resourceObj)
     local expected = 1
-    local generated = redis.deleteResource(red, key, field)
+    local generated = dataStore:deleteResource(key, field)
     assert.are.same(expected, generated)
   end)
 
   it('shoud create an API Key subscription', function()
     local key = 'subscriptions:test:apikey'
-    redis.createSubscription(red, key)
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red)
+    dataStore:createSubscription(key)
     assert.are.same(1, red:exists(key))
   end)
 
   it('should delete an API Key subscription', function()
     -- API key doesn't exist in redis - throw 404
     local key = 'subscriptions:test:apikey'
-    redis.deleteSubscription(red, key)
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red)
+    dataStore:deleteSubscription(key)
     assert.are.equal(404, ngx._exit)
 
     -- API key to delete exists in redis
     red:set(key, '')
-    redis.deleteSubscription(red, key)
+    dataStore:deleteSubscription(key)
     assert.are.equal(0, red:exists(key))
   end)
 

@@ -25,23 +25,33 @@ local cjson = require "cjson"
 local utils = require "lib/utils"
 local logger = require "lib/logger"
 local request = require "lib/request"
-local lrucache 
+local lrucache
 local CACHE_SIZE
 local CACHE_TTL
 local c, err
+
+local REDIS_HOST = os.getenv("REDIS_HOST")
+local REDIS_PORT = os.getenv("REDIS_PORT")
+local REDIS_PASS = os.getenv("REDIS_PASS")
+local REDIS_TIMEOUT = os.getenv("REDIS_TIMEOUT")
+if REDIS_TIMEOUT == nil then
+  REDIS_TIMEOUT = 10000
+else
+  REDIS_TIMEOUT = tonumber(REDIS_TIMEOUT)
+end
 local CACHING_ENABLED = os.getenv('CACHING_ENABLED')
 if CACHING_ENABLED then
   lrucache = require "resty.lrucache"
   CACHE_SIZE = tonumber(os.getenv('CACHE_SIZE'))
   CACHE_TTL = tonumber(os.getenv('CACHE_TTL'))
   c, err = lrucache.new(CACHE_SIZE)
-  if not c then 
+  if not c then
     return error("Failed to initialize LRU cache" .. (err or "unknown"))
-  end 
-end 
+  end
+end
 
 
-local REDIS_RETRY_COUNT = os.getenv('REDIS_RETRY_COUNT') or 4 
+local REDIS_RETRY_COUNT = os.getenv('REDIS_RETRY_COUNT') or 4
 local REDIS_FIELD = "resources"
 
 local _M = {}
@@ -51,14 +61,14 @@ local _M = {}
 ----------------------------
 
 --- Initialize and connect to Redis
--- @param host redis host
--- @param port redis port
--- @param password redis password (nil if no password)
--- @param timeout redis timeout in milliseconds
-function _M.init(host, port, password, timeout)
+function _M.init()
+  local host = REDIS_HOST
+  local password = REDIS_PASS
+  local port = REDIS_PORT
   local redis = require "resty.redis"
   local red = redis:new()
-  red:set_timeout(timeout)
+
+  red:set_timeout(REDIS_TIMEOUT)
   -- Connect to Redis server
   local retryCount = REDIS_RETRY_COUNT
   local connect, err = red:connect(host, port)
@@ -204,7 +214,7 @@ function _M.generateResourceObj(ops, apiId, tenantObj, cors)
       resourceObj.operations[op].security = v.security
     end
   end
-  if cors then 
+  if cors then
     resourceObj.cors = cors
   end
   if apiId then
@@ -273,7 +283,7 @@ end
 --- Get all resource keys for a tenant in redis
 -- @param red redis client instance
 -- @param tenantId tenant id
-function _M.getAllResourceKeys(red, tenantId)
+function _M.getAllResources(red, tenantId)
   local keys, err = smembers(red, utils.concatStrings({"resources:", tenantId, ":__index__"}))
   if not keys then
     request.err(500, utils.concatStrings({"Failed to retrieve resource keys: ", err}))
@@ -396,6 +406,24 @@ function _M.deleteSubscription(red, key)
   end
 end
 
+-----------------------------
+--- OAuth Tokens          ---
+-----------------------------
+function _M.getOAuthToken(red, provider, token)
+  return get(red, utils.concatStrings({'oauth:providers:', provider, ':tokens:', token}))
+end
+
+
+
+function _M.saveOAuthToken(red, provider, token, body, ttl)
+  set(red, utils.concatStrings({'oauth:providers:', provider, ':tokens:', token}), body)
+  if ttl ~= nil then
+    expire(red, utils.concatStrings({'oauth:providers:', provider, ':tokens:', token}), ttl)
+  end
+end
+
+
+
 --- Check health of gateway
 function _M.healthCheck()
   request.success(200,  "Status: Gateway ready.")
@@ -436,132 +464,138 @@ function _M.deleteSwagger(red, id)
   end
 end
 
+function _M.setRateLimit(red, key, value, interval, expires)
+  return red:set(key, value, interval, expires)
+end
 
--- LRU Caching methods 
+function _M.getRateLimit(red, key)
+  return get(red, key)
+end
+-- LRU Caching methods
 
-function exists(red, key) 
-  if CACHING_ENABLED then 
+function exists(red, key)
+  if CACHING_ENABLED then
     local cached = c:get(key)
-    if cached ~= nil then 
+    if cached ~= nil then
       return 1
-    end 
+    end
   -- if it isn't in the cache, try and load it in there
     local result = red:get(key)
     if result ~= ngx.null then
       c:set(key, result, CACHE_TTL)
       return 1
-    end 
-    return 0 
-  else 
-    return red:exists(key) 
-  end 
-end 
+    end
+    return 0
+  else
+    return red:exists(key)
+  end
+end
 
-function get(red, key) 
-  if CACHING_ENABLED then 
+function get(red, key)
+  if CACHING_ENABLED then
     local cached, stale = c:get(key)
     if cached ~= nil then
-      return cached 
-    else   
-      local result = red:get(key) 
-      c:set(key, result, CACHE_TTL) 
+      return cached
+    else
+      local result = red:get(key)
+      c:set(key, result, CACHE_TTL)
       return result
-    end 
+    end
   else
     return red:get(key)
   end
 end
 
-function hget(red, key, id) 
-  if CACHING_ENABLED then 
+function hget(red, key, id)
+  if CACHING_ENABLED then
     local cachedmap, stale = c:get(key)
     if cachedmap ~= nil then
       local cached = cachedmap:get(id)
       if cached ~= nil then
-         return cached 
+         return cached
       else
-        local result = red:hget(key, id) 
-        cachedmap:set(id, result, CACHE_TTL) 
+        local result = red:hget(key, id)
+        cachedmap:set(id, result, CACHE_TTL)
         c:set(key, cachedmap, CACHE_TTL)
         return result
       end
     else
       local result = red:hget(key, id)
-      local newcache = lrucache.new(CACHE_SIZE) 
-      newcache:set(id, result, CACHE_TTL) 
+      local newcache = lrucache.new(CACHE_SIZE)
+      newcache:set(id, result, CACHE_TTL)
       c:set(key, newcache, CACHE_TTL)
-      return result  
+      return result
     end
   else
     return red:hget(key, id)
   end
-end 
+end
 
-function hgetall(red, key) 
+function hgetall(red, key)
   return red:hgetall(key)
-end 
+end
 
 function hset(red, key, id, value)
-  if CACHING_ENABLED then 
+  if CACHING_ENABLED then
     local cachedmap = c:get(key)
-    if cachedmap ~= nil then 
-      cachedmap:set(id, value, CACHE_TTL) 
+    if cachedmap ~= nil then
+      cachedmap:set(id, value, CACHE_TTL)
       c:set(key, cachedmap, CACHE_TTL)
       return red:hset(key, id, value)
-    else 
+    else
       local val = lrucache.new(CACHE_SIZE)
-      val:set(id, value, CACHE_TTL) 
+      val:set(id, value, CACHE_TTL)
       c:set(key, val, CACHE_TTL)
-    end 
+    end
   end
-  return red:hset(key, id, value) 
-end 
+  return red:hset(key, id, value)
+end
 
-function expire(red, key, ttl) 
-  if CACHING_ENABLED then 
-    local cached = c:get(key) 
-    local value = '' 
-    if cached ~= nil then -- just put it back in the cache with a ttl 
-      value = cached 
-    end 
+function expire(red, key, ttl)
+  if CACHING_ENABLED then
+    local cached = c:get(key)
+    local value = ''
+    if cached ~= nil then -- just put it back in the cache with a ttl
+      value = cached
+    end
     c:set(key, value, ttl)
   end
   return red:expire(key, ttl)
-end 
+end
 
-function del(red, key) 
-  if CACHING_ENABLED then 
+function del(red, key)
+  if CACHING_ENABLED then
     c:delete(key)
   end
   return red:del(key)
 end
- 
+
 function hdel(red, key, id)
-  if CACHING_ENABLED then 
-    local cachecontents = c:get(key) 
+  if CACHING_ENABLED then
+    local cachecontents = c:get(key)
     if cachecontents ~= nil then
       cachecontents:del(id)
       c:set(key, cachecontents, CACHE_TTL)
-    end 
+    end
   end
-  return red:hdel(key, id) 
-end 
+  return red:hdel(key, id)
+end
 
-function set(red, key, value) 
-  return red:set(key, value) 
-end 
+function set(red, key, value)
+  return red:set(key, value)
+end
 
-function smembers(red, key) 
-  return red:smembers(key) 
+function smembers(red, key)
+  return red:smembers(key)
 end
 
 function srem(red, key, id)
-  return red:srem(key, id) 
-end 
+  return red:srem(key, id)
+end
 
 function sadd(red, key, id)
-  return red:sadd(key, id) 
-end 
+  return red:sadd(key, id)
+end
 
 
 _M.get = get

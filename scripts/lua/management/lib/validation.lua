@@ -22,15 +22,14 @@
 -- Module for validating api body
 
 local cjson = require "cjson"
-local redis = require "lib/redis"
 local utils = require "lib/utils"
 
 local _M = {}
 
-function _M.validate(red, decoded)
+function _M.validate(dataStore, decoded)
   local fields = {"name", "basePath", "tenantId", "resources"}
   for _, v in pairs(fields) do
-    local res, err = isValid(red, v, decoded[v])
+    local res, err = isValid(dataStore, v, decoded[v])
     if res == false then
       return err
     end
@@ -39,10 +38,10 @@ function _M.validate(red, decoded)
 end
 
 --- Check JSON body fields for errors
--- @param red Redis client instance
+-- @param ds edis client instance
 -- @param field name of field
 -- @param object field object
-function isValid(red, field, object)
+function isValid(dataStore, field, object)
   -- Check that field exists in body
   if not object then
     return false, { statusCode = 400, message = utils.concatStrings({"Missing field '", field, "' in request body."}) }
@@ -56,7 +55,7 @@ function isValid(red, field, object)
   end
   -- Additional check for tenantId
   if field == "tenantId" then
-    local tenant = redis.getTenant(red, object)
+    local tenant = dataStore:getTenant(object)
     if tenant == nil then
       return false, { statusCode = 404, message = utils.concatStrings({"Unknown tenant id ", object }) }
     end

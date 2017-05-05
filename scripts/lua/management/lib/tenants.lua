@@ -29,7 +29,7 @@ local apis = require "management/lib/apis"
 
 local _M = {};
 
-function _M.addTenant(red, decoded, existingTenant)
+function _M.addTenant(dataStore, decoded, existingTenant)
   -- Return tenant object
   local uuid = existingTenant ~= nil and existingTenant.id or utils.uuid()
   local tenantObj = {
@@ -37,15 +37,15 @@ function _M.addTenant(red, decoded, existingTenant)
     namespace = decoded.namespace,
     instance = decoded.instance
   }
-  tenantObj = redis.addTenant(red, uuid, tenantObj)
+  tenantObj = dataStore:addTenant(uuid, tenantObj)
   return cjson.decode(tenantObj)
 end
 
 --- Get all tenants in redis
--- @param red redis client
+-- @param ds redis client
 -- @param queryParams object containing optional query parameters
-function _M.getAllTenants(red, queryParams)
-  local tenants = redis.getAllTenants(red)
+function _M.getAllTenants(dataStore, queryParams)
+  local tenants = dataStore:getAllTenants()
   local tenantList
   if next(queryParams) ~= nil then
     tenantList = filterTenants(tenants, queryParams);
@@ -86,10 +86,10 @@ function filterTenants(tenants, queryParams)
 end
 
 --- Get tenant by its id
--- @param red redis client
+-- @param ds redis client
 -- @param id tenant id
-function _M.getTenant(red, id)
-  local tenant = redis.getTenant(red, id)
+function _M.getTenant(dataStore, id)
+  local tenant = dataStore:getTenant(id)
   if tenant == nil then
     request.err(404, utils.concatStrings({"Unknown tenant id ", id }))
   end
@@ -97,11 +97,11 @@ function _M.getTenant(red, id)
 end
 
 --- Get APIs associated with tenant
--- @param red redis client
+-- @param ds redis client
 -- @param id tenant id
 -- @param queryParams object containing optional query parameters
-function _M.getTenantAPIs(red, id, queryParams)
-  local apis = redis.getAllAPIs(red)
+function _M.getTenantAPIs(dataStore, id, queryParams)
+  local apis = dataStore:getAllAPIs()
   local apiList
   if next(queryParams) ~= nil then
     apiList = filterTenantAPIs(id, apis, queryParams);
@@ -148,14 +148,14 @@ function filterTenantAPIs(id, apis, queryParams)
 end
 
 --- Delete tenant from gateway
--- @param red redis client
+-- @param ds redis client
 -- @param id id of tenant to delete
-function _M.deleteTenant(red, id)
-  local tenantAPIs = _M.getTenantAPIs(red, id, {})
+function _M.deleteTenant(dataStore, id)
+  local tenantAPIs = _M.getTenantAPIs(dataStore, id, {})
   for _, v in pairs(tenantAPIs) do
-    apis.deleteAPI(red, v.id)
+    apis.deleteAPI(dataStore, v.id)
   end
-  redis.deleteTenant(red, id)
+  dataStore:deleteTenant(id)
   return {}
 end
 
