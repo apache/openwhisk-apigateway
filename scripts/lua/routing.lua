@@ -25,7 +25,7 @@ local cjson = require "cjson"
 local url = require "url"
 local utils = require "lib/utils"
 local request = require "lib/request"
-local redis = require "lib/redis"
+local dataStore = require "lib/dataStore"
 -- load policies
 local security = require "policies/security"
 local mapping = require "policies/mapping"
@@ -33,16 +33,12 @@ local rateLimit = require "policies/rateLimit"
 local backendRouting = require "policies/backendRouting"
 local cors = require "cors"
 
-local REDIS_HOST = os.getenv("REDIS_HOST")
-local REDIS_PORT = os.getenv("REDIS_PORT")
-local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
 --- Main function that handles parsing of invocation details and carries out implementation
-function _M.processCall()
+function _M.processCall(ds)
   -- Get resource object from redis
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local tenantId = ngx.var.tenant
   local gatewayPath = ngx.var.gatewayPath
   local i, j = ngx.var.request_uri:find("/api/([^/]+)")
@@ -50,12 +46,12 @@ function _M.processCall()
   if ngx.req.get_headers()["x-debug-mode"] == "true" then
     setRequestLogs()
   end
-  local resourceKeys = redis.getAllResourceKeys(red, tenantId)
+  local resourceKeys = dataStore.getAllResourceKeys(ds, tenantId)
   local redisKey = _M.findRedisKey(resourceKeys, tenantId, gatewayPath)
   if redisKey == nil then
     request.err(404, 'Not found.')
   end
-  local obj = cjson.decode(redis.getResource(red, redisKey, "resources"))
+  local obj = cjson.decode(dataStore.getResource(ds, redisKey, "resources"))
   cors.processCall(obj)
   ngx.var.tenantNamespace = obj.tenantNamespace
   ngx.var.tenantInstance = obj.tenantInstance
@@ -66,7 +62,7 @@ function _M.processCall()
       local key
       if (opFields.security) then
         for _, sec in ipairs(opFields.security) do
-          local result = security.process(sec)
+          local result = security.process(ds, sec)
           if key == nil and sec.type ~= "oauth2" then
             key = result -- use key from either apiKey or clientSecret security policy
           end
@@ -80,13 +76,13 @@ function _M.processCall()
       backendRouting.setRoute(opFields.backendUrl)
       -- Parse policies
       if opFields.policies ~= nil then
-        parsePolicies(red, opFields.policies, key)
+        parsePolicies(ds, opFields.policies, key)
       end
       -- Log updated request headers/body info to access logs
       if ngx.req.get_headers()["x-debug-mode"] == "true" then
         setRequestLogs()
       end
-      redis.close(red)
+      dataStore.close(ds)
       return
     end
   end
@@ -185,12 +181,12 @@ end
 -- @param red redis client instance
 -- @param obj List of policies containing a type and value field. This function reads the type field and routes it appropriately.
 -- @param apiKey optional subscription api key
-function parsePolicies(red, obj, apiKey)
+function parsePolicies(ds, obj, apiKey)
   for k, v in pairs (obj) do
     if v.type == 'reqMapping' then
       mapping.processMap(v.value)
     elseif v.type == 'rateLimit' then
-      rateLimit.limit(red, v.value, apiKey)
+      rateLimit.limit(ds, v.value, apiKey)
     elseif v.type == 'backendRouting' then
       backendRouting.setDynamicRoute(v.value)
     end

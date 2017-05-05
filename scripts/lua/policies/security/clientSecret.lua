@@ -23,7 +23,7 @@
 -- Check a subscription with a client id and a hashed secret
 local _M = {}
 
-local redis = require "lib/redis"
+local dataStore = require "lib/dataStore"
 local utils = require "lib/utils"
 local request = require "lib/request"
 
@@ -35,11 +35,8 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 --  Takes 2 headers and decides if the request should be allowed based on a hashed secret key
 --@param securityObj the security object loaded from nginx.conf 
 --@return a string representation of what this looks like in redis :clientsecret:clientid:hashed secret
-function process(securityObj)
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  local result = processWithHashFunction(red, securityObj, utils.hash)
-  redis.close(red)
-  return result
+function process(ds, securityObj)
+  local result = processWithHashFunction(ds, securityObj, utils.hash)
 end 
 
 --- In order to properly test this functionallity, I use this function to do all of the business logic with injected dependencies
@@ -47,7 +44,7 @@ end
 -- @param red the redis instance to perform the lookup on 
 -- @param securityObj the security configuration for the tenant/resource/api we are verifying
 -- @param hashFunction the function used to perform the hash of the api secret
-function processWithHashFunction(red, securityObj, hashFunction) 
+function processWithHashFunction(ds, securityObj, hashFunction) 
   -- pull the configuration from nginx
   local tenant = ngx.var.tenant
   local gatewayPath = ngx.var.gatewayPath
@@ -77,7 +74,7 @@ function processWithHashFunction(red, securityObj, hashFunction)
     return false
   end
 -- hash the secret  
-  local result = validate(red, tenant, gatewayPath, apiId, scope, clientId, hashFunction(clientSecret))
+  local result = validate(ds, tenant, gatewayPath, apiId, scope, clientId, hashFunction(clientSecret))
   if result == nil then  
     request.err(401, "Secret mismatch or not subscribed to this api.")
   end
@@ -92,7 +89,7 @@ end
 -- @param scope which values should we be using to find the location of the secret
 -- @param clientId the subscribed client id 
 -- @param clientSecret the hashed client secret
-function validate(red, tenant, gatewayPath, apiId, scope, clientId, clientSecret)
+function validate(ds, tenant, gatewayPath, apiId, scope, clientId, clientSecret)
 -- Open connection to redis or use one from connection pool
   local k
   if scope == 'tenant' then
@@ -104,7 +101,7 @@ function validate(red, tenant, gatewayPath, apiId, scope, clientId, clientSecret
   end
   -- using the same key location in redis, just using :clientsecret: instead of :key: 
   k = utils.concatStrings({k, ':clientsecret:', clientId, ':', clientSecret})
-  if redis.exists(red, k) == 1 then
+  if dataStore.exists(ds, k) == 1 then
     return k 
   else 
     return nil

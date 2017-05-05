@@ -29,6 +29,11 @@ local lrucache
 local CACHE_SIZE
 local CACHE_TTL
 local c, err
+
+local REDIS_HOST = os.getenv("REDIS_HOST")
+local REDIS_PORT = os.getenv("REDIS_PORT")
+local REDIS_PASS = os.getenv("REDIS_PASS")
+
 local CACHING_ENABLED = os.getenv('CACHING_ENABLED')
 if CACHING_ENABLED then
   lrucache = require "resty.lrucache"
@@ -56,6 +61,9 @@ local _M = {}
 -- @param password redis password (nil if no password)
 -- @param timeout redis timeout in milliseconds
 function _M.init(host, port, password, timeout)
+  local host = REDIS_HOST
+  local password = REDIS_PASS
+  local port = REDIS_PORT
   local redis = require "resty.redis"
   local red = redis:new()
   red:set_timeout(timeout)

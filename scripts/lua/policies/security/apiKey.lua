@@ -23,7 +23,7 @@
 -- Check a subscription with an API Key
 -- @author Cody Walker (cmwalker), Alex Song (songs)
 
-local redis = require "lib/redis"
+local dataStore = require "lib/dataStore"
 local utils = require "lib/utils"
 local request = require "lib/request"
 
@@ -41,7 +41,7 @@ local _M = {}
 -- @param scope scope of the subscription
 -- @param apiKey the subscription api key
 -- @param return boolean value indicating if the subscription exists in redis
-function validate(red, tenant, gatewayPath, apiId, scope, apiKey)
+function validate(ds, tenant, gatewayPath, apiId, scope, apiKey)
   -- Open connection to redis or use one from connection pool
   local k
   if scope == 'tenant' then
@@ -52,18 +52,15 @@ function validate(red, tenant, gatewayPath, apiId, scope, apiKey)
     k = utils.concatStrings({'subscriptions:tenant:', tenant, ':api:', apiId})
   end
   k = utils.concatStrings({k, ':key:', apiKey})
-  if redis.exists(red, k) == 1 then
+  if dataStore.exists(ds, k) == 1 then
     return k 
   else 
     return nil 
   end
 end
 
-function process(securityObj)
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  local result = processWithRedis(red, securityObj, sha256)
-  redis.close(red)
-  return result
+function process(ds, securityObj)
+  return processWithHashFunction(ds, securityObj, sha256)
 end
 
 --- Process the security object
@@ -71,10 +68,10 @@ end
 -- @param securityObj security object from nginx conf file
 -- @param hashFunction a function that will be called to hash the string
 -- @return apiKey api key for the subscription
-function processWithRedis(red, securityObj, hashFunction)
+function processWithHashFunction(ds, securityObj, hashFunction)
   local tenant = ngx.var.tenant
   local gatewayPath = ngx.var.gatewayPath
-  local apiId = redis.resourceToApi(red, utils.concatStrings({'resources:', tenant, ':', gatewayPath}))
+  local apiId = dataStore.resourceToApi(ds, utils.concatStrings({'resources:', tenant, ':', gatewayPath}))
   local scope = securityObj.scope
   local header = (securityObj.header == nil) and 'x-api-key' or securityObj.header
   local apiKey = ngx.var[utils.concatStrings({'http_', header}):gsub("-", "_")]
@@ -85,7 +82,7 @@ function processWithRedis(red, securityObj, hashFunction)
   if securityObj.hashed then
     apiKey = hashFunction(apiKey)
   end
-  local key = validate(red, tenant, gatewayPath, apiId, scope, apiKey)
+  local key = validate(ds, tenant, gatewayPath, apiId, scope, apiKey)
   if key == nil then
     request.err(401, 'Unauthorized') 
     return nil
@@ -105,8 +102,7 @@ function sha256(str)
   local digest = sha:final()
   return resty_str.to_hex(digest)
 end
-
+_M.processWithHashFunction = processWithHashFunction
 _M.process = process
-_M.processWithRedis = processWithRedis
 
 return _M

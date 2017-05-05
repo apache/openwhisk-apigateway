@@ -26,7 +26,7 @@
 
 local utils = require "lib/utils"
 local request = require "lib/request"
-local redis = require "lib/redis"
+local dataStore = require "lib/dataStore"
 local cjson = require "cjson"
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
@@ -35,18 +35,12 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
-function process(securityObj)
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  local result = processWithRedis(red, securityObj)
-  redis.close(red)
-  return result
-end
 
 
 -- Process the security object
 -- @param securityObj security object from nginx conf file
 -- @return oauthId oauth identification
-function processWithRedis(red, securityObj)
+function process(ds, securityObj)
   local accessToken = ngx.var['http_Authorization']
   if accessToken == nil then
     request.err(401, "No Authorization header provided")
@@ -54,7 +48,7 @@ function processWithRedis(red, securityObj)
   end
   accessToken = string.gsub(accessToken, '^Bearer%s', '')
  
-  local token = exchangeWithRedis(red, accessToken, securityObj.provider)
+  local token = exchange(ds, accessToken, securityObj.provider)
   if token == nil then
     request.err(401, 'Token didn\'t work or provider doesn\'t support OpenID connect. ')
     return nil
@@ -72,9 +66,8 @@ end
 -- @param token the accessToken passed in the authorization header of the routing request
 -- @param provider the name of the provider we will load from a file. Currently supported google/github/facebook
 -- @return the json object recieved from exchanging tokens with the provider
-  function exchangeWithRedis(red, token, provider)
+function exchange(ds, token, provider)
     -- exchange tokens with the provider
-    print (provider)
     local loaded, provider = pcall(require, utils.concatStrings({'oauth/', provider}))
  
     if not loaded then
@@ -82,11 +75,10 @@ end
       print("error loading provider.")
       return nil
     end
-    local token = provider(red, token)
+    local token = provider(ds, token)
     -- cache the token
     return token
 end
 
 _M.process = process
-_M.processWithRedis = processWithRedis
 return _M
