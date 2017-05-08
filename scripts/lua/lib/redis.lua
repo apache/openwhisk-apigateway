@@ -29,10 +29,14 @@ local lrucache
 local CACHE_SIZE
 local CACHE_TTL
 local c, err
+local uuid = require 'resty.jit-uuid'
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
 local REDIS_PASS = os.getenv("REDIS_PASS")
+uuid.seed()
+local snapshotId = uuid.generate_v4()
+
 
 local CACHING_ENABLED = os.getenv('CACHING_ENABLED')
 if CACHING_ENABLED then
@@ -60,6 +64,10 @@ local _M = {}
 -- @param port redis port
 -- @param password redis password (nil if no password)
 -- @param timeout redis timeout in milliseconds
+
+function _M.setSnapshotId(id) 
+  snapshotId = id
+end 
 function _M.init(host, port, password, timeout)
   local host = REDIS_HOST
   local password = REDIS_PASS
@@ -466,6 +474,7 @@ end
 -- LRU Caching methods 
 
 function exists(red, key) 
+  local key = utils.concatStrings({'snapshot:', snapshotId, ':', key}) 
   if CACHING_ENABLED then 
     local cached = c:get(key)
     if cached ~= nil then 
@@ -484,6 +493,7 @@ function exists(red, key)
 end 
 
 function get(red, key) 
+  local key = utils.concatStrings({'snapshot:', snapshotId, ':', key}) 
   if CACHING_ENABLED then 
     local cached, stale = c:get(key)
     if cached ~= nil then
@@ -499,6 +509,7 @@ function get(red, key)
 end
 
 function hget(red, key, id) 
+  local key = utils.concatStrings({'snapshot:', snapshotId, ':', key}) 
   if CACHING_ENABLED then 
     local cachedmap, stale = c:get(key)
     if cachedmap ~= nil then
@@ -524,10 +535,12 @@ function hget(red, key, id)
 end 
 
 function hgetall(red, key) 
+  local key = utils.concatStrings({'snapshot:', snapshotId, ':', key}) 
   return red:hgetall(key)
 end 
 
 function hset(red, key, id, value)
+  local key = utils.concatStrings({'snapshot:', snapshotId, ':', key}) 
   if CACHING_ENABLED then 
     local cachedmap = c:get(key)
     if cachedmap ~= nil then 
@@ -544,6 +557,7 @@ function hset(red, key, id, value)
 end 
 
 function expire(red, key, ttl) 
+  local key = utils.concatStrings({'snapshot:', snapshotId, ':', key}) 
   if CACHING_ENABLED then 
     local cached = c:get(key) 
     local value = '' 
@@ -556,6 +570,7 @@ function expire(red, key, ttl)
 end 
 
 function del(red, key) 
+  local key = utils.concatStrings({'snapshot:', snapshotId, ':', key})  
   if CACHING_ENABLED then 
     c:delete(key)
   end
@@ -563,6 +578,7 @@ function del(red, key)
 end
  
 function hdel(red, key, id)
+  local key = utils.concatStrings({'snapshot:', snapshotId, ':', key}) 
   if CACHING_ENABLED then 
     local cachecontents = c:get(key) 
     if cachecontents ~= nil then
@@ -574,18 +590,22 @@ function hdel(red, key, id)
 end 
 
 function set(red, key, value) 
+  local key = utils.concatStrings({'snapshot:', snapshotId, ':', key}) 
   return red:set(key, value) 
 end 
 
 function smembers(red, key) 
+  local key = utils.concatStrings({'snapshot:', snapshotId, ':', key}) 
   return red:smembers(key) 
 end
 
 function srem(red, key, id)
+  local key = utils.concatStrings({'snapshot:', snapshotId, ':', key}) 
   return red:srem(key, id) 
 end 
 
 function sadd(red, key, id)
+  local key = utils.concatStrings({'snapshot:', snapshotId, ':', key}) 
   return red:sadd(key, id) 
 end 
 

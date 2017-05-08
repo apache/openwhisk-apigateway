@@ -182,6 +182,15 @@ RUN echo " ... installing lua-resty-lrucache... " \
     && rm -rf /tmp/api-gateway
 
 
+ENV LUA_RESTY_JIT_UUID_VERSION 0.0.6
+RUN echo " ... installing lua-resty-jit-uuid... " \
+    && apk update \
+    && apk add make \
+    && mkdir -p /tmp/api-gateway \
+    && curl -k -L https://github.com/thibaultcha/lua-resty-jit-uuid/archive/${LUA_RESTY_JIT_UUID_VERSION}.tar.gz -o /tmp/api-gateway/lua-resty-jit-uuid-${LUA_RESTY_JIT_UUID_VERSION}.tar.gz \
+    && tar -xf /tmp/api-gateway/lua-resty-jit-uuid-${LUA_RESTY_JIT_UUID_VERSION}.tar.gz -C /tmp/api-gateway/ \
+    && cd /tmp/api-gateway/lua-resty-jit-uuid-${LUA_RESTY_JIT_UUID_VERSION} \
+    && cp -r lib/resty /usr/local/api-gateway/lualib 
 
 ENV NETURL_LUA_VERSION 0.9-1
 RUN echo " ... installing neturl.lua ... " \
@@ -192,7 +201,6 @@ RUN echo " ... installing neturl.lua ... " \
     && cd /tmp/api-gateway/neturl-${NETURL_LUA_VERSION} \
     && cp lib/net/url.lua ${LUA_LIB_DIR} \
     && rm -rf /tmp/api-gateway
-
 
 RUN \
     curl -L -k -s -o /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 \
