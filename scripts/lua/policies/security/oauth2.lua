@@ -68,16 +68,19 @@ end
 -- @return the json object recieved from exchanging tokens with the provider
 function exchange(ds, token, provider)
     -- exchange tokens with the provider
-    local loaded, provider = pcall(require, utils.concatStrings({'oauth/', provider}))
- 
+    local loaded, impl = pcall(require, utils.concatStrings({'oauth/', provider}))
     if not loaded then
       request.err(500, 'Error loading OAuth provider authentication module')
       print("error loading provider.")
       return nil
     end
-    local token = provider(ds, token)
+    
+    local result = impl.process(ds, token)
+    if result == nil then 
+      request.err('401', 'OAuth token didn\'t work or provider doesn\'t support OpenID connect')
+    end 
     -- cache the token
-    return token
+    return result
 end
 
 _M.process = process

@@ -85,8 +85,16 @@ function _M.addSwagger(ds, id, swagger)
   return impl.addSwagger(ds, id, swagger)
 end
 
--- to be removed in the future
+function _M.getOAuthToken(ds, provider, token) 
+  return impl.getOAuthToken(ds, provider, token)
+end
+
+function _M.createOAuthToken(ds, provider, token, body, ttl) 
+  return impl.createOAuthToken(ds, provider, token, body, ttl) 
+end 
+
 function _M.exists(ds, key) 
   return impl.exists(ds, key) 
 end 
+-- to be removed in the future
 return _M

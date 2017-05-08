@@ -21,18 +21,17 @@
 -- A Proxy for Github OAuth API
 local cjson = require "cjson"
 local http = require "resty.http"
-local httpc = http.new()
 local request = require "lib/request"
 local cjson = require "cjson"
 local utils = require "lib/utils"
+local dataStore = require "lib/dataStore"
+local _M = {} 
 
-function validateOAuthToken (red, token)
- 
-  local key = utils.concatStrings({'oauth:provider:github:', token})
-  if redis.exists(red, key) == 1 then
-    redis.close(red)
-    return cjson.decode(redis.get(red, key))
-  end
+function _M.process(ds, token)
+  local result = dataStore.getOAuthToken(ds, 'github', token) 
+  if result ~= ngx.null then 
+    return cjson.decode(result)
+  end 
  
   local request_options = {
     headers = {
@@ -40,6 +39,8 @@ function validateOAuthToken (red, token)
     },
     ssl_verify = false
   }
+
+  local httpc = http.new()
 
   local envUrl = os.getenv('TOKEN_GITHUB_URL')
   envUrl = envUrl ~= nil and envUrl or 'https://api.github.com/user'
@@ -61,12 +62,10 @@ function validateOAuthToken (red, token)
     return nil
   end
 
-  redis.set(red, key, cjson.encode(json_resp))
+  dataStore.createOAuthToken(ds, 'github', token) 
   -- convert Github's response
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
   return json_resp
 end
 
-return validateOAuthToken
-
-
+return _M 

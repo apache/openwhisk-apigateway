@@ -404,6 +404,24 @@ function _M.deleteSubscription(red, key)
   end
 end
 
+-----------------------------
+--- OAuth Tokens          ---
+-----------------------------
+function _M.getOAuthToken(red, provider, token) 
+  return get(red, utils.concatStrings({'oauth:providers:', provider, ':tokens:', token})) 
+end
+
+
+
+function _M.createOAuthToken(red, provider, token, body, ttl) 
+  set(red, utils.concatStrings({'oauth:providers:', provider, ':tokens:', token}), body)
+  if ttl ~= nil then
+    expire(red, utils.concatStrings({'oauth:providers:', provider, ':tokens:', token}), ttl)
+  end
+end 
+
+
+
 --- Check health of gateway
 function _M.healthCheck()
   request.success(200,  "Status: Gateway ready.")
