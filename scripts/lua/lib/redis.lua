@@ -64,10 +64,14 @@ local _M = {}
 -- @param port redis port
 -- @param password redis password (nil if no password)
 -- @param timeout redis timeout in milliseconds
+function _M.getSnapshotId() 
+  return snapshotId
+end 
 
 function _M.setSnapshotId(id) 
   snapshotId = id
 end 
+
 function _M.init(host, port, password, timeout)
   local host = REDIS_HOST
   local password = REDIS_PASS
