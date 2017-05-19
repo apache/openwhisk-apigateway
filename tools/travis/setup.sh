@@ -4,7 +4,7 @@ SCRIPTDIR=$(cd $(dirname "$0") && pwd)
 HOMEDIR="$SCRIPTDIR/../../../"
 
 sudo gpasswd -a travis docker
-sudo -E bash -c 'echo '\''DOCKER_OPTS="-H tcp://0.0.0.0:4243 -H unix:///var/run/docker.sock --api-enable-cors --storage-driver=aufs"'\'' > /etc/default/docker'
+sudo -E bash -c 'echo '\''DOCKER_OPTS="-H tcp://0.0.0.0:4243 -H unix:///var/run/docker.sock --storage-driver=overlay --userns-remap=default"'\'' > /etc/default/docker'
 
 # Docker
 sudo apt-get -y update -qq
@@ -16,11 +16,11 @@ echo "Docker Info:"
 docker info
 
 # Python
-sudo apt-get -y install python-pip
 pip install --user jsonschema
+pip install --user couchdb
 
 # Ansible
-pip install --user ansible==2.1.2.0
+pip install --user ansible==2.3.0.0
 
 # jshint support
 sudo apt-get -y install nodejs npm
@@ -28,4 +28,4 @@ sudo npm install -g jshint
 
 # OpenWhisk stuff
 cd $HOMEDIR
-git clone https://github.com/openwhisk/openwhisk.git
+git clone --depth=1 https://github.com/apache/incubator-openwhisk.git openwhisk
