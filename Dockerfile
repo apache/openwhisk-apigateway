@@ -13,6 +13,7 @@ RUN apk update \
     perl-test-longstring perl-list-moreutils perl-http-message geoip-dev \
     && update-ca-certificates
 
+
 # openresty build
 ENV OPENRESTY_VERSION=1.9.7.3 \
     NAXSI_VERSION=0.53-2 \
@@ -22,7 +23,8 @@ ENV OPENRESTY_VERSION=1.9.7.3 \
     _exec_prefix=/usr/local \
     _localstatedir=/var \
     _sysconfdir=/etc \
-    _sbindir=/usr/local/sbin
+    _sbindir=/usr/local/sbin \
+    LD_LIBRARY_PATH=/usr/local/lib
 
 RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
      && mkdir -p /tmp/api-gateway \
@@ -126,6 +128,21 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
     && rm -rf /var/cache/apk/* \
     && rm -rf /tmp/api-gateway
 
+
+ENV HIREDIS_VERSION 0.13.3 
+RUN echo "... installing hiredis..." \
+  && apk update \
+  && apk add make gcc \
+  && mkdir -p /tmp/api-gateway \
+  && curl -k -L https://github.com/redis/hiredis/archive/v${HIREDIS_VERSION}.tar.gz -o /tmp/api-gateway/hiredis-v${HIREDIS_VERSION}.tar.gz \
+  && tar -xf /tmp/api-gateway/hiredis-v${HIREDIS_VERSION}.tar.gz -C /tmp/api-gateway/ \
+  && cd /tmp/api-gateway/hiredis-${HIREDIS_VERSION} \
+  && make && make install \
+  && rm -rf /tmp/api-gateway
+
+
+
+
 ENV LUA_RESTY_HTTP_VERSION 0.07
 RUN echo " ... installing lua-resty-http..." \
     && apk update \
@@ -214,6 +231,8 @@ COPY . /etc/api-gateway
 RUN adduser -S nginx-api-gateway \
     && addgroup -S nginx-api-gateway
 ONBUILD COPY . /etc/api-gateway
+RUN cd /etc/api-gateway/cache_invalidator && make && make install
+
 
 EXPOSE 80 8080 8423 9000
 
