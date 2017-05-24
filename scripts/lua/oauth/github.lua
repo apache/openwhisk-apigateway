@@ -21,13 +21,13 @@
 -- A Proxy for Github OAuth API
 local cjson = require "cjson"
 local http = require "resty.http"
-local httpc = http.new()
+local redis = require "lib/redis"
 local request = require "lib/request"
 local cjson = require "cjson"
 local utils = require "lib/utils"
 
 function validateOAuthToken (red, token)
- 
+  local httpc = http.new()
   local key = utils.concatStrings({'oauth:provider:github:', token})
   if redis.exists(red, key) == 1 then
     redis.close(red)
