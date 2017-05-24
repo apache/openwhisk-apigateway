@@ -22,6 +22,7 @@
 local cjson = require "cjson"
 local http = require "resty.http"
 local httpc = http.new()
+local redis = require "lib/redis"
 local request = require "lib/request"
 local cjson = require "cjson"
 local utils = require "lib/utils"
