@@ -23,11 +23,10 @@ local cjson = require "cjson"
 local http = require "resty.http"
 local request = require "lib/request"
 local utils = require "lib/utils"
-local httpc = http.new()
 local redis = require "lib/redis"
 
 function validateOAuthToken (red, token)
-
+  local httpc = http.new()
   local key = utils.concatStrings({'oauth:provider:google:', token})
   if redis.exists(red, key) == 1 then
     redis.close(red)
