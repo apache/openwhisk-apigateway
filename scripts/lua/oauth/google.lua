@@ -29,7 +29,6 @@ function validateOAuthToken (red, token)
   local httpc = http.new()
   local key = utils.concatStrings({'oauth:provider:google:', token})
   if redis.exists(red, key) == 1 then
-    redis.close(red)
     return cjson.decode(redis.get(red, key))
   end
 
