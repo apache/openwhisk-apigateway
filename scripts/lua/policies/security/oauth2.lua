@@ -74,7 +74,6 @@ end
 -- @return the json object recieved from exchanging tokens with the provider
   function exchangeWithRedis(red, token, provider)
     -- exchange tokens with the provider
-    print (provider)
     local loaded, provider = pcall(require, utils.concatStrings({'oauth/', provider}))
  
     if not loaded then
