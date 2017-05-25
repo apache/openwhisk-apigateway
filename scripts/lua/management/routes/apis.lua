@@ -22,7 +22,7 @@
 -- Management interface for apis for the gateway
 
 local cjson = require "cjson"
-local redis = require "lib/redis"
+local dataStore = require "lib/dataStore"
 local utils = require "lib/utils"
 local request = require "lib/request"
 local apis = require "management/lib/apis"
@@ -37,84 +37,82 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 local _M = {}
 
 --- Request handler for routing API calls appropriately
-function _M.requestHandler()
+function _M.requestHandler(dataStore)
   local requestMethod = ngx.req.get_method()
   ngx.header.content_type = "application/json; charset=utf-8"
   if requestMethod == "GET" then
-    getAPIs()
+    getAPIs(dataStore)
   elseif requestMethod == 'POST' or requestMethod == 'PUT' then
-    addAPI()
+    addAPI(dataStore)
   elseif requestMethod == "DELETE" then
-    deleteAPI()
+    deleteAPI(dataStore)
   else
     request.err(400, "Invalid verb.")
   end
 end
 
-function getAPIs()
+function getAPIs(dataStore)
   local queryParams = ngx.req.get_uri_args()
   local id = ngx.var.api_id
   local version = ngx.var.version
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   if id == '' then
     local apiList
     if version == 'v1' then
-      apiList = apis.getAllAPIs(red, queryParams)
+      apiList = apis.getAllAPIs(dataStore, queryParams)
     elseif version == 'v2' then
       local tenantId = ngx.var.tenantId
       local v2ApiList = {}
-      apiList = tenants.getTenantAPIs(red, tenantId, queryParams)
+      apiList = tenants.getTenantAPIs(dataStore, tenantId, queryParams)
       for _, api in pairs(apiList) do
         v2ApiList[#v2ApiList+1] = {
           artifact_id = api.id,
           managed_url = api.managedUrl,
-          open_api_doc = redis.getSwagger(red, api.id)
+          open_api_doc = dataStore:getSwagger(api.id)
         }
       end
       apiList = v2ApiList
     end
     apiList = (next(apiList) == nil) and "[]" or cjson.encode(apiList)
-    redis.close(red)
+    dataStore:close(ds)
     request.success(200, apiList)
   else
     local query = ngx.var.query
     if query ~= '' then
       if query ~= "tenant" then
-        redis.close(red)
+        dataStore:close()
         request.err(400, "Invalid request")
       else
-        local tenant = apis.getAPITenant(red, id)
+        local tenant = apis.getAPITenant(dataStore, id)
         tenant = cjson.encode(tenant)
-        redis.close(red)
+        dataStore:close()
         request.success(200, tenant)
       end
     else
-      local api = apis.getAPI(red, id)
+      local api = apis.getAPI(dataStore, id)
       if version == 'v1' then
-        redis.close(red)
+        dataStore:close()
         api = cjson.encode(api)
         request.success(200, api)
       elseif version == 'v2' then
         local returnObj = {
           artifact_id = api.id,
           managed_url = api.managedUrl,
-          open_api_doc = redis.getSwagger(red, api.id)
+          open_api_doc = dataStore:getSwagger(ds, api.id)
         }
-        redis.close(red)
+        dataStore.close()
         request.success(200, cjson.encode(returnObj))
       end
     end
   end
 end
 
-function addAPI()
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
+function addAPI(dataStore)
   local id = ngx.var.api_id
-  local existingAPI = checkForExistingAPI(red, id)
+  local existingAPI = checkForExistingAPI(dataStore, id)
   ngx.req.read_body()
   local args = ngx.req.get_body_data()
   if not args then
-    redis.close(red)
+    dataStore:close()
     request.err(400, "Missing request body")
   end
   -- Convert json into Lua table
@@ -131,54 +129,53 @@ function addAPI()
       namespace = tenantId,
       instance = ''
     }
-    tenants.addTenant(red, tenant, {id = tenantId})
+    tenants.addTenant(dataStore, tenant, {id = tenantId})
     decoded.tenantId = tenantId
   end
   -- Check for api id in JSON body
   if existingAPI == nil and decoded.id ~= nil then
-    existingAPI = redis.getAPI(red, decoded.id)
+    existingAPI = dataStore.getAPI(decoded.id)
     if existingAPI == nil then
-      redis.close(red)
+      dataStore:close()
       request.err(404, utils.concatStrings({"Unknown API id ", decoded.id}))
     end
   end
-  local err = validation.validate(red, decoded)
+  local err = validation.validate(dataStore, decoded)
   if err ~= nil then
-    redis.close(red)
+    dataStore:close()
     request.err(err.statusCode, err.message)
   end
-  local managedUrlObj = apis.addAPI(red, decoded, existingAPI)
+  local managedUrlObj = apis.addAPI(dataStore, decoded, existingAPI)
   if version == 'v1' then
-    redis.close(red)
+    dataStore:close(ds)
     managedUrlObj = cjson.encode(managedUrlObj)
     request.success(200, managedUrlObj)
   elseif version == 'v2' then
-    redis.addSwagger(red, managedUrlObj.id, swaggerTable)
+    dataStore:addSwagger(managedUrlObj.id, swaggerTable)
     local returnObj = {
       artifact_id = managedUrlObj.id,
       managed_url = managedUrlObj.managedUrl,
       open_api_doc = swaggerTable
     }
-    redis.close(red)
+    dataStore:close()
     request.success(200, cjson.encode(returnObj))
   end
 end
 
-function deleteAPI()
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
+function deleteAPI(dataStore)
   local id = ngx.var.api_id
   if id == nil or id == '' then
-    redis.close(red)
+    dataStore:close()
     request.err(400, "No id specified.")
   end
-  apis.deleteAPI(red, id)
+  apis.deleteAPI(ds, id)
   local version = ngx.var.version
   if version == 'v1' then
-    redis.close(red)
+    dataStore:close()
     request.success(200, cjson.encode({}))
   elseif version == 'v2' then
-    redis.deleteSwagger(red, id)
-    redis.close(red)
+    dataStore:deleteSwagger(id)
+    dataStore:close()
     request.success(204)
   end
 end
@@ -186,12 +183,12 @@ end
 --- Check for api id from uri and use existing API if it already exists in redis
 -- @param red Redis client instance
 -- @param id API id to check
-function checkForExistingAPI(red, id)
+function checkForExistingAPI(dataStore, id)
   local existing
   if id ~= nil and id ~= '' then
-    existing = redis.getAPI(red, id)
+    existing = dataStore:getAPI(id)
     if existing == nil then
-      redis.close(red)
+      dataStore:close()
       request.err(404, utils.concatStrings({"Unknown API id ", id}))
     end
   end

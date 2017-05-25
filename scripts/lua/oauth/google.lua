@@ -25,12 +25,15 @@ local request = require "lib/request"
 local utils = require "lib/utils"
 local redis = require "lib/redis"
 
-function validateOAuthToken (red, token)
+local _M = {} 
+function _M.process (ds, token)
+
+  local result = dataStore:getOAuthToken(dataStore, 'google', token) 
+  
   local httpc = http.new()
-  local key = utils.concatStrings({'oauth:provider:google:', token})
-  if redis.exists(red, key) == 1 then
-    return cjson.decode(redis.get(red, key))
-  end
+  if result ~= ngx.null then 
+    return cjson.decode(result)
+  end 
 
   local request_options = {
     headers = {
@@ -38,6 +41,7 @@ function validateOAuthToken (red, token)
     },
     ssl_verify = false
   }
+  
   local envUrl = os.getenv('TOKEN_GOOGLE_URL')
   envUrl = envUrl ~= nil and envUrl or 'https://www.googleapis.com/oauth2/v3/tokeninfo'
   local request_uri = utils.concatStrings({envUrl, "?access_token=", token})
@@ -48,19 +52,15 @@ function validateOAuthToken (red, token)
     request.err(500, 'OAuth provider error.')
     return nil
   end
-  local json_resp = cjson.decode(res.body)
- 
-  if (json_resp.error_description) then
+  local json_resp = cjson.decode(res.body) 
+  if json_resp['error_description'] ~= nil then 
     return nil
   end
-
-  redis.set(red, key, cjson.encode(json_resp))
-  redis.expire(red, key, json_resp['expires'])
+  
+  dataStore:saveOAuthToken('google', token, cjson.encode(json_resp), json_resp['expires'])
   -- convert Google's response
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
   return json_resp
 end
 
-return validateOAuthToken
-
-
+return _M 

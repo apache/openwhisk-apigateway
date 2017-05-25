@@ -25,13 +25,13 @@ local redis = require "lib/redis"
 local request = require "lib/request"
 local cjson = require "cjson"
 local utils = require "lib/utils"
+local _M = {} 
 
-function validateOAuthToken (red, token)
-  local httpc = http.new()
-  local key = utils.concatStrings({'oauth:provider:github:', token})
-  if redis.exists(red, key) == 1 then
-    return cjson.decode(redis.get(red, key))
-  end
+function _M.process(dataStore, token)
+  local result = dataStore:getOAuthToken('github', token) 
+  if result ~= ngx.null then 
+    return cjson.decode(result)
+  end 
  
   local request_options = {
     headers = {
@@ -39,6 +39,8 @@ function validateOAuthToken (red, token)
     },
     ssl_verify = false
   }
+
+  local httpc = http.new()
 
   local envUrl = os.getenv('TOKEN_GITHUB_URL')
   envUrl = envUrl ~= nil and envUrl or 'https://api.github.com/user'
@@ -60,12 +62,10 @@ function validateOAuthToken (red, token)
     return nil
   end
 
-  redis.set(red, key, cjson.encode(json_resp))
+  dataStore:saveOAuthToken('github', token) 
   -- convert Github's response
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
   return json_resp
 end
 
-return validateOAuthToken
-
-
+return _M 

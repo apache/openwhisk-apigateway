@@ -46,7 +46,7 @@ describe('Testing routing module', function()
     local expected = 'resources:guest:bp1/test/hello'
     local tenant = 'guest'
     local path = 'bp1/test/hello'
-    local actual = routing.findRedisKey(keys, tenant, path)
+    local actual = routing.findResource(keys, tenant, path)
     assert.are.same(expected, actual)
     expected = 'bp1/test/hello'
     actual = ngx.var.gatewayPath
@@ -57,7 +57,7 @@ describe('Testing routing module', function()
     local expected = nil
     local tenant = 'guest'
     local path = 'bp1/bad/path'
-    local actual = routing.findRedisKey(keys, tenant, path)
+    local actual = routing.findResource(keys, tenant, path)
     assert.are.same(expected, actual)
   end)
 
@@ -65,7 +65,7 @@ describe('Testing routing module', function()
     local expected = 'resources:guest:nobp'
     local tenant = 'guest'
     local path = 'nobp'
-    local actual = routing.findRedisKey(keys, tenant, path)
+    local actual = routing.findResource(keys, tenant, path)
     assert.are.same(expected, actual)
     expected = 'nobp'
     actual = ngx.var.gatewayPath
@@ -76,7 +76,7 @@ describe('Testing routing module', function()
     local expected = 'resources:guest:noresource/'
     local tenant = 'guest'
     local path = 'noresource/'
-    local actual = routing.findRedisKey(keys, tenant, path)
+    local actual = routing.findResource(keys, tenant, path)
     assert.are.same(expected, actual)
     expected = 'noresource/'
     actual = ngx.var.gatewayPath
