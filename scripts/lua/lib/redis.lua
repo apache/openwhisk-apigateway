@@ -29,7 +29,6 @@ local lrucache
 local CACHE_SIZE
 local CACHE_TTL
 local c, err
-
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
 local REDIS_PASS = os.getenv("REDIS_PASS")
