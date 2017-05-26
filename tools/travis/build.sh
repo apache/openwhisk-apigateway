@@ -46,4 +46,4 @@ export OPENWHISK_HOME=$WHISKDIR
 # Test
 cd $WHISKDIR
 cat whisk.properties
-./gradlew tests:test -x :core:swift3Action:distDocker -x :core:pythonAction:distDocker -x :core:javaAction:distDocker -x :core:nodejsAction:distDocker  -x :core:actionProxy:distDocker -x :sdk:docker:distDocker -x :core:python2Action:copyFiles -x :core:python2Action:distDocker -x :tests:dat:blackbox:badaction:distDocker -x :tests:dat:blackbox:badproxy:distDocker --tests apigw.healthtests.*
+./gradlew tests:test -x :core:swift3Action:distDocker -x :core:pythonAction:distDocker -x :core:javaAction:distDocker -x :core:nodejsAction:distDocker  -x :core:actionProxy:distDocker -x :sdk:docker:distDocker -x :core:python2Action:copyFiles -x :core:python2Action:distDocker -x :tests:dat:blackbox:badaction:distDocker -x :tests:dat:blackbox:badproxy:distDocker --tests apigw.healthtests.* --tests whisk.core.apigw.* --tests whisk.core.cli.test.ApiGwTests
