@@ -73,7 +73,7 @@ function getAPIs(dataStore)
       apiList = v2ApiList
     end
     apiList = (next(apiList) == nil) and "[]" or cjson.encode(apiList)
-    dataStore:close(ds)
+    dataStore:close()
     request.success(200, apiList)
   else
     local query = ngx.var.query
@@ -97,7 +97,7 @@ function getAPIs(dataStore)
         local returnObj = {
           artifact_id = api.id,
           managed_url = api.managedUrl,
-          open_api_doc = dataStore:getSwagger(ds, api.id)
+          open_api_doc = dataStore:getSwagger(api.id)
         }
         dataStore.close()
         request.success(200, cjson.encode(returnObj))
@@ -147,7 +147,7 @@ function addAPI(dataStore)
   end
   local managedUrlObj = apis.addAPI(dataStore, decoded, existingAPI)
   if version == 'v1' then
-    dataStore:close(ds)
+    dataStore:close()
     managedUrlObj = cjson.encode(managedUrlObj)
     request.success(200, managedUrlObj)
   elseif version == 'v2' then
@@ -168,7 +168,7 @@ function deleteAPI(dataStore)
     dataStore:close()
     request.err(400, "No id specified.")
   end
-  apis.deleteAPI(ds, id)
+  apis.deleteAPI(dataStore, id)
   local version = ngx.var.version
   if version == 'v1' then
     dataStore:close()
