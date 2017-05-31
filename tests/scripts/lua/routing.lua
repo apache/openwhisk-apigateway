@@ -22,6 +22,8 @@ local fakengx = require 'fakengx'
 local fakeredis = require 'fakeredis'
 local redis = require 'lib/redis'
 local routing = require 'routing'
+local cjson = require 'cjson'
+
 
 describe('Testing routing module', function()
   before_each(function()
@@ -39,6 +41,7 @@ describe('Testing routing module', function()
     local field = 'resources'
     for _, key in pairs(keys) do
       red:hset(key, field, redis.generateResourceObj(operations, nil))
+      red:sadd('resources:guest:__index__', key)
     end
   end)
 
@@ -46,7 +49,8 @@ describe('Testing routing module', function()
     local expected = 'resources:guest:bp1/test/hello'
     local tenant = 'guest'
     local path = 'bp1/test/hello'
-    local actual = routing.findResource(keys, tenant, path)
+    local ds = require 'lib/dataStore'
+    local actual = routing.findResource(ds.initWithDriver(red), tenant, path)
     assert.are.same(expected, actual)
     expected = 'bp1/test/hello'
     actual = ngx.var.gatewayPath
@@ -57,8 +61,8 @@ describe('Testing routing module', function()
     local expected = nil
     local tenant = 'guest'
     local path = 'bp1/bad/path'
-    local actual = routing.findResource(keys, tenant, path)
-    print(actual)
+    local ds = require 'lib/dataStore'
+    local actual = routing.findResource(ds.initWithDriver(red), tenant, path)
     assert.are.same(expected, actual)
   end)
 
@@ -66,7 +70,8 @@ describe('Testing routing module', function()
     local expected = 'resources:guest:nobp'
     local tenant = 'guest'
     local path = 'nobp'
-    local actual = routing.findResource(keys, tenant, path)
+    local ds = require 'lib/dataStore'
+    local actual = routing.findResource(ds.initWithDriver(red), tenant, path)
     assert.are.same(expected, actual)
     expected = 'nobp'
     actual = ngx.var.gatewayPath
@@ -77,7 +82,8 @@ describe('Testing routing module', function()
     local expected = 'resources:guest:noresource/'
     local tenant = 'guest'
     local path = 'noresource/'
-    local actual = routing.findResource(keys, tenant, path)
+    local ds = require 'lib/dataStore'
+    local actual = routing.findResource(ds.initWithDriver(red), tenant, path)
     assert.are.same(expected, actual)
     expected = 'noresource/'
     actual = ngx.var.gatewayPath
@@ -131,8 +137,9 @@ describe('Testing routing with snapshotting', function()
     local dataStore = ds.initWithDriver(red)
     dataStore:setSnapshotId('test')
     local result = dataStore:getAllResources('test')[1]
+    print ('etst')
     assert.are.same(result, 'resources:test:v1/test')
     local routing = require  'routing'
-    local result = routing.findResource(dataStore:getAllResources('test'), 'test', 'v1/test')
+    local result = routing.findResource(dataStore, dataStore:getAllResources('test'), 'test', 'v1/test')
   end)
 end)
