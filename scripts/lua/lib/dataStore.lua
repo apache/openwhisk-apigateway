@@ -1,8 +1,3 @@
-
-
-
-
-
 local DATASTORE = os.getenv( 'DATASTORE')
 local utils = require('lib/utils')
 
@@ -21,10 +16,9 @@ function DataStore:init()
   return o
 end
 
-function DataStore:setSnapshotId(tenant) 
+function DataStore:setSnapshotId(tenant)
   self.snapshotId = self.impl.getSnapshotId(self.ds, tenant)
-  print ('Set snapshot id: ' .. self.snapshotId)
-end 
+end
 -- right now just using this for the tests
 function DataStore:initWithDriver(ds)
 local o = {}
@@ -47,7 +41,7 @@ function DataStore:getAllAPIs()
   return self.impl.getAllAPIs(self.ds)
 end
 
-function DataStore:getAPI(id)
+function DataStore:getAPI(id, snapshotId)
   return self.impl.getAPI(self.ds, id)
 end
 
@@ -56,7 +50,7 @@ function DataStore:deleteAPI(id)
 end
 
 function DataStore:resourceToApi(resource)
-  return self.impl.resourceToApi(self.ds, resource)
+  return self.impl.resourceToApi(self.ds, resource, self.snapshotId)
 end
 
 function DataStore:generateResourceObj(ops, apiId, tenantObj, cors)

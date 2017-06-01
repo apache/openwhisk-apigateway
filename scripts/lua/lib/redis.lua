@@ -180,7 +180,10 @@ function _M.deleteAPI(red, id)
   end
 end
 
-function _M.resourceToApi(red, resource)
+function _M.resourceToApi(red, resource, snapshotId)
+  if snapshotId ~= nil then 
+    resource = utils.concatStrings({'snapshots:', snapshotId, ':', resource})
+  end
   local resource = hget(red, resource, "resources")
   if resource == ngx.null then
     return nil
@@ -291,7 +294,6 @@ function _M.getAllResources(red, tenantId, snapshotId)
   if snapshotId ~= nil then
     key = utils.concatStrings({'snapshots:', snapshotId, ':', key})
   end
-  print ('smembers on key: ' .. key)
   local keys, err = smembers(red, key)
   if not keys then
     request.err(500, utils.concatStrings({"Failed to retrieve resource keys: ", err}))

@@ -47,8 +47,12 @@ describe('API Key module', function()
         "type":"apikey"
       }
     ]])
-    red:hset('resources:abcd:v1/test', 'resources', '{"apiId":"bnez"}')
-    red:set('subscriptions:tenant:abcd:api:bnez:key:a1234', 'true')
+    red:set('snapshots:tenant:abcd', 'abcdefg') 
+
+    red:hset('snapshots:abcdefg:resources:abcd:v1/test', 'resources', '{"apiId":"bnez"}')
+    red:set('snapshots:abcdefg:subscriptions:tenant:abcd:api:bnez:key:a1234', 'true')
+    local dataStore = ds.initWithDriver(red) 
+    dataStore:setSnapshotId('abcd')
     local key = apikey.process(dataStore, securityObj, function() return "fakehash" end)
     assert.same(key, 'a1234')
   end)
@@ -318,6 +322,60 @@ describe('Client Secret Module', function()
     red:set("subscriptions:tenant:1234:resource:v1/test:clientsecret:abcd:fakehash", "true")
     local result = clientSecret.processWithHashFunction(red, cjson.decode(securityObj), function() return "fakehash" end)
     assert(result)
+  end)
+  it('Validates a client secret pair with default names and snapshotting', function()
+    local ngx = fakengx.new()
+    local red = fakeredis.new()
+    local ngxattrs = [[
+      {
+       "http_X_Client_ID":"abcd",
+       "http_X_Client_Secret":"1234",
+       "tenant":"1234",
+       "gatewayPath":"v1/test"
+      }
+    ]]
+    ngx.var = cjson.decode(ngxattrs)
+    _G.ngx = ngx
+    local securityObj = [[
+      {
+        "type":"clientsecret",
+        "scope":"resource"
+      }
+    ]]
+    red:set("snapshots:tenant:1234", "abcdefg")
+    red:set("snapshots:abcdefg:subscriptions:tenant:1234:resource:v1/test:clientsecret:abcd:fakehash", "true")
+    local ds = require 'lib/dataStore'
+    local dataStore = ds.initWithDriver(red) 
+    dataStore:setSnapshotId("1234")
+    local result = clientSecret.processWithHashFunction(dataStore, cjson.decode(securityObj), function() return "fakehash" end)
+    assert(result)
+  end)
+  it('Doesn\'t validate a client secret pair in a different snapshot', function()
+    local ngx = fakengx.new()
+    local red = fakeredis.new()
+    local ngxattrs = [[
+      {
+       "http_X_Client_ID":"abcd",
+       "http_X_Client_Secret":"1234",
+       "tenant":"1234",
+       "gatewayPath":"v1/test"
+      }
+    ]]
+    ngx.var = cjson.decode(ngxattrs)
+    _G.ngx = ngx
+    local securityObj = [[
+      {
+        "type":"clientsecret",
+        "scope":"resource"
+      }
+    ]]
+    red:set("snapshots:tenant:1234", "abcdefg")
+    red:set("snapshots:abcdefh:subscriptions:tenant:1234:resource:v1/test:clientsecret:abcd:fakehash", "true")
+    local ds = require 'lib/dataStore'
+    local dataStore = ds.initWithDriver(red) 
+    dataStore:setSnapshotId("1234")
+    local result = clientSecret.processWithHashFunction(dataStore, cjson.decode(securityObj), function() return "fakehash" end)
+    assert.falsy(result)
   end)
   it('Validates a client secret pair with new names', function()
     local ngx = fakengx.new()

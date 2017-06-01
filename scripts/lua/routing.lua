@@ -32,6 +32,7 @@ local rateLimit = require "policies/rateLimit"
 local backendRouting = require "policies/backendRouting"
 local cors = require "cors"
 
+
 local SNAPSHOTTING = os.getenv('SNAPSHOTTING')
 
 local _M = {}
@@ -93,7 +94,7 @@ function _M.processCall(dataStore)
         setRequestLogs()
       end
       dataStore:close()
-      return
+      return nil
     end
   end
   request.err(404, 'Whoops. Verb not supported.')

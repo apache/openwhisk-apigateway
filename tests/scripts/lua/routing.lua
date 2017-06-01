@@ -58,6 +58,7 @@ describe('Testing routing module', function()
     local tenant = 'guest'
     local path = 'bp1/bad/path'
     local actual = routing.findResource(keys, tenant, path)
+    print(actual)
     assert.are.same(expected, actual)
   end)
 
@@ -118,5 +119,20 @@ describe('Testing routing module', function()
     actual = ngx.ctx.var2
     assert.are.same(expected, actual)
   end)
+end)
 
+describe('Testing routing with snapshotting', function()
+  it('Gets a redis key for a tenant with the correct snapshot', function()
+    local red = fakeredis.new()
+    red:set('snapshots:tenant:test', 'abcd1234')
+    red:sadd('snapshots:abcd1234:resources:test:__index__', 'snapshots:abcd1234:resources:test:v1/test')
+    red:hset('snapshots:abcd1234:resources:test:v1/test', 'resources', '{"operations":{}}')
+    local ds = require 'lib/dataStore'
+    local dataStore = ds.initWithDriver(red)
+    dataStore:setSnapshotId('test')
+    local result = dataStore:getAllResources('test')[1]
+    assert.are.same(result, 'resources:test:v1/test')
+    local routing = require  'routing'
+    local result = routing.findResource(dataStore:getAllResources('test'), 'test', 'v1/test')
+  end)
 end)
