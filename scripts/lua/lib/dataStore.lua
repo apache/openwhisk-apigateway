@@ -21,6 +21,10 @@ function DataStore:init()
   return o
 end
 
+function DataStore:setSnapshotId(tenant) 
+  self.snapshotId = self.impl.getSnapshotId(self.ds, tenant)
+  print ('Set snapshot id: ' .. self.snapshotId)
+end 
 -- right now just using this for the tests
 function DataStore:initWithDriver(ds)
 local o = {}
@@ -71,10 +75,10 @@ function DataStore:deleteResourceFromIndex(index, resourceKey)
   return self.impl.deleteResourceFromIndex(self.ds, index, resourceKey)
 end
 function DataStore:getResource(key, field)
-  return self.impl.getResource(self.ds, key, field)
+  return self.impl.getResource(self.ds, key, field, self.snapshotId)
 end
 function DataStore:getAllResources(tenantId)
-  return self.impl.getAllResources(self.ds, tenantId)
+  return self.impl.getAllResources(self.ds, tenantId, self.snapshotId)
 end
 function DataStore:deleteResource(key, field)
   return self.impl.deleteResource(self.ds, key, field)
@@ -120,7 +124,7 @@ function DataStore:saveOAuthToken(provider, token, body, ttl)
 end
 
 function DataStore:exists(key)
-  return self.impl.exists(self.ds, key)
+  return self.impl.exists(self.ds, key, self.snapshotId)
 end
 
 function DataStore:setRateLimit(key, value, interval, expires)

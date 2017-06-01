@@ -266,8 +266,12 @@ end
 -- @param red redis client instance
 -- @param key redis resource key
 -- @param field redis resource field
+-- @param snapshotId an optional snapshotId
 -- @return resourceObj redis object containing operations for resource
-function _M.getResource(red, key, field)
+function _M.getResource(red, key, field, snapshotId)
+  if snapshotId ~= nil then
+    key = utils.concatStrings({"snapshots:", snapshotId, ":", key})
+  end
   local resourceObj, err = hget(red, key, field)
   if not resourceObj then
     request.err(500, utils.concatStrings({"Failed to retrieve the resource: ", err}))
@@ -282,12 +286,22 @@ end
 --- Get all resource keys for a tenant in redis
 -- @param red redis client instance
 -- @param tenantId tenant id
-function _M.getAllResources(red, tenantId)
-  local keys, err = smembers(red, utils.concatStrings({"resources:", tenantId, ":__index__"}))
+function _M.getAllResources(red, tenantId, snapshotId)
+  local key = utils.concatStrings({'resources:', tenantId, ':__index__'})
+  if snapshotId ~= nil then
+    key = utils.concatStrings({'snapshots:', snapshotId, ':', key})
+  end
+  print ('smembers on key: ' .. key)
+  local keys, err = smembers(red, key)
   if not keys then
     request.err(500, utils.concatStrings({"Failed to retrieve resource keys: ", err}))
   end
-  return keys
+  local result = {}
+  for _, v in ipairs(keys) do
+    local str = v:gsub(utils.concatStrings({'snapshots:', snapshotId, ':', ''}), '')
+    table.insert(result, str)
+  end
+  return result
 end
 
 --- Delete resource in redis
@@ -338,6 +352,10 @@ function _M.addTenant(red, id, tenantObj)
   end
   return tenantObj
 end
+
+function _M.getSnapshotId(red, tenantId) 
+ return red:get(utils.concatStrings({'snapshots:tenant:', tenantId})) 
+end 
 
 --- Get all tenants from redis
 -- @param red Redis client instance
@@ -472,7 +490,10 @@ function _M.getRateLimit(red, key)
 end
 -- LRU Caching methods
 
-function exists(red, key)
+function exists(red, key, snapshotId)
+  if snapshotId ~= nil then
+    key = utils.concatStrings({'snapshots:', snapshotId, ':', key})
+  end
   if CACHING_ENABLED then
     local cached = c:get(key)
     if cached ~= nil then
