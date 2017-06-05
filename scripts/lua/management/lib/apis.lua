@@ -44,6 +44,7 @@ function _M.getAllAPIs(dataStore, queryParams)
   end
   if apiList == nil then
     apiList = {}
+    print ('apis: ' .. cjson.encode(apis))
     for k, v in pairs(apis) do
       if k%2 == 0 then
         apiList[#apiList+1] = cjson.decode(v)

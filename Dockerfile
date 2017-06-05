@@ -36,7 +36,7 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
      && tar -zxf ./openresty-${OPENRESTY_VERSION}.tar.gz \
      && tar -zxf ./pcre-${PCRE_VERSION}.tar.gz \
      && tar -zxf ./naxsi-${NAXSI_VERSION}.tar.gz \
-     && cd /tmp/api-gateway/openresty-${OPENRESTY_VERSION} \ 
+     && cd /tmp/api-gateway/openresty-${OPENRESTY_VERSION} \
 
      && echo "        - building debugging version of the api-gateway ... " \
      && ./configure \
@@ -181,7 +181,14 @@ RUN echo " ... installing lua-resty-lrucache... " \
             INSTALL=${_prefix}/api-gateway/bin/resty-install \
     && rm -rf /tmp/api-gateway
 
-
+ENV LUA_CASSANDRA_VERSION 1.2.2
+RUN echo " ... installing lua-resty-cassandra... " \
+    && mkdir -p /tmp/api-gateway \
+    && curl -k -L https://github.com/thibaultcha/lua-cassandra/archive/${LUA_CASSANDRA_VERSION}.tar.gz -o /tmp/api-gateway/lua-cassandra-${LUA_CASSANDRA_VERSION}.tar.gz \
+    && tar -xf /tmp/api-gateway/lua-cassandra-${LUA_CASSANDRA_VERSION}.tar.gz -C /tmp/api-gateway \
+    && cd /tmp/api-gateway/lua-cassandra-${LUA_CASSANDRA_VERSION} \
+    && cp -r lib/* /usr/local/api-gateway/lualib \
+    && rm -rf /tmp/api-gateway
 
 ENV NETURL_LUA_VERSION 0.9-1
 RUN echo " ... installing neturl.lua ... " \

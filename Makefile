@@ -18,7 +18,7 @@ profile-build:
 	docker build -t openwhisk/apigateway-profiling -f Dockerfile.profiling .
 
 .PHONY: profile-run
-profile-run: profile-build 
+profile-run: profile-build
 	docker run --rm --name="apigateway" --privileged -p 80:80 -p ${PUBLIC_MANAGEDURL_PORT}:8080 -p 9000:9000 \
 		-e PUBLIC_MANAGEDURL_HOST=${PUBLIC_MANAGEDURL_HOST} -e PUBLIC_MANAGEDURL_PORT=${PUBLIC_MANAGEDURL_PORT} \
 		-e REDIS_HOST=${REDIS_HOST} -e REDIS_PORT=${REDIS_PORT} -e REDIS_PASS=${REDIS_PASS} \
@@ -40,6 +40,10 @@ docker-run:
 		-e TOKEN_GOOGLE_URL=https://www.googleapis.com/oauth2/v3/tokeninfo \
 	 	-e TOKEN_FACEBOOK_URL=https://graph.facebook.com/debug_token \
 		-e TOKEN_GITHUB_URL=https://api.github.com/user \
+		-e DATASTORE=cassandra \
+		-e CASSANDRA_HOST=172.17.0.1 \
+		-e CASSANDRA_PORT=9042 \
+		-e CASSANDRA_KEYSPACE=apigateway \
 		openwhisk/apigateway:latest
 
 .PHONY: docker-debug

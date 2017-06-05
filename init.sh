@@ -51,12 +51,12 @@ api-gateway -t -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway.conf
 echo "   ... using log level: '${log_level}'. Override it with -e 'LOG_LEVEL=<level>' "
 api-gateway -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway.conf -g "daemon off; error_log /dev/stderr ${log_level};" &
 
-if [[ -n "${redis_host}" && -n "${redis_port}" ]]; then
-    sleep 1  # sleep until api-gateway is set up
+#if [[ -n "${redis_host}" && -n "${redis_port}" ]]; then
+#    sleep 1  # sleep until api-gateway is set up
     tail -f /var/log/api-gateway/access.log -f /var/log/api-gateway/error.log \
          -f /var/log/api-gateway/gateway_error.log -f /var/log/api-gateway/management.log
-else
-    echo "REDIS_HOST and/or REDIS_PORT not defined"
-fi
+#else
+#    echo "REDIS_HOST and/or REDIS_PORT not defined"
+#fi
 
 
