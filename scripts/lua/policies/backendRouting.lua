@@ -46,7 +46,7 @@ function _M.setDynamicRoute(obj)
     whitelist[k] = whitelist[k]:lower()
   end
   local header = obj.header ~= nil and obj.header or 'X-Cf-Forwarded-Url'
-  local dynamicBackend = ngx.req.get_headers()[header];
+  local dynamicBackend = ngx.req.get_headers()[header]
   if dynamicBackend ~= nil and dynamicBackend ~= '' then
     local u = url.parse(dynamicBackend)
     if u.scheme == nil or u.scheme == '' then
@@ -54,6 +54,11 @@ function _M.setDynamicRoute(obj)
     end
     if utils.tableContains(whitelist, u.host) then
       ngx.req.set_uri(getUriPath(u.path))
+      local query = ngx.req.get_uri_args()
+      for k, v in pairs(u.query) do
+        query[k] = v
+      end
+      ngx.req.set_uri_args(query)
       setUpstream(u)
     else
       request.err(403, 'Dynamic backend host not part of whitelist.')
