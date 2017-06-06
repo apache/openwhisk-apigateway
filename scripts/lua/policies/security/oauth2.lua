@@ -74,7 +74,7 @@ function exchange(dataStore, token, provider)
       print("error loading provider.")
       return nil
     end
-   
+
     local result = impl.process(dataStore, token)
     if result == nil then
       request.err('401', 'OAuth token didn\'t work or provider doesn\'t support OpenID connect')
