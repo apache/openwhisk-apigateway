@@ -50,7 +50,8 @@ function _M.processCall(dataStore)
   if redisKey == nil then
     request.err(404, 'Not found.')
   end
-  local obj = cjson.decode(dataStore:getResource(redisKey, "resources"))
+  local obj = dataStore:getResource(redisKey, "resources")
+  obj = cjson.decode(obj)
   cors.processCall(obj)
   ngx.var.tenantNamespace = obj.tenantNamespace
   ngx.var.tenantInstance = obj.tenantInstance

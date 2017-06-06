@@ -29,101 +29,55 @@ function _M.init()
   return cluster
 end
 
-function _M.createTables(session)
-  local keyspace_created, err = session:execute([[
-  CREATE KEYSPACE ]] .. CASSANDRA_KEYSPACE .. [[ WITH REPLICATION =
-    {'class':'NetworkTopologyStrategy', 'datacenter1':1} AND DURABLE_WRITES=false]])
-  if err then
-    print ('error creating keyspace: ' .. cjson.encode(err))
-  end
-  local table_created, err = session:execute([[
-    CREATE TABLE IF NOT EXISTS ]] .. CASSANDRA_KEYSPACE .. [[.tenant (
-      tenant_id varchar PRIMARY KEY,
-      namespace varchar,
-      instance varchar)
-  ]])
-  if err then
-    request.err(503, utils.concatStrings({'Error creating cassandra tables: ', cjson.encode(err)}))
-  end
-  local table_created, err = session:execute([[
-    CREATE TABLE IF NOT EXISTS ]] .. CASSANDRA_KEYSPACE .. [[.api (
-      api_id varchar PRIMARY KEY,
-      tenant_id varchar
-    )
-  ]])
-
- if err then
-    request.err(503, utils.concatStrings({'Error creating cassandra tables: ', cjson.encode(err)}))
-  end
-  local table_created, err = session:execute([[
-    CREATE TABLE IF NOT EXISTS ]] .. CASSANDRA_KEYSPACE .. [[.resource (
-      tenant_id varchar PRIMARY KEY, 
-      resource_path varchar PRIMARY KEY,
-      api_id varchar,
-      cors varchar,
-      value varchar,
-      PRIMARY KEY(tenant_id, resource_path)
-    )
-  ]])
- 
-  if err then
-    request.err(503, utils.concatStrings({'Error creating cassandra tables: ', cjson.encode(err)}))
-  end
-
-  local table_created, err = session:execute([[
-    CREATE TABLE IF NOT EXISTS ]] .. CASSANDRA_KEYSPACE .. [[.subscription (
-      key varchar PRIMARY KEY,
-      scope varchar,
-      value varchar
-    )
-  ]])
-  if err then
-    request.err(503, utils.concatStrings({'Error creating cassandra tables: ', cjson.encode(err)}))
-  end
-
-  local table_created, err = session:execute([[
-    CREATE TABLE IF NOT EXISTS ]] .. CASSANDRA_KEYSPACE .. [[.oauth (
-      token varchar PRIMARY KEY,
-      provider varchar PRIMARY KEY,
-      value varchar,
-      PRIMARY KEY(provider, token)
-    )
-  ]])
-  started = true
-  local table_created, err = session:execute([[
-    CREATE TABLE IF NOT EXISTS ]] .. CASSANDRA_KEYSPACE .. [[.ratelimit (
-      key varchar PRIMARY_KEY,
-      value varchar,
-      interval int
-    )
-  ]])
-
-  if err then
-    request.err(503, utils.concatStrings({'Error creating cassandra tables: ', cjson.encode(err)}))
-  end
-end
-
 function _M.addAPI(session, id, apiObj, existingAPI)
-
-
+  if existingAPI == nil then
+    local apis = _M.getAllAPIs(session)
+    for apiId, obj in pairs(apis) do
+      if apiId%2 == 0 then
+        obj = cjson.decode(obj)
+        if obj.tenantId == apiObj.tenantId and obj.basePath == apiObj.basePath then
+          request.err(500, "basePath not unique for given tenant.")
+        end
+      end
+    end
+  else -- emulate the logic in redis.lua, just delete all the resources for a given api
+    local basePath = existingAPI.basePath:sub(2)
+    for path, v in pairs(existingAPI.resources) do
+      local gatewayPath = ngx.unescape_uri(utils.concatStrings({basePath, ngx.escape_uri(path)}))
+      gatewayPath = gatewayPath:sub(1,1) == "/" and gatewayPath:sub(2) or gatewayPath
+      local redisKey = utils.concatStrings({"resources:", existingAPI.tenantId, ":", gatewayPath})
+      _M.deleteResource(red, redisKey, REDIS_FIELD)
+    end
+  end
+  local tenantId = apiObj.tenantId
+  apiObj = cjson.encode(apiObj)
+  local ok, err = session:execute(string.format("INSERT into %s.api (api_id, tenant_id, value) VALUES ('%s', '%s', '%s')", CASSANDRA_KEYSPACE, id, tenantId, apiObj))
+  if err then
+    request.err(500, 'Failed to save api: ' .. err)
+  end
+  return cjson.decode(apiObj)
 end
 
 function _M.getAllAPIs(session)
   local rows, err = session:execute ([[
     SELECT * FROM ]] .. CASSANDRA_KEYSPACE .. [[.api
   ]])
-  local result = {} 
+  local result = {}
+  print (cjson.encode(rows))
   for _, v in ipairs(rows) do
-    local api_id = v['api_id'] 
-    result[api_id] = v.value
+    table.insert(result, v['api_id'])
+    table.insert(result, v['value'])
   end
   return result
 end
 
 function _M.getAPI(session, id)
-  return session:execute([[
+  local rows, err = session:execute([[
     SELECT value FROM ]] .. CASSANDRA_KEYSPACE .. [[.api where api_id = ']] .. id .. [['
     ]])
+  for _,v in ipairs(rows) do
+    return v.value
+  end
 end
 
 function _M.deleteAPI(session, id)
@@ -133,11 +87,11 @@ function _M.deleteAPI(session, id)
 end
 
 function _M.resourceToApi(session, id)
-  id = id:gsub('resources:')
-  local tenantId = id:gsplit(':')[0]
-  local resourcePath = id:gsplit(':')[1]
+  local spl = _M.stringSplit(id)
+  local tenantId = spl[1]
+  local gatewayPath = spl[2]
   return session:execute ([[
-    SELECT api_id FROM ]] .. CASSANDRA_KEYSPACE [[.resource where tenant_id=']] .. tenantId .. [[' and resource_path=']] .. resourcePath .. [['
+    SELECT api_id FROM ]] .. CASSANDRA_KEYSPACE [[.resource where tenant_id=']] .. tenantId .. [[' and resource_path=']] .. gatewayPath .. [['
   ]])
 end
 
@@ -175,10 +129,14 @@ end
 
 
 function _M.createResource(session, key, field, resourceObj)
-  local tenantId = stringSplit(key)[1]
-  local resourcePath = stringSplit(key)[2]
-  local apiId = resourceObj.apiId
-  return session:execute(string.format("INSERT into %s.resource (tenant_id, resource_path, api_id) VALUES ('%s', '%s', '%s', '%s')", CASSANDRA_KEYSPACE, tenantId, resourcePath, apiId, cjson.encode(resourceObj)))
+  local tenantId = _M.stringSplit(key)[1]
+  local resourcePath = _M.stringSplit(key)[2]
+  local apiId = cjson.decode(resourceObj).apiId
+  local ok, err = session:execute(string.format("INSERT into %s.resource (tenant_id, resource_path, api_id, value) VALUES ('%s', '%s', '%s', '%s')", CASSANDRA_KEYSPACE, tenantId, resourcePath, apiId, resourceObj))
+
+  if err then
+    request.err(500, 'Failed to create resource: ' .. err)
+  end
 end
 
 function _M.addResourceToIndex(session, index, resourceKey)
@@ -191,41 +149,76 @@ end
 
 
 function _M.getResource(session, key, field)
-  local tenantId = stringSplit(key)[1]
-  local resourcePath = stringSplit(key)[2]
-  return session:execute(string.format("SELECT value from %s.resource WHERE tenant_id='%s' and resource_path='%s'", CASSANDRA_KEYSPACE, tenantId, resourcePath))
+  local tenantId = _M.stringSplit(key)[1]
+  local resourcePath = _M.stringSplit(key)[2]
+  local rows, err = session:execute(string.format("SELECT value from %s.resource WHERE tenant_id='%s' and resource_path='%s'", CASSANDRA_KEYSPACE, tenantId, resourcePath))
+  for _, v in ipairs(rows) do
+    return v.value
+  end
 end
 
 function _M.getAllResources(session, tenantId)
   local data = session:execute(string.format("SELECT resource_path from %s.resource WHERE tenant_id='%s'", CASSANDRA_KEYSPACE, tenantId))
   local result = {}
-  for _, v in ipairs(results) do
-    table.insert(result, utils.concatStrings({'resources:', tenantId, ':', v})) -- emulate the redis behavior
+  for _, v in ipairs(data) do
+    table.insert(result, utils.concatStrings({'resources:', tenantId, ':', v['resource_path']})) -- emulate the redis behavior
   end
+  return result
 end
 
 function _M.deleteResource(session, key, field)
-  local tenantId = stringSplit(key)[1]
-  local resourcePath = stringSplit(key)[2]
-  return session:execute(string.format("DELETE from %s.resource WHERE tenant_id='%s' and resource_path='%s'", CASSANDRA_KEYSPACE, tenantId, resourcePath))
+  local tenantId = _M.stringSplit(key)[1]
+  local resourcePath = _M.stringSplit(key)[2]
+  local ok, err = session:execute(string.format("DELETE from %s.resource WHERE tenant_id='%s' and resource_path='%s'", CASSANDRA_KEYSPACE, tenantId, resourcePath))
+  if err then
+    request.err(500, 'Failed to delete resource: ' .. err)
+  end
 end
 
 function _M.addTenant(session, id, tenantObj)
-  return session:execute(string.format("INSERT into %s.tenant (tenant_id, value) VALUES ('%s', '%s')", CASSANDRA_KEYSPACE, tenantId, cjson.encode(tenantObj)))
+  local tenants = _M.getAllTenants(session)
+  for tenantId, obj in pairs(tenants) do
+    if tenantId%2 == 0 then
+      obj = cjson.decode(obj)
+      if obj.namespace == tenantObj.namespace and obj.instance == tenantObj.instance then
+        return cjson.encode(obj)
+      end
+    end
+  end
+  tenantObj = cjson.encode(tenantObj)
+  local ok, err = session:execute(string.format("INSERT into %s.tenant (tenant_id, value) VALUES ('%s', '%s')", CASSANDRA_KEYSPACE, id, tenantObj))
+  if err then
+    request.err(500, 'Error creating tenant: ' .. cjson.encode(err))
+  end
+  return tenantObj
 end
 
 function _M.getAllTenants(session)
-  return session:execute(string.format("SELECT value FROM %s.tenant", CASSANDRA_KEYSPACE))
-
+  local rows, err = session:execute(string.format("SELECT * FROM %s.tenant", CASSANDRA_KEYSPACE))
+  local result = {}
+  if rows == nil then
+    return {}
+  end
+  for _, v in ipairs(rows) do
+    table.insert(result, v['tenant_id'])
+    table.insert(result, v['value'])
+  end
+  return result
 end
 
 function _M.getTenant(session, id)
-  return session:execute(string.format("SELECT value FROM %s.tenant where tenant_id='%s'", CASSANDRA_KEYSPACE, id))
+  local rows, err = session:execute(string.format("SELECT value FROM %s.tenant where tenant_id='%s'", CASSANDRA_KEYSPACE, id))
+  for _, v in ipairs(rows) do
+    return cjson.decode(v.value)
+  end
 end
 
 
 function _M.deleteTenant(session, id)
-  return session:execute(string.format("DELETE FROM %s.tenant where tenant_id='%s'", CASSANDRA_KEYSPACE, id))
+  local ok, err = session:execute(string.format("DELETE FROM %s.tenant where tenant_id='%s'", CASSANDRA_KEYSPACE, id))
+  if err then
+    request.err(500, 'Error deleting tenant: ' .. err)
+  end
 end
 
 function _M.createSubscription(session, key)
@@ -266,7 +259,7 @@ function _M.setRateLimit(session, key, value, interval, expires)
 
 end
 
-function splitString(key)
+function _M.stringSplit(key)
   local result = {}
   local splitter = key:gmatch('[^:]*')
   result[0] = splitter()
@@ -277,7 +270,7 @@ function splitString(key)
   return result
 end
 
-function _M.close() 
+function _M.close()
   return nil
 end
 
