@@ -6,6 +6,10 @@ local cjson = require 'cjson'
 local utils = require 'lib/utils'
 local _M = {}
 local started = true
+function _M.setKeyspace(keyspace)
+  CASSANDRA_KEYSPACE = keyspace
+end
+
 function _M.init()
   local Cluster = require 'resty.cassandra.cluster'
   if not started then
@@ -59,11 +63,8 @@ function _M.addAPI(session, id, apiObj, existingAPI)
 end
 
 function _M.getAllAPIs(session)
-  local rows, err = session:execute ([[
-    SELECT * FROM ]] .. CASSANDRA_KEYSPACE .. [[.api
-  ]])
+  local rows, err = session:execute(string.format("SELECT * from %s.api", CASSANDRA_KEYSPACE))
   local result = {}
-  print (cjson.encode(rows))
   for _, v in ipairs(rows) do
     table.insert(result, v['api_id'])
     table.insert(result, v['value'])
@@ -72,27 +73,33 @@ function _M.getAllAPIs(session)
 end
 
 function _M.getAPI(session, id)
-  local rows, err = session:execute([[
-    SELECT value FROM ]] .. CASSANDRA_KEYSPACE .. [[.api where api_id = ']] .. id .. [['
-    ]])
+  local rows, err = session:execute(string.format("SELECT * from %s.api where api_id='%s'", CASSANDRA_KEYSPACE, id))
+  if err then
+    request.err(500, utils.concatStrings({'Error getting api: ', err}))
+  end
   for _,v in ipairs(rows) do
     return v.value
   end
 end
 
 function _M.deleteAPI(session, id)
-  return session:execute([[
-    DELETE FROM ]] .. CASSANDRA_KEYSPACE .. [[.api where api_id =']] .. id .. [['
-  ]])
+  local ok, err = session:execute(string.format("DELETE from %s.api where api_id='%s'", CASSANDRA_KEYSPACE, id))
+  if err then
+    request.err(500, utils.concatStrings({'Error deleting api: ', err}))
+  end
 end
 
 function _M.resourceToApi(session, id)
   local spl = _M.stringSplit(id)
   local tenantId = spl[1]
   local gatewayPath = spl[2]
-  return session:execute ([[
-    SELECT api_id FROM ]] .. CASSANDRA_KEYSPACE [[.resource where tenant_id=']] .. tenantId .. [[' and resource_path=']] .. gatewayPath .. [['
-  ]])
+  local rows, err = session:execute(string.format("SELECT api_id FROM %s.resource where tenant_id='%s' and resource_path='%s'", CASSANDRA_KEYSPACE,tenantId, gatewayPath))
+  if err then
+    request.err(500, utils.concatStrings({'Error resolving resource to api: ', err}))
+  end
+  for _, v in ipairs(rows) do
+    return v.api_id
+  end
 end
 
 function _M.generateResourceObj(ops, apiId, tenantObj, cors)
@@ -135,7 +142,7 @@ function _M.createResource(session, key, field, resourceObj)
   local ok, err = session:execute(string.format("INSERT into %s.resource (tenant_id, resource_path, api_id, value) VALUES ('%s', '%s', '%s', '%s')", CASSANDRA_KEYSPACE, tenantId, resourcePath, apiId, resourceObj))
 
   if err then
-    request.err(500, 'Failed to create resource: ' .. err)
+    request.err(500, utils.concatStrings({'Failed to create resource: ' .. err}))
   end
 end
 
@@ -231,32 +238,65 @@ end
 
 
 function _M.addSwagger(session, id, swagger)
-
+  local ok, err = session:execute(string.format("INSERT into %s.swagger (swagger_id, value) VALUES ('%s', '%s')", CASSANDRA_KEYSPACE, id, swagger))
+  if err then
+    request.err(500, utils.concatStrings({'Error saving swagger: ', err}))
+  end
 end
 
 function _M.getSwagger(session, id)
-
+  local rows, err = session:execute(string.format("SELECT value FROM %s.swagger where swagger_id='%s'", CASSANDRA_KEYSPACE, id))
+  if err then
+    request.err(500, utils.concatStrings({'Error getting swagger: ', err}))
+  end
+  for _, v in ipairs(rows) do
+    return v.value
+  end
 end
 
 function _M.getOAuthToken(session, provider, token)
-
-
+  local rows, err = session:execute(string.format("SELECT value FROM %s.oauth where provider='%s' and oauth_token='%s'", CASSANDRA_KEYSPACE, provider, token))
+  if err then
+    request.err(utils.concatStrings({500, 'Error getting oauth token: ', err}))
+  end
+  for _, v in ipairs(rows) do
+    return v.value
+  end
 end
 
 function _M.saveOAuthToken(session, provider, token, body)
+  local ok, err = session:execute(string.format("INSERT INTO %s.oauth (provider, oauth_token, value) VALUES ('%s', '%s', '%s')", CASSANDRA_KEYSPACE, provider, token, cjson.encode(body)))
+  if err then
+    request.err(500, utils.concatStrings({'Error setting oauth token: ', err}))
+  end
+  return nil
+end
 
-
+function _M.subscriptionExists(session, key)
+  local rows, err = session.execute(string.format("SELECT * from %s.subscription where key='%s'", CASSANDRA_KEYSPACE, key))
+  if err then
+    request.err(500, utils.concatStrings({'Error retrieving subscription: ', err}))
+  end
+  if #rows > 0 then
+    return 1
+  end
+  return 0
 end
 
 function _M.getRateLimit(session, key)
-
-
+  local ok, err = session:execute(string.format("SELECT * from %s.ratelimit where key='%s'", CASSANDRA_KEYSPACE, key))
+  if err then
+    request.err(500, utils.concatStrings({'Error retrieviing ratelimiting key: ', err}))
+  end
 end
 
 
 function _M.setRateLimit(session, key, value, interval, expires)
-
-
+  local ok, err = session:execute(string.format("INSERT into %s.ratelimit (key) VALUES ('%s') USING TTL %d", CASSANDRA_KEYSPACE, key, expires))
+  if err then
+    request.err(500, utils.concatStrings({'Error setting ratelimiting key: ', err}))
+  end
+  return nil
 end
 
 function _M.stringSplit(key)

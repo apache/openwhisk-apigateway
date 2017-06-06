@@ -52,7 +52,7 @@ function validate(dataStore, tenant, gatewayPath, apiId, scope, apiKey)
     k = utils.concatStrings({'subscriptions:tenant:', tenant, ':api:', apiId})
   end
   k = utils.concatStrings({k, ':key:', apiKey})
-  if dataStore:exists(k) == 1 then
+  if dataStore:subscriptionExists(k) == 1 then
     return k
   else
     return nil

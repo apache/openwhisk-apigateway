@@ -61,7 +61,7 @@ end
 function _M.deleteSubscription(red, artifactId, tenantId, clientId)
   local subscriptionKey = utils.concatStrings({"subscriptions:tenant:", tenantId, ":api:", artifactId})
   local key = utils.concatStrings({subscriptionKey, ":key:", clientId})
-  if redis.exists(red, key) == 1 then
+  if redis.subscriptionExists(red, key) == 1 then
     redis.deleteSubscription(red, key)
   else
     local pattern = utils.concatStrings({subscriptionKey, ":clientsecret:" , clientId, ":*"})

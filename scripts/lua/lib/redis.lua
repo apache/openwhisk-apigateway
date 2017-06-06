@@ -599,6 +599,6 @@ end
 
 _M.get = get
 _M.set = set
-_M.exists = exists
+_M.subscriptionExists = exists
 _M.expire = expire
 return _M

@@ -101,7 +101,7 @@ function validate(dataStore, tenant, gatewayPath, apiId, scope, clientId, client
   end
   -- using the same key location in redis, just using :clientsecret: instead of :key:
   k = utils.concatStrings({k, ':clientsecret:', clientId, ':', clientSecret})
-  if dataStore:exists(k) == 1 then
+  if dataStore:subscriptionExists(k) == 1 then
     return k
   else
     return nil

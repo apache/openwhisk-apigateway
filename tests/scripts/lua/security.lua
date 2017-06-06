@@ -30,7 +30,7 @@ describe('API Key module', function()
     local red = fakeredis.new()
     local ngx = fakengx.new()
     local ds = require "lib/dataStore"
-    local dataStore = ds.initWithDriver(red) 
+    local dataStore = ds.initWithDriver(red, 'redis')
     local ngxattrs = cjson.decode([[
       {
         "tenant":"abcd",
@@ -54,7 +54,7 @@ describe('API Key module', function()
   it('Returns nil with a bad apikey', function()
     local red = fakeredis.new()
     local ds = require "lib/dataStore"
-    local dataStore = ds.initWithDriver(red)
+    local dataStore = ds.initWithDriver(red, 'redis')
     local ngx = fakengx.new()
     local ngxattrs = cjson.decode([[
       {
@@ -78,7 +78,7 @@ describe('API Key module', function()
   it('Checks for a key with a custom header', function()
     local red = fakeredis.new()
     local ds = require "lib/dataStore"
-    local dataStore = ds.initWithDriver(red)
+    local dataStore = ds.initWithDriver(red, 'redis')
     local ngx = fakengx.new()
     local ngxattrs = cjson.decode([[
       {
@@ -103,8 +103,8 @@ describe('API Key module', function()
   end)
   it('Checks for a key with a custom header and hash configuration', function()
     local red = fakeredis.new()
-    local ds = require "lib/dataStore" 
-    local dataStore = ds.initWithDriver(red) 
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red, 'redis')
     local ngx = fakengx.new()
     local ngxattrs = cjson.decode([[
       {
@@ -155,7 +155,7 @@ describe('OAuth security module', function()
     assert(result)
   end)
   it('Exchanges a bad token, doesn\'t cache it and returns false', function()
-    local red = fakeredis.new()  
+    local red = fakeredis.new()
     local token = "bad"
     local ngxattrs = [[
       {
@@ -180,8 +180,8 @@ describe('OAuth security module', function()
   end)
   it('Loads a facebook token from the cache without a valid app id', function()
     local red = fakeredis.new()
-    local ds = require "lib/dataStore" 
-    local dataStore = ds.initWithDriver(red)
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red, 'redis')
     local token = "test"
     local ngxattrs = [[
       {
@@ -208,7 +208,7 @@ describe('OAuth security module', function()
   it('Loads a facebook token from the cache with a valid app id', function()
     local red = fakeredis.new()
     local ds = require "lib/dataStore"
-    local dataStore = ds.initWithDriver(red)
+    local dataStore = ds.initWithDriver(red, 'redis')
     local token = "test"
     local appid = "app"
     local ngxattrs = [[
@@ -239,6 +239,8 @@ describe('Client Secret Module', function()
   it('Validates a client secret pair with default names', function()
     local ngx = fakengx.new()
     local red = fakeredis.new()
+    local ds = require ('lib/dataStore')
+    local dataStore = ds.initWithDriver(red, 'redis')
     local ngxattrs = [[
       {
        "http_X_Client_ID":"abcd",
@@ -256,12 +258,15 @@ describe('Client Secret Module', function()
       }
     ]]
     red:set("subscriptions:tenant:1234:resource:v1/test:clientsecret:abcd:fakehash", "true")
-    local result = clientSecret.processWithHashFunction(red, cjson.decode(securityObj), function() return "fakehash" end)
+    local result = clientSecret.processWithHashFunction(dataStore, cjson.decode(securityObj), function() return "fakehash" end)
     assert(result)
   end)
   it('Validates a client secret pair with new names', function()
     local ngx = fakengx.new()
     local red = fakeredis.new()
+
+    local ds = require ('lib/dataStore')
+    local dataStore = ds.initWithDriver(red, 'redis')
     local ngxattrs = [[
       {
         "http_test_id":"abcd",
@@ -281,12 +286,14 @@ describe('Client Secret Module', function()
       }
     ]]
     red:set("subscriptions:tenant:1234:resource:v1/test:clientsecret:abcd:fakehash", "true")
-    local result = clientSecret.processWithHashFunction(red, cjson.decode(securityObj), function() return "fakehash" end)
+    local result = clientSecret.processWithHashFunction(dataStore, cjson.decode(securityObj), function() return "fakehash" end)
     assert(result)
   end)
   it('Doesn\'t work without a client id', function()
     local ngx = fakengx.new()
     local red = fakeredis.new()
+    local ds = require ('lib/dataStore')
+    local dataStore = ds.initWithDriver(red, 'redis')
     local ngxattrs = [[
       {
        "http_X_Client_Secret":"1234",
@@ -306,6 +313,8 @@ describe('Client Secret Module', function()
   it('Doesn\'t work without a Client Secret', function()
     local ngx = fakengx.new()
     local red = fakeredis.new()
+    local ds = require ('lib/dataStore')
+    local dataStore = ds.initWithDriver(red, 'redis')
     local ngxattrs = [[
       {
        "http_X_Client_ID":"abcd",
@@ -322,7 +331,7 @@ describe('Client Secret Module', function()
       }
     ]]
     red:set("subscriptions:tenant:1234:resource:v1/test:clientsecret:abcd:fakehash", "true")
-    local result = clientSecret.processWithHashFunction(red, cjson.decode(securityObj), function() return "fakehash" end)
+    local result = clientSecret.processWithHashFunction(dataStore, cjson.decode(securityObj), function() return "fakehash" end)
     assert.falsy(result)
   end)
 end)

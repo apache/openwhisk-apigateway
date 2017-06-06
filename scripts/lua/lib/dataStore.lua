@@ -22,11 +22,12 @@ function DataStore:init()
 end
 
 -- right now just using this for the tests
-function DataStore:initWithDriver(ds)
+function DataStore:initWithDriver(ds, driver)
 local o = {}
   setmetatable(o, self)
   self.__index = self
-  o.impl = require('lib/redis')
+  driver = (driver ~= nil) and driver or "redis"
+  o.impl = require(utils.concatStrings({'lib/', driver}))
   o.ds = ds
   return o
 end
@@ -119,8 +120,8 @@ function DataStore:saveOAuthToken(provider, token, body, ttl)
   return self.impl.saveOAuthToken(self.ds, provider, token, body, ttl)
 end
 
-function DataStore:exists(key)
-  return self.impl.exists(self.ds, key)
+function DataStore:subscriptionExists(key)
+  return self.impl.subscriptionExists(self.ds, key)
 end
 
 function DataStore:setRateLimit(key, value, interval, expires)

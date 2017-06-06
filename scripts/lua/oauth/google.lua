@@ -28,7 +28,7 @@ local redis = require "lib/redis"
 local _M = {} 
 function _M.process (dataStore, token)
 
-  local result = dataStore:getOAuthToken(dataStore, 'google', token) 
+  local result = dataStore:getOAuthToken('google', token) 
   
   local httpc = http.new()
   if result ~= ngx.null then 

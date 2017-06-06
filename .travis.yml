@@ -17,7 +17,9 @@ env:
 
 before_install:
   - ./tools/travis/setup.sh
+  - docker run -p 7000:7000 -p 7001:7001 -p 7199:7199 -p 9160:9160 -p 9042:9042 -d cassandra
   - pip install hererocks
+  - pip install cqlsh
   - hererocks lua_install -r^ --$LUA
   - export PATH=$PATH:$PWD/lua_install/bin # Add directory with all installed binaries to PATH
 
@@ -28,6 +30,7 @@ install:
 script:
   - busted --output=TAP --helper=set_paths --pattern=.lua scripts
   - cd ..
+  - ./tools/cassandra/setup.sh
   - ./tools/travis/build.sh
 
 deploy:
