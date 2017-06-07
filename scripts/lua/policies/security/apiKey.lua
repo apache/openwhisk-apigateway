@@ -73,7 +73,7 @@ function processWithHashFunction(dataStore, securityObj, hashFunction)
   local gatewayPath = ngx.var.gatewayPath
   local apiId = dataStore:resourceToApi(utils.concatStrings({'resources:', tenant, ':', gatewayPath}))
   local scope = securityObj.scope
-  local name = (securityObj.name == nil) and 'x-api-key' or securityObj.name
+  local name = (securityObj.name == nil) and ((securityObj.header == nil) and 'x-api-key' or securityObj.header) or securityObj.name
   local queryString = ngx.req.get_uri_args()
   local location = (securityObj.location == nil) and 'header' or securityObj.location
   local apiKey = nil
