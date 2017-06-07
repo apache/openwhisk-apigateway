@@ -33,9 +33,9 @@ function _M.process (dataStore, token)
   local httpc = http.new()
   if result ~= ngx.null then
     json_resp = cjson.decode(result)
-    ngx.header['sub'] = json_resp['sub']
-    ngx.header['email'] = json_resp['email']
-    ngx.header['scope'] = json_resp['scope']
+    ngx.header['X-OIDC-Sub'] = json_resp['sub']
+    ngx.header['X-OIDC-Email'] = json_resp['email']
+    ngx.header['X-OIDC-Scope'] = json_resp['scope']
     return json_resp
   end
 
@@ -64,9 +64,9 @@ function _M.process (dataStore, token)
   dataStore:saveOAuthToken('google', token, cjson.encode(json_resp), json_resp['expires'])
   -- convert Google's response
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
-  ngx.header['sub'] = json_resp['sub']
-  ngx.header['email'] = json_resp['email']
-  ngx.header['scope'] = json_resp['scope']
+  ngx.header['X-OIDC-Sub'] = json_resp['sub']
+  ngx.header['X-OIDC-Email'] = json_resp['email']
+  ngx.header['X-OIDC-Scope'] = json_resp['scope']
   return json_resp
 end
 
