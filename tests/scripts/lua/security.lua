@@ -30,7 +30,7 @@ describe('API Key module', function()
     local red = fakeredis.new()
     local ngx = fakengx.new()
     local ds = require "lib/dataStore"
-    local dataStore = ds.initWithDriver(red) 
+    local dataStore = ds.initWithDriver(red)
     local ngxattrs = cjson.decode([[
       {
         "tenant":"abcd",
@@ -39,11 +39,40 @@ describe('API Key module', function()
       }
     ]])
     ngx.var = ngxattrs
+    ngx.req = { get_uri_args = function() return {} end }
     _G.ngx = ngx
     local securityObj = cjson.decode([[
       {
         "scope":"api",
         "type":"apikey"
+      }
+    ]])
+    red:hset('resources:abcd:v1/test', 'resources', '{"apiId":"bnez"}')
+    red:set('subscriptions:tenant:abcd:api:bnez:key:a1234', 'true')
+    local key = apikey.process(dataStore, securityObj, function() return "fakehash" end)
+    assert.same(key, 'a1234')
+  end)
+  it('Checks an apiKey correctly in a query string', function()
+    local red = fakeredis.new()
+    local ngx = fakengx.new()
+
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red)
+    local ngxattrs = cjson.decode([[
+      {
+        "tenant":"abcd",
+        "gatewayPath":"v1/test"
+      }
+    ]])
+    ngx.var = ngxattrs
+    ngx.req = { get_uri_args = function() return { apiKey = "a1234" } end }
+    _G.ngx = ngx
+    local securityObj = cjson.decode([[
+      {
+        "scope":"api",
+        "type":"apikey",
+        "name":"apiKey",
+        "location":"query"
       }
     ]])
     red:hset('resources:abcd:v1/test', 'resources', '{"apiId":"bnez"}')
@@ -64,6 +93,7 @@ describe('API Key module', function()
       }
     ]])
     ngx.var = ngxattrs
+    ngx.req = { get_uri_args = function() return { apiKey = "a1234" } end }
     _G.ngx = ngx
     local securityObj = cjson.decode([[
       {
@@ -88,12 +118,40 @@ describe('API Key module', function()
       }
     ]])
     ngx.var = ngxattrs
+    ngx.req = { get_uri_args = function() return {} end}
     _G.ngx = ngx
     local securityObj = cjson.decode([[
       {
         "scope":"api",
         "type":"apikey",
-        "header":"x-test-key"
+        "name":"x-test-key"
+      }
+    ]])
+    red:hset('resources:abcd:v1/test', 'resources', '{"apiId":"bnez"}')
+    red:set('subscriptions:tenant:abcd:api:bnez:key:a1234', 'true')
+    local key = apikey.process(dataStore, securityObj, function() return "fakehash" end)
+    assert.same(key, 'a1234')
+  end)
+  it('Checks for a key with a custom name in the query string', function()
+    local red = fakeredis.new()
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red)
+    local ngx = fakengx.new()
+    local ngxattrs = cjson.decode([[
+      {
+        "tenant":"abcd",
+        "gatewayPath":"v1/test"
+      }
+    ]])
+    ngx.var = ngxattrs
+    ngx.req = { get_uri_args = function () return { xtestkey = "a1234" } end }
+    _G.ngx = ngx
+    local securityObj = cjson.decode([[
+      {
+        "scope":"api",
+        "type":"apikey",
+        "name":"xtestkey",
+        "location":"query"
       }
     ]])
     red:hset('resources:abcd:v1/test', 'resources', '{"apiId":"bnez"}')
@@ -103,8 +161,8 @@ describe('API Key module', function()
   end)
   it('Checks for a key with a custom header and hash configuration', function()
     local red = fakeredis.new()
-    local ds = require "lib/dataStore" 
-    local dataStore = ds.initWithDriver(red) 
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red)
     local ngx = fakengx.new()
     local ngxattrs = cjson.decode([[
       {
@@ -113,13 +171,14 @@ describe('API Key module', function()
         "http_x_test_key":"a1234"
       }
     ]])
+    ngx.req = { get_uri_args = function() return {} end }
     ngx.var = ngxattrs
     _G.ngx = ngx
     local securityObj = cjson.decode([[
       {
         "scope":"api",
         "type":"apikey",
-        "header":"x-test-key",
+        "name":"x-test-key",
         "hashed":true
       }
     ]])
@@ -155,7 +214,7 @@ describe('OAuth security module', function()
     assert(result)
   end)
   it('Exchanges a bad token, doesn\'t cache it and returns false', function()
-    local red = fakeredis.new()  
+    local red = fakeredis.new()
     local token = "bad"
     local ngxattrs = [[
       {
@@ -180,7 +239,7 @@ describe('OAuth security module', function()
   end)
   it('Loads a facebook token from the cache without a valid app id', function()
     local red = fakeredis.new()
-    local ds = require "lib/dataStore" 
+    local ds = require "lib/dataStore"
     local dataStore = ds.initWithDriver(red)
     local token = "test"
     local ngxattrs = [[
@@ -247,6 +306,7 @@ describe('Client Secret Module', function()
        "gatewayPath":"v1/test"
       }
     ]]
+    ngx.req = { get_uri_args = function() return {} end }
     ngx.var = cjson.decode(ngxattrs)
     _G.ngx = ngx
     local securityObj = [[
@@ -270,6 +330,7 @@ describe('Client Secret Module', function()
         "gatewayPath":"v1/test"
       }
     ]]
+    ngx.req = { get_uri_args = function() return {} end }
     ngx.var = cjson.decode(ngxattrs)
     _G.ngx = ngx
     local securityObj = [[
@@ -294,6 +355,7 @@ describe('Client Secret Module', function()
        "gatewayPath":"v1/test"
       }
     ]]
+    ngx.req = { get_uri_args = function() return {} end }
     ngx.var = cjson.decode(ngxattrs)
     _G.ngx = ngx
     local securityObj = [[
@@ -313,6 +375,7 @@ describe('Client Secret Module', function()
        "gatewayPath":"v1/test"
       }
     ]]
+    ngx.req = { get_uri_args = function() return {} end}
     ngx.var = cjson.decode(ngxattrs)
     _G.ngx = ngx
     local securityObj = [[
