@@ -38,6 +38,8 @@ function _M.addResource(dataStore, resource, gatewayPath, tenantObj)
   local apiId = resource.apiId
   local cors = resource.cors
   local resourceObj = dataStore:generateResourceObj(operations, apiId, tenantObj, cors)
+  print ('setting snapshot for id: ' .. tenantObj.id)
+  dataStore:setSnapshotId(tenantObj.id)
   dataStore:createResource(redisKey, REDIS_FIELD, resourceObj)
   local indexKey = utils.concatStrings({"resources:", tenantObj.id, ":__index__"})
   dataStore:addResourceToIndex(indexKey, redisKey)
@@ -48,6 +50,7 @@ end
 -- @param gatewayPath path in gateway
 -- @param tenantId tenant id
 function _M.deleteResource(dataStore, gatewayPath, tenantId)
+  dataStore:setSnapsshotId(tenantId)
   local redisKey = utils.concatStrings({"resources:", tenantId, ":", gatewayPath})
   dataStore:deleteResource(redisKey, REDIS_FIELD)
   local indexKey = utils.concatStrings({"resources:", tenantId, ":__index__"})

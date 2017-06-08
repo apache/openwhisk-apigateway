@@ -18,6 +18,9 @@ end
 
 function DataStore:setSnapshotId(tenant)
   self.snapshotId = self.impl.getSnapshotId(self.ds, tenant)
+  if self.snapshotId == ngx.null then
+    self.snapshotId = nil
+  end
 end
 -- right now just using this for the tests
 function DataStore:initWithDriver(ds)
@@ -34,6 +37,7 @@ function DataStore:close()
 end
 
 function DataStore:addAPI(id, apiObj, existingAPI)
+  self:setSnapshotId(apiObj.tenantId)
   return self.impl.addAPI(self.ds, id, apiObj, existingAPI)
 end
 
@@ -58,15 +62,15 @@ function DataStore:generateResourceObj(ops, apiId, tenantObj, cors)
 end
 
 function DataStore:createResource(key, field, resourceObj)
-  return self.impl.createResource(self.ds, key, field, resourceObj)
+  return self.impl.createResource(self.ds, key, field, resourceObj, self.snapshotId)
 end
 
 function DataStore:addResourceToIndex(index, resourceKey)
-  return self.impl.addResourceToIndex(self.ds, index, resourceKey)
+  return self.impl.addResourceToIndex(self.ds, index, resourceKey, self.snapshotId)
 end
 
 function DataStore:deleteResourceFromIndex(index, resourceKey)
-  return self.impl.deleteResourceFromIndex(self.ds, index, resourceKey)
+  return self.impl.deleteResourceFromIndex(self.ds, index, resourceKey, self.snapshotId)
 end
 function DataStore:getResource(key, field)
   return self.impl.getResource(self.ds, key, field, self.snapshotId)
@@ -75,7 +79,7 @@ function DataStore:getAllResources(tenantId)
   return self.impl.getAllResources(self.ds, tenantId, self.snapshotId)
 end
 function DataStore:deleteResource(key, field)
-  return self.impl.deleteResource(self.ds, key, field)
+  return self.impl.deleteResource(self.ds, key, field, self.snapshotId)
 end
 function DataStore:addTenant(id, tenantObj)
   return self.impl.addTenant(self.ds, id, tenantObj)
@@ -90,10 +94,10 @@ function DataStore:deleteTenant(id)
   return self.impl.deleteTenant(self.ds, id)
 end
 function DataStore:createSubscription(key)
-  return self.impl.createSubscription(self.ds, key)
+  return self.impl.createSubscription(self.ds, key, self.snapshotId)
 end
 function DataStore:deleteSubscription(key)
-  return self.impl.deleteSubscription(self.ds, key)
+  return self.impl.deleteSubscription(self.ds, key, self.snapshotId)
 end
 function DataStore:healthCheck()
   return self.impl.healthCheck(self.ds)
