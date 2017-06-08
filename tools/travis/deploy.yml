@@ -15,8 +15,8 @@
     hostname: apigateway
     env:
       "DATASTORE": "cassandra"
-      "CASSANDRA_HOST":"172.17.0.1"
-      "CASSANDRA_KEYSPACE":"apigateway"
+      "CASSANDRA_HOST": "172.17.0.1"
+      "CASSANDRA_KEYSPACE": "apigateway"
       "PUBLIC_MANAGEDURL_HOST": "{{ inventory_hostname }}"
       "PUBLIC_MANAGEDURL_PORT": "{{ apigateway.port.mgmt }}"
     ports:

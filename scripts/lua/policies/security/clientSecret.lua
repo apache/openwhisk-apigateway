@@ -50,29 +50,40 @@ function processWithHashFunction(dataStore, securityObj, hashFunction)
   local gatewayPath = ngx.var.gatewayPath
   local apiId = ngx.var.apiId
   local scope = securityObj.scope
+  local queryString = ngx.req.get_uri_args()
+  local location = (securityObj.location == nil) and 'header' or securityObj.location
+  local clientId = nil
+  local clientSecret = nil
 
-  -- allow support for custom headers
-  local location = (securityObj.keyLocation == nil) and 'http_' or securityObj.keyLocation
-  if location == 'header' then
-    location = 'http_'
-  end
-
+  -- allow support for custom names in query or header
   local clientIdName = (securityObj.idFieldName == nil) and 'X-Client-ID' or securityObj.idFieldName
-
-  local clientId = ngx.var[utils.concatStrings({location, clientIdName}):gsub("-", "_")]
-  -- if they didn't supply whatever header this is configured to require, error out
+  if location == "header" then
+    clientId = ngx.var[utils.concatStrings({'http_', clientIdName}):gsub("-", "_")]
+  end
+  if location == "query" then
+    clientId = queryString[clientIdName]
+  end
+-- if they didn't supply whatever name this is configured to require, error out
   if clientId == nil or clientId == '' then
     request.err(401, clientIdName .. " required")
     return false
   end
+
+-- allow support for custom names in query or header
   local clientSecretName = (securityObj.secretFieldName == nil) and 'X-Client-Secret' or securityObj.secretFieldName
   _G.clientSecretName = clientSecretName:lower()
-
-  local clientSecret = ngx.var[utils.concatStrings({location, clientSecretName}):gsub("-","_")]
+  if location == "header" then
+    clientSecret = ngx.var[utils.concatStrings({'http_', clientSecretName}):gsub("-","_")]
+  end
+  if location == "query" then
+    clientSecret = queryString[clientSecretName]
+  end
+-- if they didn't supply whatever name this is configured to require, error out
   if clientSecret == nil or clientSecret == '' then
     request.err(401, clientSecretName .. " required")
     return false
   end
+
 -- hash the secret
   local result = validate(dataStore, tenant, gatewayPath, apiId, scope, clientId, hashFunction(clientSecret))
   if result == nil then
