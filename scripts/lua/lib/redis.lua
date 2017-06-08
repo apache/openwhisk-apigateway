@@ -182,7 +182,7 @@ function _M.deleteAPI(red, id)
 end
 
 function _M.resourceToApi(red, resource, snapshotId)
-  if snapshotId ~= nil then 
+  if snapshotId ~= nil then
     resource = utils.concatStrings({'snapshots:', snapshotId, ':', resource})
   end
   local resource = hget(red, resource, "resources")
@@ -442,6 +442,25 @@ function _M.deleteSubscription(red, key, snapshotId)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to delete the subscription key: ", err}))
   end
+end
+
+function _M.getSubscriptions(red, artifactId, tenantId, snapshotId)
+  local res = red:scan(0, "match", utils.concatStrings({"subscriptions:tenant:", tenantId, ":api:", artifactId, ":*"}))
+  local cursor = res[1]
+  local subscriptions = {}
+  for _, v in pairs(res[2]) do
+    local matched = {string.match(v, "subscriptions:tenant:([^:]+):api:([^:]+):([^:]+):([^:]+):*")}
+    subscriptions[#subscriptions + 1] = matched[4]
+  end
+  while cursor ~= "0" do
+    res = red:scan(cursor, "match", utils.concatStrings({"subscriptions:tenant:", tenantId, ":api:", artifactId, ":*"}))
+    cursor = res[1]
+    for _, v in pairs(res[2]) do
+      local matched = {string.match(v, "subscriptions:tenant:([^:]+):api:([^:]+):([^:]+):([^:]+):*")}
+      subscriptions[#subscriptions + 1] = matched[4]
+    end
+  end
+  return subscriptions
 end
 
 -----------------------------

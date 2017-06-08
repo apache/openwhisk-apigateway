@@ -81,30 +81,43 @@ end
 function DataStore:deleteResource(key, field)
   return self.impl.deleteResource(self.ds, key, field, self.snapshotId)
 end
+
 function DataStore:addTenant(id, tenantObj)
   return self.impl.addTenant(self.ds, id, tenantObj)
 end
+
 function DataStore:getAllTenants()
   return self.impl.getAllTenants(self.ds)
 end
+
 function DataStore:getTenant(id)
   return self.impl.getTenant(self.ds, id)
 end
+
 function DataStore:deleteTenant(id)
   return self.impl.deleteTenant(self.ds, id)
 end
+
 function DataStore:createSubscription(key)
   return self.impl.createSubscription(self.ds, key, self.snapshotId)
 end
+
 function DataStore:deleteSubscription(key)
   return self.impl.deleteSubscription(self.ds, key, self.snapshotId)
 end
+
+function DataStore:getSubscriptions(artifactId, tenantId)
+  return self.impl.getSubscriptions(artifactId, tenantId)
+end
+
 function DataStore:healthCheck()
   return self.impl.healthCheck(self.ds)
 end
+
 function DataStore:addSwagger(id, swagger)
   return self.impl.addSwagger(self.ds, id, swagger)
 end
+
 function DataStore:getSwagger(id)
   return self.impl.getSwagger(self.ds, id)
 end
