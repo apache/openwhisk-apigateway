@@ -18,6 +18,7 @@ end
 
 function DataStore:setSnapshotId(tenant)
   self.snapshotId = self.impl.getSnapshotId(self.ds, tenant)
+  self:lockSnapshot(snapshotId)
   if self.snapshotId == ngx.null then
     self.snapshotId = nil
   end
@@ -30,6 +31,10 @@ local o = {}
   o.impl = require('lib/redis')
   o.ds = ds
   return o
+end
+
+function DataStore:lockSnapshot(snapshotId)
+  return self.impl.lockSnapshot(self.ds, snapshotId)
 end
 
 function DataStore:close()

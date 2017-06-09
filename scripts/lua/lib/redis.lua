@@ -528,6 +528,10 @@ end
 function _M.getRateLimit(red, key)
   return get(red, key)
 end
+
+function _M.lockSnapshot(red, snapshotId) 
+  red:set(utils.concatStrings({'lock:snapshots:', snapshotId}), '', 60)
+end
 -- LRU Caching methods
 
 function exists(red, key, snapshotId)
