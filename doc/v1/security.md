@@ -13,7 +13,8 @@ Enforces API Key authorization to secure api calls.
 
 - **type**: `apiKey`
 - **scope**: `api`, `tenant`, `resource`
-- **header** (optional): custom name of auth header (default is `x-api-key`)
+- **name** (optional): custom name of auth header (default is `x-api-key`)
+- **location** (optional): location where the apiKey is passed, either as a header ('header') or query string ('query') (default is `header`)
 
 Example:
 ```
@@ -21,7 +22,8 @@ Example:
   {
     "type":"apiKey",
     "scope":"api",
-    "header":"test"
+    "name":"test",
+    "location":"header"
   }
 ]
 ```
@@ -33,6 +35,7 @@ Enforces Client ID / Client Secret pair authorization to secure api calls.
 - **scope**: `api`, `tenant`, `resource`
 - **idFieldName** (optional): custom name of the client id header (default is `x-client-id`)
 - **secretFieldName** (optional): custom name of the client secret header (default is `x-client-secret`) 
+- **location** (optional): location where the clientId and clientSecret are passed, either as a header ('header') or query string ('query') (default is `header`)
 
 Example: 
 ```
@@ -41,12 +44,13 @@ Example:
     "type":"clientSecret",
     "scope":"api",
     "idFieldName":"X-IBM-ClientId",
-    "secretFieldName":"X-IBM-ClientSecret"
+    "secretFieldName":"X-IBM-ClientSecret",
+    "location": "header"
   }
 ]
 ``` 
 
-This will create two API keys for the API, which will need to be supplied in the `X-IBM-ClientId` and `X-IBM-ClientSecret` headers, respectively.
+This will create two API keys for the API, which will need to be supplied in the `X-IBM-ClientId` and `X-IBM-ClientSecret` headers or query strings, respectively.
 
 ## OAuth 2.0 (`oauth2`)
 
