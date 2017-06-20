@@ -1,5 +1,5 @@
 local unpack = table.unpack or unpack
-
+local cjson = require 'cjson'
 --- Bit operations
 
 local bit
@@ -306,6 +306,11 @@ local bitcount = function(self, k, i1, i2)
         r = r + char_bitcount(bytes[i])
     end
     return r
+end
+
+
+local expire = function(self, k, x)
+  return nil -- do nothing for now
 end
 
 local bitop = function(self, op, k, ...)
@@ -1597,6 +1602,7 @@ local methods = {
   randomkey = randomkey, -- () -> [k|nil]
   rename = chkargs_wrap(rename, 2), -- (k,k2) -> true
   renamenx = chkargs_wrap(renamenx, 2), -- (k,k2) -> ! existed? k2
+  expire = chkargs_wrap(expire, 2),
   -- strings
   append = chkargs_wrap(append, 2), -- (k,v) -> #new
   bitcount = bitcount, -- (k,[start,end]) -> n
@@ -1613,7 +1619,7 @@ local methods = {
   mget = mget, -- (k1,...) -> {v1,...}
   mset = mset, -- (k1,v1,...) -> true
   msetnx = msetnx, -- (k1,v1,...) -> worked? (i.e. !existed? any k)
-  set = chkargs_wrap(set, 2), -- (k,v) -> true
+  set = chkargs_wrap(set, 2), -- (k,v,expiration) -> true -- toss the expiration if it's passed in
   setbit = setbit, -- (k,offset,b) -> old
   setnx = chkargs_wrap(setnx, 2), -- (k,v) -> worked? (i.e. !existed?)
   setrange = setrange, -- (k,offset,val) -> #new

@@ -99,7 +99,7 @@ function getAPIs(dataStore)
           managed_url = api.managedUrl,
           open_api_doc = dataStore:getSwagger(api.id)
         }
-        dataStore.close()
+        dataStore:close()
         request.success(200, cjson.encode(returnObj))
       end
     end
@@ -134,7 +134,7 @@ function addAPI(dataStore)
   end
   -- Check for api id in JSON body
   if existingAPI == nil and decoded.id ~= nil then
-    existingAPI = dataStore.getAPI(decoded.id)
+    existingAPI = dataStore:getAPI(decoded.id)
     if existingAPI == nil then
       dataStore:close()
       request.err(404, utils.concatStrings({"Unknown API id ", decoded.id}))

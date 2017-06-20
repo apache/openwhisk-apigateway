@@ -369,7 +369,11 @@ function _M.addTenant(red, id, tenantObj)
 end
 
 function _M.getSnapshotId(red, tenantId)
- return red:get(utils.concatStrings({'snapshots:tenant:', tenantId}))
+ local result = red:get(utils.concatStrings({'snapshots:tenant:', tenantId}))
+  if result == ngx.null then
+    return nil
+  end
+  return result
 end
 
 --- Get all tenants from redis
@@ -443,6 +447,11 @@ function _M.deleteSubscription(red, key, snapshotId)
     request.err(500, utils.concatStrings({"Failed to delete the subscription key: ", err}))
   end
 end
+
+function _M.cleanSubscriptions(red, pattern)
+  return red:eval("return redis.call('del', unpack(redis.call('keys', ARGV[1])))", 0, pattern)
+end
+
 
 function _M.getSubscriptions(red, artifactId, tenantId, snapshotId)
   local res = red:scan(0, "match", utils.concatStrings({"subscriptions:tenant:", tenantId, ":api:", artifactId, ":*"}))
@@ -529,8 +538,9 @@ function _M.getRateLimit(red, key)
   return get(red, key)
 end
 
-function _M.lockSnapshot(red, snapshotId) 
-  red:set(utils.concatStrings({'lock:snapshots:', snapshotId}), '', 60)
+function _M.lockSnapshot(red, snapshotId)
+  red:set(utils.concatStrings({'lock:snapshots:', snapshotId}), 'true')
+  red:expire(utils.concatStrings({'lock:snapshots:', snapshotId}), 60)
 end
 -- LRU Caching methods
 

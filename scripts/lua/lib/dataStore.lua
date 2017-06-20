@@ -50,7 +50,7 @@ function DataStore:getAllAPIs()
   return self.impl.getAllAPIs(self.ds)
 end
 
-function DataStore:getAPI(id, snapshotId)
+function DataStore:getAPI(id)
   return self.impl.getAPI(self.ds, id)
 end
 
@@ -149,8 +149,22 @@ end
 function DataStore:getRateLimit(key)
   return self.impl.getRateLimit(self.ds, key)
 end
--- to be removed in the future
+-- o be removed in the future
 
+function DataStore:deleteSubscriptionAdv(artifactId, tenantId, clientId)
+  local subscriptionKey = utils.concatStrings({"subscriptions:tenant:", tenantId, ":api:", artifactId})
+  local key = utils.concatStrings({subscriptionKey, ":key:", clientId})
+  if self:exists(key) == 1 then
+    self:deleteSubscription(key)
+  else
+    local pattern = utils.concatStrings({subscriptionKey, ":clientsecret:" , clientId, ":*"})
+    local res = self.impl.cleanSubscriptions(self.ds, pattern)
+    if res == false then
+      return false
+    end
+  end
+  return true
+end
 
 function _M.init()
   return DataStore:init()

@@ -334,6 +334,7 @@ describe('Client Secret Module', function()
        "gatewayPath":"v1/test"
       }
     ]]
+    ngx.req = { get_uri_args = function() return {} end }
     ngx.var = cjson.decode(ngxattrs)
     _G.ngx = ngx
     local securityObj = [[
@@ -361,6 +362,7 @@ describe('Client Secret Module', function()
        "gatewayPath":"v1/test"
       }
     ]]
+    ngx.req = { get_uri_args = function() return {} end }
     ngx.var = cjson.decode(ngxattrs)
     _G.ngx = ngx
     local securityObj = [[

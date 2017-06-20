@@ -50,7 +50,7 @@ end
 -- @param gatewayPath path in gateway
 -- @param tenantId tenant id
 function _M.deleteResource(dataStore, gatewayPath, tenantId)
-  dataStore:setSnapsshotId(tenantId)
+  dataStore:setSnapshotId(tenantId)
   local redisKey = utils.concatStrings({"resources:", tenantId, ":", gatewayPath})
   dataStore:deleteResource(redisKey, REDIS_FIELD)
   local indexKey = utils.concatStrings({"resources:", tenantId, ":__index__"})
