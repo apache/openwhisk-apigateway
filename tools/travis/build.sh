@@ -32,6 +32,8 @@ $ANSIBLE_CMD apigateway.yml -e apigateway_local_build=true
 
 cd $WHISKDIR
 
+TERM=dumb ./gradlew tools:cli:distDocker -PdockerImagePrefix=openwhisk
+
 cd $WHISKDIR/ansible
 
 
