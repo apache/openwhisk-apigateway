@@ -10,7 +10,7 @@ FROM alpine:latest
 RUN apk update \
     && apk add gcc tar libtool zlib jemalloc jemalloc-dev perl \
     ca-certificates wget make musl-dev openssl-dev pcre-dev g++ zlib-dev curl python \
-    perl-test-longstring perl-list-moreutils perl-http-message geoip-dev \
+    perl-test-longstring perl-list-moreutils perl-http-message geoip-dev lua luarocks \
     && update-ca-certificates
 
 # openresty build
@@ -148,11 +148,15 @@ ENV LUA_RESTY_STRING_VERSION 0.09
 RUN opm get openresty/lua-resty-string=${LUA_RESTY_STRING_VERSION}
 ENV LUA_RESTY_LRUCACHE_VERSION 0.04
 RUN opm get openresty/lua-resty-lrucache=${LUA_RESTY_LRUCACHE_VERSION}
-ENV LUA_RESTY_JWT_VERSION 0.1.10
-RUN opm get SkyLothar/lua-resty-jwt=${LUA_RESTY_JWT_VERSION}
-ENV NETURL_LUA_VERSION 0.9-1
+RUN opm get taylorking/lua-resty-jwt
 RUN opm get taylorking/lua-resty-rate-limit
 
+
+ENV NETURL_LUA_VERSION 0.9-1
+
+#RUN echo " ... installing lua-jwk2pem... " \ 
+#    && curl -k -L https://gist.githubusercontent.com/taylorking/9233c7a515c5392f3d20288ff1265b8a/raw/ae74f9d0db275058f498a4229877f884ba4387b8/jwk2pem.lua -o ${_prefix}/api-gateway/lualib/jwk2pem.lua
+COPY jwk2pem.lua /usr/local/api-gateway/lualib
 RUN echo " ... installing neturl.lua ... " \
     && mkdir -p /tmp/api-gateway \
     && curl -k -L https://github.com/golgote/neturl/archive/${NETURL_LUA_VERSION}.tar.gz -o /tmp/api-gateway/neturl.lua-${NETURL_LUA_VERSION}.tar.gz \
