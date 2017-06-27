@@ -44,7 +44,7 @@ docker-run:
 		-e TOKEN_GOOGLE_URL=https://www.googleapis.com/oauth2/v3/tokeninfo \
 	 	-e TOKEN_FACEBOOK_URL=https://graph.facebook.com/debug_token \
 		-e TOKEN_GITHUB_URL=https://api.github.com/user \
-		-e APPID_PKURL=https://openwhisk.ng.bluemix.net/api/v1/web/Taylor.King1_prod/default/packageAction.json \
+		-e APPID_PKURL=https://appid-oauth.ng.bluemix.net/oauth/v3/ \
 		openwhisk/apigateway:latest
 
 .PHONY: docker-debug

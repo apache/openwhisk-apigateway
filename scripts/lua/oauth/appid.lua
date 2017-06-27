@@ -17,8 +17,7 @@ function _M.process(dataStore, token, securityObj)
     ngx.header['X-OIDC-Sub'] = json_resp['sub']
     return json_resp
   end
-  local keyUrl = utils.concatStrings({APPID_PKURL, '?tenantId=', securityObj.tenantId})
-
+  local keyUrl = utils.concatStrings({APPID_PKURL, securityObj.tenantId, '/publickeys'})
   local request_options = {
     headers = {
       ["Accept"] = "application/json"
@@ -29,18 +28,35 @@ function _M.process(dataStore, token, securityObj)
   if err then
     request.err(500, 'error getting app id key: ' .. err)
   end
-  local key = cjson.decode(res.body).msg
-  local result = jwt:verify(key, token)
-  print (cjson.encode(result))
-  if not result.verified then
+  
+  local key
+  local keys = cjson.decode(res.body).keys
+  for _, v in ipairs(keys) do 
+    key = v
+  end
+  
+  local ffi = require('ffi')
+  ffi.cdef [[
+    bool verify_jwt(char* key, char* token);
+  ]]
+
+  local capi = ffi.load('jwt_introspection')
+  key = cjson.encode(key)
+  local c_key = ffi.new("char[?]", #key)
+  ffi.copy(c_key, key)
+  local c_token = ffi.new("char[?]", #token)
+  ffi.copy(c_token, token)
+  local result = capi.verify_jwt(c_key, c_token)
+  
+  if not result then
     request.err(401, 'AppId key signature verification failed.')
     return nil
-  end
-  local jwt_obj = result.payload
+  end 
+  jwt_obj = jwt:load_jwt(token).payload
   print(cjson.encode(jwt_obj))
   ngx.header['X-OIDC-Email'] = jwt_obj['email']
   ngx.header['X-OIDC-Sub'] = jwt_obj['sub']
-  dataStore:saveOAuthToken('appId', token, cjson.encode(result), result.exp)
+  dataStore:saveOAuthToken('appId', token, cjson.encode(jwt_obj), jwt_obj['exp'])
   return jwt_obj
 end
 

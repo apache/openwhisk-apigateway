@@ -10,7 +10,7 @@ FROM alpine:latest
 RUN apk update \
     && apk add gcc tar libtool zlib jemalloc jemalloc-dev perl \
     ca-certificates wget make musl-dev openssl-dev pcre-dev g++ zlib-dev curl python \
-    perl-test-longstring perl-list-moreutils perl-http-message geoip-dev lua luarocks \
+    perl-test-longstring perl-list-moreutils perl-http-message geoip-dev \
     && update-ca-certificates
 
 # openresty build
@@ -153,10 +153,6 @@ RUN opm get taylorking/lua-resty-rate-limit
 
 
 ENV NETURL_LUA_VERSION 0.9-1
-
-#RUN echo " ... installing lua-jwk2pem... " \ 
-#    && curl -k -L https://gist.githubusercontent.com/taylorking/9233c7a515c5392f3d20288ff1265b8a/raw/ae74f9d0db275058f498a4229877f884ba4387b8/jwk2pem.lua -o ${_prefix}/api-gateway/lualib/jwk2pem.lua
-COPY jwk2pem.lua /usr/local/api-gateway/lualib
 RUN echo " ... installing neturl.lua ... " \
     && mkdir -p /tmp/api-gateway \
     && curl -k -L https://github.com/golgote/neturl/archive/${NETURL_LUA_VERSION}.tar.gz -o /tmp/api-gateway/neturl.lua-${NETURL_LUA_VERSION}.tar.gz \
@@ -165,6 +161,24 @@ RUN echo " ... installing neturl.lua ... " \
     && cd /tmp/api-gateway/neturl-${NETURL_LUA_VERSION} \
     && cp lib/net/url.lua ${LUA_LIB_DIR} \
     && rm -rf /tmp/api-gateway
+
+ENV CJOSE_VERSION 0.5.1
+RUN echo " ... installing cjose ... " \
+    && apk update && apk add automake autoconf git gcc make jansson jansson-dev \
+    && mkdir -p /tmp/api-gateway \
+    && curl -L -k https://github.com/cisco/cjose/archive/${CJOSE_VERSION}.tar.gz -o /tmp/api-gateway/cjose-${CJOSE_VERSION}.tar.gz \
+    && tar -xf /tmp/api-gateway/cjose-${CJOSE_VERSION}.tar.gz -C /tmp/api-gateway/ \
+    && cd /tmp/api-gateway/cjose-${CJOSE_VERSION} \
+    && sh configure \
+    && make && make install
+RUN mkdir -p /tmp/api-gateway
+COPY scripts/c/jwt_introspection.c /tmp/api-gateway/
+
+RUN echo " ... compiling and installing jwt introspection module ... " \
+    && cd /tmp/api-gateway \
+    && gcc -shared -fpic -I/usr/local/include -L/usr/local/lib jwt_introspection.c -o jwt_introspection.so -lcjose \
+    && cp /tmp/api-gateway/jwt_introspection.so /usr/local/lib/libjwt_introspection.so \
+    && cd / && rm -rf /tmp/api-gateway
 
 RUN \
     curl -L -k -s -o /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 \
