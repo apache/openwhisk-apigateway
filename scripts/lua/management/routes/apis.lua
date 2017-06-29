@@ -99,7 +99,7 @@ function getAPIs(dataStore)
           managed_url = api.managedUrl,
           open_api_doc = dataStore:getSwagger(api.id)
         }
-        dataStore.close()
+        dataStore:close()
         request.success(200, cjson.encode(returnObj))
       end
     end
