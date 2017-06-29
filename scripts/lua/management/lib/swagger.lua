@@ -41,9 +41,14 @@ function _M.parseSwagger(swagger)
     for verb, value in pairs(verbObj) do
       decoded.resources[path].operations[verb] = {}
       local verbObj = decoded.resources[path].operations[verb]
-      local backend = (backends["all"] ~= nil) and backends["all"] or backends[value.operationId]
-      verbObj.backendUrl = backend.backendUrl
-      verbObj.backendMethod = (backend.backendMethod == 'keep') and verb or backend.backendMethod
+      if backends ~= nil then
+        local backend = (backends["all"] ~= nil) and backends["all"] or backends[value.operationId]
+        verbObj.backendUrl = backend.backendUrl
+        verbObj.backendMethod = (backend.backendMethod == 'keep') and verb or backend.backendMethod
+      else
+        verbObj.backendUrl = ''
+        verbObj.backendMethod = verb
+      end
       verbObj.policies = policies
       verbObj.security = security
     end
