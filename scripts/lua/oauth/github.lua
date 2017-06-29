@@ -25,14 +25,17 @@ local redis = require "lib/redis"
 local request = require "lib/request"
 local cjson = require "cjson"
 local utils = require "lib/utils"
-local _M = {} 
+local _M = {}
 
 function _M.process(dataStore, token)
-  local result = dataStore:getOAuthToken('github', token) 
-  if result ~= ngx.null then 
-    return cjson.decode(result)
-  end 
- 
+  local result = dataStore:getOAuthToken('github', token)
+  if result ~= ngx.null then
+    json_resp = cjson.decode(result)
+    ngx.header['X-OIDC-id'] = json_resp['id']
+    ngx.header['X-OIDC-Email'] = json_resp['email']
+    return json_resp
+  end
+
   local request_options = {
     headers = {
       ["Accept"] = "application/json"
@@ -52,7 +55,7 @@ function _M.process(dataStore, token)
     request.err(500, 'OAuth provider error.')
     return
   end
- 
+
   local json_resp = cjson.decode(res.body)
   if json_resp.id == nil then
     return nil
@@ -62,10 +65,12 @@ function _M.process(dataStore, token)
     return nil
   end
 
-  dataStore:saveOAuthToken('github', token) 
+  dataStore:saveOAuthToken('github', token, cjson.encode(json_resp))
   -- convert Github's response
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
+  ngx.header['X-OIDC-id'] = json_resp['id']
+  ngx.header['X-OIDC-Email'] = json_resp['email']
   return json_resp
 end
 
-return _M 
+return _M

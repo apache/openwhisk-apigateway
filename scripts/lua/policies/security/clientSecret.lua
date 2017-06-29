@@ -53,7 +53,6 @@ function processWithHashFunction(dataStore, securityObj, hashFunction)
   local queryString = ngx.req.get_uri_args()
   local location = (securityObj.location == nil) and 'header' or securityObj.location
   local clientId = nil
-  local clientSecret = nil
 
   -- allow support for custom names in query or header
   local clientIdName = (securityObj.idFieldName == nil) and 'X-Client-ID' or securityObj.idFieldName
@@ -72,12 +71,7 @@ function processWithHashFunction(dataStore, securityObj, hashFunction)
 -- allow support for custom names in query or header
   local clientSecretName = (securityObj.secretFieldName == nil) and 'X-Client-Secret' or securityObj.secretFieldName
   _G.clientSecretName = clientSecretName:lower()
-  if location == "header" then
-    clientSecret = ngx.var[utils.concatStrings({'http_', clientSecretName}):gsub("-","_")]
-  end
-  if location == "query" then
-    clientSecret = queryString[clientSecretName]
-  end
+  clientSecret = ngx.var[utils.concatStrings({'http_', clientSecretName}):gsub("-","_")]
 -- if they didn't supply whatever name this is configured to require, error out
   if clientSecret == nil or clientSecret == '' then
     request.err(401, clientSecretName .. " required")
