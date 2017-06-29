@@ -26,8 +26,9 @@ local utils = require "lib/utils"
 
 local _M = {}
 
-function _M.addSubscription(red, artifactId, tenantId, clientId, clientSecret, hashFunction)
+function _M.addSubscription(dataStore, artifactId, tenantId, clientId, clientSecret, hashFunction)
   local subscriptionKey = utils.concatStrings({"subscriptions:tenant:", tenantId, ":api:", artifactId})
+  dataStore:setSnapshotId(tenantId)
   if clientSecret ~= nil then
     if hashFunction == nil then
       hashFunction = utils.hash
@@ -36,41 +37,16 @@ function _M.addSubscription(red, artifactId, tenantId, clientId, clientSecret, h
   else
     subscriptionKey = utils.concatStrings({subscriptionKey, ":key:", clientId})
   end
-  redis.createSubscription(red, subscriptionKey)
+  dataStore:createSubscription(subscriptionKey)
 end
 
-function _M.getSubscriptions(red, artifactId, tenantId)
-  local res = red:scan(0, "match", utils.concatStrings({"subscriptions:tenant:", tenantId, ":api:", artifactId, ":*"}))
-  local cursor = res[1]
-  local subscriptions = {}
-  for _, v in pairs(res[2]) do
-    local matched = {string.match(v, "subscriptions:tenant:([^:]+):api:([^:]+):([^:]+):([^:]+):*")}
-    subscriptions[#subscriptions + 1] = matched[4]
-  end
-  while cursor ~= "0" do
-    res = red:scan(cursor, "match", utils.concatStrings({"subscriptions:tenant:", tenantId, ":api:", artifactId, ":*"}))
-    cursor = res[1]
-    for _, v in pairs(res[2]) do
-      local matched = {string.match(v, "subscriptions:tenant:([^:]+):api:([^:]+):([^:]+):([^:]+):*")}
-      subscriptions[#subscriptions + 1] = matched[4]
-    end
-  end
-  return subscriptions
+function _M.getSubscriptions(dataStore, artifactId, tenantId)
+  dataStore:setSnapshotId(tenantId)
+  return dataStore:getSubscriptions(artifactId, tenantId)
 end
 
-function _M.deleteSubscription(red, artifactId, tenantId, clientId)
-  local subscriptionKey = utils.concatStrings({"subscriptions:tenant:", tenantId, ":api:", artifactId})
-  local key = utils.concatStrings({subscriptionKey, ":key:", clientId})
-  if redis.exists(red, key) == 1 then
-    redis.deleteSubscription(red, key)
-  else
-    local pattern = utils.concatStrings({subscriptionKey, ":clientsecret:" , clientId, ":*"})
-    local res = red:eval("return redis.call('del', unpack(redis.call('keys', ARGV[1])))", 0, pattern)
-    if res == false then
-      return false
-    end
-  end
-  return true
+function _M.deleteSubscription(dataStore, artifactId, tenantId, clientId)
+  return dataStore:deleteSubscriptionAdv(artifactId, tenantId, clientId)
 end
 
 return _M

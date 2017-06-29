@@ -33,12 +33,18 @@ local backendRouting = require "policies/backendRouting"
 local cors = require "cors"
 
 
+local SNAPSHOTTING = os.getenv('SNAPSHOTTING')
+
 local _M = {}
 
 --- Main function that handles parsing of invocation details and carries out implementation
 function _M.processCall(dataStore)
   -- Get resource object from redis
   local tenantId = ngx.var.tenant
+
+  if SNAPSHOTTING == 'true' then
+    dataStore:setSnapshotId(tenantId) 
+  end
   local gatewayPath = ngx.var.gatewayPath
   local i, j = ngx.var.request_uri:find("/api/([^/]+)")
   ngx.var.analyticsUri = ngx.var.request_uri:sub(j+1)
@@ -46,11 +52,17 @@ function _M.processCall(dataStore)
     setRequestLogs()
   end
   local resourceKeys = dataStore:getAllResources(tenantId)
+  print(cjson.encode(resourceKeys))
   local redisKey = _M.findResource(resourceKeys, tenantId, gatewayPath)
   if redisKey == nil then
     request.err(404, 'Not found.')
   end
-  local obj = cjson.decode(dataStore:getResource(redisKey, "resources"))
+  local resource = dataStore:getResource(redisKey, "resources")
+  if resource == nil then
+    request.err(404, 'Snapshot not found.')
+  end
+  local obj = cjson.decode(resource) 
+
   cors.processCall(obj)
   ngx.var.tenantNamespace = obj.tenantNamespace
   ngx.var.tenantInstance = obj.tenantInstance
@@ -82,7 +94,7 @@ function _M.processCall(dataStore)
         setRequestLogs()
       end
       dataStore:close()
-      return
+      return nil
     end
   end
   request.err(404, 'Whoops. Verb not supported.')

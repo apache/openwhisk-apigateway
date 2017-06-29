@@ -35,13 +35,15 @@ describe("Testing v2 subscriptions API", function()
     local artifactId = "abc"
     local tenantId = "testtenant"
     local clientId = "xxx"
-    subscriptions.addSubscription(red, artifactId, tenantId, clientId)
+    local ds = require 'lib/dataStore'
+    local dataStore = ds.initWithDriver(red)
+    subscriptions.addSubscription(dataStore, artifactId, tenantId, clientId)
     local generated = red:exists("subscriptions:tenant:" .. tenantId .. ":api:" .. artifactId .. ":key:" .. clientId)
     assert.are.equal(1, generated)
     -- client id and secret
     local newClientId = "newclientid"
     local clientSecret = "secret"
-    subscriptions.addSubscription(red, artifactId, tenantId, newClientId, clientSecret, generateHash)
+    subscriptions.addSubscription(dataStore, artifactId, tenantId, newClientId, clientSecret, generateHash)
     generated = red:exists("subscriptions:tenant:" .. tenantId .. ":api:" .. artifactId .. ":clientsecret:" .. newClientId .. ":" .. generateHash(clientSecret))
     assert.are.equal(1, generated)
     -- wrong secret
@@ -49,15 +51,17 @@ describe("Testing v2 subscriptions API", function()
     generated = red:exists("subscriptions:tenant:" .. tenantId .. ":api:" .. artifactId .. ":clientsecret:" .. newClientId .. ":" .. generateHash(badsecret))
     assert.are.equal(0, generated)
   end)
-  
+
   it("should delete a subscription", function()
     local artifactId = "abc"
     local tenantId = "testtenant"
     local clientId = "12345"
-    subscriptions.addSubscription(red, artifactId, tenantId, clientId)
+    local ds = require 'lib/dataStore'
+    local dataStore = ds.initWithDriver(red)
+    subscriptions.addSubscription(dataStore, artifactId, tenantId, clientId)
     local generated = red:exists("subscriptions:tenant:" .. tenantId .. ":api:" .. artifactId .. ":key:" .. clientId)
     assert.are.same(1, generated)
-    subscriptions.deleteSubscription(red, artifactId, tenantId, clientId)
+    subscriptions.deleteSubscription(dataStore, artifactId, tenantId, clientId)
     generated = red:exists("subscriptions:tenant:" .. tenantId .. ":api:" .. artifactId .. ":key:" .. clientId)
     assert.are.same(0, generated)
   end)
