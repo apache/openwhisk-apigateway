@@ -31,7 +31,13 @@ local mapping = require "policies/mapping"
 local rateLimit = require "policies/rateLimit"
 local backendRouting = require "policies/backendRouting"
 local cors = require "cors"
+local OPTIMIZE = os.getenv("OPTIMIZE")
 
+if OPTIMIZE ~= nil then
+  OPTIMIZE = tonumber(OPTIMIZE)
+else
+  OPTIMIZE = 0
+end
 
 local SNAPSHOTTING = os.getenv('SNAPSHOTTING')
 
@@ -51,9 +57,7 @@ function _M.processCall(dataStore)
   if ngx.req.get_headers()["x-debug-mode"] == "true" then
     setRequestLogs()
   end
-  local resourceKeys = dataStore:getAllResources(tenantId)
-  print(cjson.encode(resourceKeys))
-  local redisKey = _M.findResource(resourceKeys, tenantId, gatewayPath)
+  local redisKey = _M.findResource(dataStore, tenantId, gatewayPath)
   if redisKey == nil then
     request.err(404, 'Not found.')
   end
@@ -101,10 +105,10 @@ function _M.processCall(dataStore)
 end
 
 --- Find the correct redis key based on the path that's passed in
--- @param resourceKeys list of resourceKeys to search through
+-- @param dataStore the datastore object
 -- @param tenant tenantId
 -- @param path path to look for
-function _M.findResource(resourceKeys, tenant, path)
+function _M.findResource(dataStore, tenant, path)
   -- Check for exact match
   local redisKey = utils.concatStrings({"resources:", tenant, ":", path})
   local cfRedisKey
@@ -117,6 +121,33 @@ function _M.findResource(resourceKeys, tenant, path)
       ngx.var.analyticsUri = utils.concatStrings({ngx.var.analyticsUri, '?', u.query})
     end
   end
+
+  local result
+  if OPTIMIZE > 0 then
+    result = dataStore:optimizedLookup(tenant, path)
+  end
+  if result ~= nil then
+    ngx.var.gatewayPath = result:gsub(utils.concatStrings({'resources:', tenant, ':'}), '')
+    return result
+  end
+
+  local resourceKeys = dataStore:getAllResources(tenant)
+  local result = _M.slowLookup(resourceKeys, tenant, path, redisKey, cfRedisKey)
+
+  if OPTIMIZE > 0 and result ~= nil then
+    dataStore:optimizeLookup(tenant, result, path)
+  end
+
+  return result
+end
+
+--- Perform a linear lookup of the api based on the apis in a tenant
+-- @param resourceKeys all of the resources under a given tenant
+-- @param tenant the tenant we are looking up for
+-- @param path the path used to call the api gateway
+-- @param redisKey a guess for a redis key based on the tenant id and path
+-- @param cfRedisKey a redis key that will exist if cloud foundry routing logic is used
+function _M.slowLookup(resourceKeys, tenant, path, redisKey, cfRedisKey)
   for _, key in pairs(resourceKeys) do
     if key == redisKey or key == cfRedisKey then
       local res = {string.match(key, "([^:]+):([^:]+):([^:]+)")}
@@ -163,6 +194,7 @@ function _M.findResource(resourceKeys, tenant, path)
     redisKey = string.sub(redisKey, 1, index - 1)
   end
   return nil
+
 end
 
 --- Check redis if resourceKey matches path parameters

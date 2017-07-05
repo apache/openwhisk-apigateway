@@ -37,20 +37,20 @@ end
 function _M.replaceHeaders()
   if ngx.var.cors_origins ~= nil then
     if ngx.var.cors_origins == 'true' then
-      ngx.header['Access-Control-Allow-Headers'] = ngx.req.get_headers()['Access-Control-Request-Headers']  
+      ngx.header['Access-Control-Allow-Headers'] = ngx.req.get_headers()['Access-Control-Request-Headers']
       ngx.header['Access-Control-Allow-Origin'] = '*'
       ngx.header['Access-Control-Allow-Methods'] = ngx.var.cors_methods
       if ngx.var.cors_methods == nil then
         ngx.header['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS'
       end
-    elseif ngx.var.cors_origins == 'false' then 
+    elseif ngx.var.cors_origins == 'false' then
       ngx.header['Access-Control-Allow-Origin'] = nil
       ngx.header['Access-Control-Allow-Methods'] = nil
     else
       ngx.header['Access-Control-Allow-Origin'] = ngx.var.cors_origins
       ngx.header['Access-Control-Allow-Methods'] = ngx.var.cors_methods
-      ngx.header['Access-Control-Allow-Headers'] = ngx.req.get_headers()['Access-Control-Request-Headers']  
-      if ngx.var.cors_methods == nil then 
+      ngx.header['Access-Control-Allow-Headers'] = ngx.req.get_headers()['Access-Control-Request-Headers']
+      if ngx.var.cors_methods == nil then
         ngx.header['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS'
       end
     end

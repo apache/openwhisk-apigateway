@@ -26,6 +26,10 @@ profile-run: profile-build
 	 	-e TOKEN_FACEBOOK_URL=https://graph.facebook.com/debug_token \
 		-e TOKEN_GITHUB_URL=https://api.github.com/user \
 		-e DEBUG=true \
+		-e CACHING_ENABLED=true \
+		-e CACHE_SIZE=2048 \
+		-e CACHE_TTL=180 \
+		-e OPTIMIZE=1 \
 		-d openwhisk/apigateway-profiling:latest
 
 .PHONY: test-run

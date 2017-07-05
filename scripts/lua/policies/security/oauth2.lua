@@ -63,6 +63,7 @@ function process(dataStore, securityObj)
 end
 
 --- Exchange tokens with an oauth provider. Loads a provider based on configuration in the nginx.conf
+-- @param dataStore the datastore object
 -- @param token the accessToken passed in the authorization header of the routing request
 -- @param provider the name of the provider we will load from a file. Currently supported google/github/facebook
 -- @return the json object recieved from exchanging tokens with the provider

@@ -29,6 +29,7 @@ local lrucache
 local CACHE_SIZE
 local CACHE_TTL
 local c, err
+
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
 local REDIS_PASS = os.getenv("REDIS_PASS")
@@ -66,7 +67,6 @@ function _M.init()
   local port = REDIS_PORT
   local redis = require "resty.redis"
   local red = redis:new()
-
   red:set_timeout(REDIS_TIMEOUT)
   -- Connect to Redis server
   local retryCount = REDIS_RETRY_COUNT
@@ -534,14 +534,106 @@ function _M.setRateLimit(red, key, value, interval, expires)
   return red:set(key, value, interval, expires)
 end
 
+-- rate limiting is kind of special in that I don't want to get it from the cache because the intervals are too small.
+-- eventually may consider moving it into an nginx variable instead of redis
 function _M.getRateLimit(red, key)
-  return get(red, key)
+  if red == nil then
+    red = _M.init()
+  end
+  return red:get(key), red
+end
+
+function _M.optimizedLookup(red, tenant, path)
+  if CACHING_ENABLED then
+    local cached = c:get(utils.concatStrings({'fastmap:', tenant, ':', path}))
+    if cached ~= nil then
+      return cached
+    end
+  end
+  local script = [[
+    local tenant = ']] .. tenant .. [['
+    local path = ']] .. path .. [['
+    if redis.call('EXISTS', 'resources:' .. tenant .. ':' .. path) ~= 0 then
+      return 'resources:' .. tenant .. ':' .. path
+    end
+    local currStr = 'fastmap:' .. tenant
+    path = string.match(path, '[^?]*')
+    local exp_path = string.gmatch(path, '[^/]*')
+    local path = {}
+
+    for i in exp_path do
+      if i ~= nil and i ~= '' then
+        table.insert(path, i)
+      end
+    end
+
+    for i,v in ipairs(path) do
+      if redis.call('EXISTS', currStr .. '/' .. v) == 1 then
+        currStr = currStr .. '/' .. v
+      elseif redis.call('EXISTS', currStr .. '/.*') == 1 then
+        currStr = currStr .. '/.*'
+      else
+        return 0
+      end
+    end
+    return redis.call('GET', currStr)
+  ]]
+  if red == nil then
+    red = _M.init()
+  end
+  local result = red:eval(script, 0)
+  if type(result) ~= 'string' or result == '' then
+    return nil, red
+  end
+  ngx.var.gatewayPath = result:gsub(utils.concatStrings({'resources:', tenant, ':'}), '')
+
+  if CACHING_ENABLED then
+    c:set(utils.concatStrings({'fastmap:', tenant, ':', path}), result, CACHE_TTL)
+  end
+
+  return result, red
+end
+
+function _M.optimizeLookup(red, tenant, resourceKey, pathStr)
+  local startingString = utils.concatStrings({'fastmap:', tenant})
+  if get(red, startingString) == nil then
+    set(red, startingString, '')
+  end
+  path = {}
+  key = {}
+  for p in string.gmatch(pathStr, '[^/]*') do
+    if p ~= '' then
+      table.insert(path, p)
+    end
+  end
+
+  for r in string.gmatch(resourceKey:gsub('[^:]*:[^:]*:', ''), '[^/]*') do
+    if r ~= '' then
+      table.insert(key, r)
+    end
+  end
+
+  for i = 1, table.getn(path) do
+    if path[i] == key[i] then
+      startingString = utils.concatStrings({startingString, '/', key[i]})
+      if (exists(red, startingString)) == 0 then
+        set(red, startingString, '')
+      end
+    else
+      startingString = utils.concatStrings({startingString, '/.*'})
+      if (exists(red,startingString) == 0) then
+        set(red, startingString, '')
+      end
+    end
+  end
+  set(red, startingString, resourceKey)
 end
 
 function _M.lockSnapshot(red, snapshotId)
   red:set(utils.concatStrings({'lock:snapshots:', snapshotId}), 'true')
   red:expire(utils.concatStrings({'lock:snapshots:', snapshotId}), 60)
 end
+
 -- LRU Caching methods
 
 function exists(red, key, snapshotId)
@@ -554,14 +646,20 @@ function exists(red, key, snapshotId)
       return 1
     end
   -- if it isn't in the cache, try and load it in there
+    if red == nil then
+      red = _M.init()
+    end
     local result = red:get(key)
     if result ~= ngx.null then
       c:set(key, result, CACHE_TTL)
-      return 1
+      return 1, red
     end
     return 0
   else
-    return red:exists(key)
+    if red == nil then
+      red = _M.init()
+    end
+    return red:exists(key), red
   end
 end
 
@@ -571,11 +669,17 @@ function get(red, key)
     if cached ~= nil then
       return cached
     else
+      if red == nil then
+        red = _M.init()
+      end
       local result = red:get(key)
       c:set(key, result, CACHE_TTL)
-      return result
+      return result, red
     end
   else
+    if red == nil then
+      red = _M.init()
+    end
     return red:get(key)
   end
 end
@@ -588,20 +692,29 @@ function hget(red, key, id)
       if cached ~= nil then
          return cached
       else
+        if red == nil then
+          red = _M.init()
+        end
         local result = red:hget(key, id)
         cachedmap:set(id, result, CACHE_TTL)
         c:set(key, cachedmap, CACHE_TTL)
-        return result
+        return result, red
       end
     else
+      if red == nil then
+        red = _M.init()
+      end
       local result = red:hget(key, id)
       local newcache = lrucache.new(CACHE_SIZE)
       newcache:set(id, result, CACHE_TTL)
       c:set(key, newcache, CACHE_TTL)
-      return result
+      return result, red
     end
   else
-    return red:hget(key, id)
+    if red == nil then
+      red = _M.init()
+    end
+    return red:hget(key, id), red
   end
 end
 
