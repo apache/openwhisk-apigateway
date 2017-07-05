@@ -29,3 +29,6 @@ sudo npm install -g jshint
 # OpenWhisk stuff
 cd $HOMEDIR
 git clone https://github.com/openwhisk/openwhisk.git
+
+# clone the openwhisk utilities repo.
+git clone https://github.com/apache/incubator-openwhisk-utilities.git
