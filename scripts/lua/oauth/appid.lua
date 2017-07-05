@@ -4,11 +4,10 @@ local utils = require 'lib/utils'
 local APPID_PKURL = os.getenv("APPID_PKURL")
 local _M = {}
 local http = require 'resty.http'
+local cjose = require 'resty.cjose'
 
 function _M.process(dataStore, token, securityObj)
-  print('called process')
   local result = dataStore:getOAuthToken('appId', token)
-  local jwt = require 'resty.jwt'
   local httpc = http.new()
   local json_resp
   if result ~= ngx.null then
@@ -34,26 +33,12 @@ function _M.process(dataStore, token, securityObj)
   for _, v in ipairs(keys) do 
     key = v
   end
-  
-  local ffi = require('ffi')
-  ffi.cdef [[
-    bool verify_jwt(char* key, char* token);
-  ]]
-
-  local capi = ffi.load('jwt_introspection')
-  key = cjson.encode(key)
-  local c_key = ffi.new("char[?]", #key)
-  ffi.copy(c_key, key)
-  local c_token = ffi.new("char[?]", #token)
-  ffi.copy(c_token, token)
-  local result = capi.verify_jwt(c_key, c_token)
-  
+  local result = cjose.validateJWS(token, cjson.encode(key))
   if not result then
     request.err(401, 'AppId key signature verification failed.')
     return nil
   end 
-  jwt_obj = jwt:load_jwt(token).payload
-  print(cjson.encode(jwt_obj))
+  jwt_obj = cjson.decode(cjose.getJWSInfo(token))
   ngx.header['X-OIDC-Email'] = jwt_obj['email']
   ngx.header['X-OIDC-Sub'] = jwt_obj['sub']
   dataStore:saveOAuthToken('appId', token, cjson.encode(jwt_obj), jwt_obj['exp'])

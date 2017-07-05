@@ -148,7 +148,8 @@ ENV LUA_RESTY_STRING_VERSION 0.09
 RUN opm get openresty/lua-resty-string=${LUA_RESTY_STRING_VERSION}
 ENV LUA_RESTY_LRUCACHE_VERSION 0.04
 RUN opm get openresty/lua-resty-lrucache=${LUA_RESTY_LRUCACHE_VERSION}
-RUN opm get SkyLothar/lua-resty-jwt
+ENV LUA_RESTY_CJOSE_VERSION 0.3
+RUN opm get taylorking/lua-resty-cjose=${LUA_RESTY_CJOSE_VERSION}
 RUN opm get taylorking/lua-resty-rate-limit
 
 
@@ -172,13 +173,7 @@ RUN echo " ... installing cjose ... " \
     && sh configure \
     && make && make install
 RUN mkdir -p /tmp/api-gateway
-COPY scripts/c/jwt_introspection.c /tmp/api-gateway/
 
-RUN echo " ... compiling and installing jwt introspection module ... " \
-    && cd /tmp/api-gateway \
-    && gcc -shared -fpic -I/usr/local/include -L/usr/local/lib jwt_introspection.c -o jwt_introspection.so -lcjose \
-    && cp /tmp/api-gateway/jwt_introspection.so /usr/local/lib/libjwt_introspection.so \
-    && cd / && rm -rf /tmp/api-gateway
 
 RUN \
     curl -L -k -s -o /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 \
@@ -194,7 +189,6 @@ RUN \
 
 COPY init.sh /etc/init-container.sh
 ONBUILD COPY init.sh /etc/init-container.sh
-
 # add the default configuration for the Gateway
 COPY . /etc/api-gateway
 RUN adduser -S nginx-api-gateway \
@@ -203,6 +197,7 @@ ONBUILD COPY . /etc/api-gateway
 
 EXPOSE 80 8080 8423 9000
 
+ENV LD_LIBRARY_PATH /usr/local/lib
 
 ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
 CMD ["/etc/init-container.sh"]
