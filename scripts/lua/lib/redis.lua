@@ -1,22 +1,19 @@
--- Copyright (c) 2016 IBM. All rights reserved.
 --
---   Permission is hereby granted, free of charge, to any person obtaining a
---   copy of this software and associated documentation files (the "Software"),
---   to deal in the Software without restriction, including without limitation
---   the rights to use, copy, modify, merge, publish, distribute, sublicense,
---   and/or sell copies of the Software, and to permit persons to whom the
---   Software is furnished to do so, subject to the following conditions:
+-- Licensed to the Apache Software Foundation (ASF) under one or more
+-- contributor license agreements.  See the NOTICE file distributed with
+-- this work for additional information regarding copyright ownership.
+-- The ASF licenses this file to You under the Apache License, Version 2.0
+-- (the "License"); you may not use this file except in compliance with
+-- the License.  You may obtain a copy of the License at
 --
---   The above copyright notice and this permission notice shall be included in
---   all copies or substantial portions of the Software.
+--     http://www.apache.org/licenses/LICENSE-2.0
 --
---   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
---   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
---   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
---   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
---   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
---   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
---   DEALINGS IN THE SOFTWARE.
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+--
 
 --- @module redis
 -- Module that the gateway uses to interact with redis
@@ -25,7 +22,7 @@ local cjson = require "cjson"
 local utils = require "lib/utils"
 local logger = require "lib/logger"
 local request = require "lib/request"
-local lrucache 
+local lrucache
 local CACHE_SIZE
 local CACHE_TTL
 local c, err
@@ -35,13 +32,13 @@ if CACHING_ENABLED then
   CACHE_SIZE = tonumber(os.getenv('CACHE_SIZE'))
   CACHE_TTL = tonumber(os.getenv('CACHE_TTL'))
   c, err = lrucache.new(CACHE_SIZE)
-  if not c then 
+  if not c then
     return error("Failed to initialize LRU cache" .. (err or "unknown"))
-  end 
-end 
+  end
+end
 
 
-local REDIS_RETRY_COUNT = os.getenv('REDIS_RETRY_COUNT') or 4 
+local REDIS_RETRY_COUNT = os.getenv('REDIS_RETRY_COUNT') or 4
 local REDIS_FIELD = "resources"
 
 local _M = {}
@@ -204,7 +201,7 @@ function _M.generateResourceObj(ops, apiId, tenantObj, cors)
       resourceObj.operations[op].security = v.security
     end
   end
-  if cors then 
+  if cors then
     resourceObj.cors = cors
   end
   if apiId then
@@ -437,131 +434,131 @@ function _M.deleteSwagger(red, id)
 end
 
 
--- LRU Caching methods 
+-- LRU Caching methods
 
-function exists(red, key) 
-  if CACHING_ENABLED then 
+function exists(red, key)
+  if CACHING_ENABLED then
     local cached = c:get(key)
-    if cached ~= nil then 
+    if cached ~= nil then
       return 1
-    end 
+    end
   -- if it isn't in the cache, try and load it in there
     local result = red:get(key)
     if result ~= ngx.null then
       c:set(key, result, CACHE_TTL)
       return 1
-    end 
-    return 0 
-  else 
-    return red:exists(key) 
-  end 
-end 
+    end
+    return 0
+  else
+    return red:exists(key)
+  end
+end
 
-function get(red, key) 
-  if CACHING_ENABLED then 
+function get(red, key)
+  if CACHING_ENABLED then
     local cached, stale = c:get(key)
     if cached ~= nil then
-      return cached 
-    else   
-      local result = red:get(key) 
-      c:set(key, result, CACHE_TTL) 
+      return cached
+    else
+      local result = red:get(key)
+      c:set(key, result, CACHE_TTL)
       return result
-    end 
+    end
   else
     return red:get(key)
   end
 end
 
-function hget(red, key, id) 
-  if CACHING_ENABLED then 
+function hget(red, key, id)
+  if CACHING_ENABLED then
     local cachedmap, stale = c:get(key)
     if cachedmap ~= nil then
       local cached = cachedmap:get(id)
       if cached ~= nil then
-         return cached 
+         return cached
       else
-        local result = red:hget(key, id) 
-        cachedmap:set(id, result, CACHE_TTL) 
+        local result = red:hget(key, id)
+        cachedmap:set(id, result, CACHE_TTL)
         c:set(key, cachedmap, CACHE_TTL)
         return result
       end
     else
       local result = red:hget(key, id)
-      local newcache = lrucache.new(CACHE_SIZE) 
-      newcache:set(id, result, CACHE_TTL) 
+      local newcache = lrucache.new(CACHE_SIZE)
+      newcache:set(id, result, CACHE_TTL)
       c:set(key, newcache, CACHE_TTL)
-      return result  
+      return result
     end
   else
     return red:hget(key, id)
   end
-end 
+end
 
-function hgetall(red, key) 
+function hgetall(red, key)
   return red:hgetall(key)
-end 
+end
 
 function hset(red, key, id, value)
-  if CACHING_ENABLED then 
+  if CACHING_ENABLED then
     local cachedmap = c:get(key)
-    if cachedmap ~= nil then 
-      cachedmap:set(id, value, CACHE_TTL) 
+    if cachedmap ~= nil then
+      cachedmap:set(id, value, CACHE_TTL)
       c:set(key, cachedmap, CACHE_TTL)
       return red:hset(key, id, value)
-    else 
+    else
       local val = lrucache.new(CACHE_SIZE)
-      val:set(id, value, CACHE_TTL) 
+      val:set(id, value, CACHE_TTL)
       c:set(key, val, CACHE_TTL)
-    end 
+    end
   end
-  return red:hset(key, id, value) 
-end 
+  return red:hset(key, id, value)
+end
 
-function expire(red, key, ttl) 
-  if CACHING_ENABLED then 
-    local cached = c:get(key) 
-    local value = '' 
-    if cached ~= nil then -- just put it back in the cache with a ttl 
-      value = cached 
-    end 
+function expire(red, key, ttl)
+  if CACHING_ENABLED then
+    local cached = c:get(key)
+    local value = ''
+    if cached ~= nil then -- just put it back in the cache with a ttl
+      value = cached
+    end
     c:set(key, value, ttl)
   end
   return red:expire(key, ttl)
-end 
+end
 
-function del(red, key) 
-  if CACHING_ENABLED then 
+function del(red, key)
+  if CACHING_ENABLED then
     c:delete(key)
   end
   return red:del(key)
 end
- 
+
 function hdel(red, key, id)
-  if CACHING_ENABLED then 
-    local cachecontents = c:get(key) 
+  if CACHING_ENABLED then
+    local cachecontents = c:get(key)
     if cachecontents ~= nil then
       cachecontents:del(id)
       c:set(key, cachecontents, CACHE_TTL)
-    end 
+    end
   end
-  return red:hdel(key, id) 
-end 
+  return red:hdel(key, id)
+end
 
-function set(red, key, value) 
-  return red:set(key, value) 
-end 
+function set(red, key, value)
+  return red:set(key, value)
+end
 
-function smembers(red, key) 
-  return red:smembers(key) 
+function smembers(red, key)
+  return red:smembers(key)
 end
 
 function srem(red, key, id)
-  return red:srem(key, id) 
-end 
+  return red:srem(key, id)
+end
 
 function sadd(red, key, id)
-  return red:sadd(key, id) 
-end 
+  return red:sadd(key, id)
+end
 
 
 _M.get = get
