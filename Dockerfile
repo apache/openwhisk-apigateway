@@ -148,11 +148,12 @@ ENV LUA_RESTY_STRING_VERSION 0.09
 RUN opm get openresty/lua-resty-string=${LUA_RESTY_STRING_VERSION}
 ENV LUA_RESTY_LRUCACHE_VERSION 0.04
 RUN opm get openresty/lua-resty-lrucache=${LUA_RESTY_LRUCACHE_VERSION}
-ENV LUA_RESTY_JWT_VERSION 0.1.10
-RUN opm get SkyLothar/lua-resty-jwt=${LUA_RESTY_JWT_VERSION}
-ENV NETURL_LUA_VERSION 0.9-1
+ENV LUA_RESTY_CJOSE_VERSION 0.3
+RUN opm get taylorking/lua-resty-cjose=${LUA_RESTY_CJOSE_VERSION}
 RUN opm get taylorking/lua-resty-rate-limit
 
+
+ENV NETURL_LUA_VERSION 0.9-1
 RUN echo " ... installing neturl.lua ... " \
     && mkdir -p /tmp/api-gateway \
     && curl -k -L https://github.com/golgote/neturl/archive/${NETURL_LUA_VERSION}.tar.gz -o /tmp/api-gateway/neturl.lua-${NETURL_LUA_VERSION}.tar.gz \
@@ -161,6 +162,18 @@ RUN echo " ... installing neturl.lua ... " \
     && cd /tmp/api-gateway/neturl-${NETURL_LUA_VERSION} \
     && cp lib/net/url.lua ${LUA_LIB_DIR} \
     && rm -rf /tmp/api-gateway
+
+ENV CJOSE_VERSION 0.5.1
+RUN echo " ... installing cjose ... " \
+    && apk update && apk add automake autoconf git gcc make jansson jansson-dev \
+    && mkdir -p /tmp/api-gateway \
+    && curl -L -k https://github.com/cisco/cjose/archive/${CJOSE_VERSION}.tar.gz -o /tmp/api-gateway/cjose-${CJOSE_VERSION}.tar.gz \
+    && tar -xf /tmp/api-gateway/cjose-${CJOSE_VERSION}.tar.gz -C /tmp/api-gateway/ \
+    && cd /tmp/api-gateway/cjose-${CJOSE_VERSION} \
+    && sh configure \
+    && make && make install
+RUN mkdir -p /tmp/api-gateway
+
 
 RUN \
     curl -L -k -s -o /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 \
@@ -176,7 +189,6 @@ RUN \
 
 COPY init.sh /etc/init-container.sh
 ONBUILD COPY init.sh /etc/init-container.sh
-
 # add the default configuration for the Gateway
 COPY . /etc/api-gateway
 RUN adduser -S nginx-api-gateway \
@@ -185,6 +197,7 @@ ONBUILD COPY . /etc/api-gateway
 
 EXPOSE 80 8080 8423 9000
 
+ENV LD_LIBRARY_PATH /usr/local/lib
 
 ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
 CMD ["/etc/init-container.sh"]

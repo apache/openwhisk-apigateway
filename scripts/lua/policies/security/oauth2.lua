@@ -48,7 +48,7 @@ function process(dataStore, securityObj)
   end
   accessToken = string.gsub(accessToken, '^Bearer%s', '')
 
-  local token = exchange(dataStore, accessToken, securityObj.provider)
+  local token = exchange(dataStore, accessToken, securityObj.provider, securityObj)
   if token == nil then
     request.err(401, 'Token didn\'t work or provider doesn\'t support OpenID connect. ')
     return nil
@@ -67,7 +67,7 @@ end
 -- @param token the accessToken passed in the authorization header of the routing request
 -- @param provider the name of the provider we will load from a file. Currently supported google/github/facebook
 -- @return the json object recieved from exchanging tokens with the provider
-function exchange(dataStore, token, provider)
+function exchange(dataStore, token, provider, securityObj)
     -- exchange tokens with the provider
     local loaded, impl = pcall(require, utils.concatStrings({'oauth/', provider}))
     if not loaded then
@@ -76,7 +76,7 @@ function exchange(dataStore, token, provider)
       return nil
     end
 
-    local result = impl.process(dataStore, token)
+    local result = impl.process(dataStore, token, securityObj)
     if result == nil then
       request.err('401', 'OAuth token didn\'t work or provider doesn\'t support OpenID connect')
     end
