@@ -10,7 +10,15 @@ FROM m4_ifdef(`S390X',`s390x/alpine:latest',`alpine:latest')
 
 m4_changequote({{,}})
 
-# install dependencies
+# install dependencies 
+#
+#  Note that we use --no-cache to avoid having to update or (later) rm a cache
+#  Using '--virtual' establishes a stack pointer (essentially) that lets us
+#  remove everything we installed just to make the build work.
+#
+#  Also, added bash, dumb-init and jq packages.  The latter two had been 
+#  retreived and compiled, so their addition should speed the Docker build.
+#
 RUN apk --no-cache add bash dumb-init geoip libgcc openssl-dev jq \
  && apk --no-cache add --virtual build-deps \
 	   gcc tar automake autoconf libtool zlib jemalloc jemalloc-dev perl \
@@ -33,6 +41,10 @@ ENV OPENRESTY_VERSION=1.9.7.3 \
     _sbindir=/usr/local/sbin
 
 m4_ifdef({{S390X}},{{
+#
+#  The S390X architecture needs a very specific patch to LuaJIT to work, so we download and
+#  compile it here for OpenRESTY to use later.
+#
 RUN echo " ... compiling and installing LuaJIT" \
  && mkdir -p /tmp/api-gateway/LuaJIT-${LUAJIT_VERSION} \
  && cd /tmp/api-gateway/LuaJIT-${LUAJIT_VERSION} \
@@ -160,6 +172,12 @@ RUN echo " ... installing opm..." \
     && ln -s ${_prefix}/api-gateway/bin/resty /usr/bin/resty \
     && rm -rf /tmp/api-gateway
 
+#
+#  TODO:  Clean this up so we aren't creating 11 additional layers.
+#         Define all the ENV variables in one statement and run the 
+#         OPM gets as a command chain (or does OPM support multiple
+#         packages in one get statement?
+
 ENV LUA_RESTY_HTTP_VERSION 0.10
 RUN opm get pintsized/lua-resty-http=${LUA_RESTY_HTTP_VERSION}
 ENV LUA_RESTY_IPUTILS_VERSION 0.2.1
@@ -182,6 +200,10 @@ RUN echo " ... installing neturl.lua ... " \
     && cp lib/net/url.lua ${LUA_LIB_DIR} \
     && rm -rf /tmp/api-gateway
 
+#
+#  Cleaned up from the upstream.  APK dependencies moved to the top of the Dockerfile
+#  and we no longer bother to put the tarball on disk.
+#
 ENV CJOSE_VERSION 0.5.1
 RUN echo " ... installing cjose ... " \
     && mkdir -p /tmp/api-gateway \
@@ -204,5 +226,8 @@ ONBUILD COPY . /etc/api-gateway
 
 EXPOSE 80 8080 8423 9000
 
+#
+#  The dumb-init is available as an Alpine package now, so its location has changed.
+#
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/etc/init-container.sh"]
