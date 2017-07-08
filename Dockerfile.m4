@@ -4,25 +4,42 @@
 #
 # From https://hub.docker.com/_/alpine/
 #
-FROM alpine:latest
+#LABEL apigateway
+
+FROM m4_ifdef(`S390X',`s390x/alpine:latest',`alpine:latest')
+
+m4_changequote({{,}})
 
 # install dependencies
-RUN apk update \
-    && apk add gcc tar libtool zlib jemalloc jemalloc-dev perl \
-    ca-certificates wget make musl-dev openssl-dev pcre-dev g++ zlib-dev curl python \
-    perl-test-longstring perl-list-moreutils perl-http-message geoip-dev \
-    && update-ca-certificates
+RUN apk --no-cache add bash dumb-init libgcc openssl-dev jq
+ && apk --no-cache add --virtual build-deps
+	gcc tar libtool zlib jemalloc jemalloc-dev perl \
+        ca-certificates wget make musl-dev openssl-dev pcre-dev g++ zlib-dev curl python \
+        perl-test-longstring perl-list-moreutils perl-http-message geoip-dev \
+ && update-ca-certificates
 
 # openresty build
 ENV OPENRESTY_VERSION=1.9.7.3 \
     NAXSI_VERSION=0.53-2 \
     PCRE_VERSION=8.37 \
     TEST_NGINX_VERSION=0.24 \
+    LUAJIT_VERSION=2.1 \
+    LUAJIT_DIR=/usr/local/api-gateway/luajit \
     _prefix=/usr/local \
     _exec_prefix=/usr/local \
     _localstatedir=/var \
     _sysconfdir=/etc \
     _sbindir=/usr/local/sbin
+
+m4_ifdef({{S390X}},{{
+RUN echo " ... compiling and installing LuaJIT" \
+ && mkdir -p /tmp/api-gateway/LuaJIT-${LUAJIT_VERSION} \
+ && cd /tmp/LuaJIT-${LUAJIT_VERSION} \
+ && curl -sSL http://api.github.com/repos/linux-on-ibm-z/LuaJIT/tarball/v${LUAJIT_VERSION} \
+        | tar zxf - \
+ && make install PREFIX=${LUAJIT_DIR}
+ && rm -rf /tmp/api-gateway/LuaJIT-${LUAJIT_VERSION} \
+}},{{}})
 
 RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
      && mkdir -p /tmp/api-gateway \
@@ -48,7 +65,8 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --pid-path=${_localstatedir}/run/api-gateway.pid \
             --lock-path=${_localstatedir}/run/api-gateway.lock \
             --add-module=../naxsi-${NAXSI_VERSION}/naxsi_src/ \
-            --with-pcre=../pcre-${PCRE_VERSION}/ --with-pcre-jit \
+            --with-pcre=../pcre-${PCRE_VERSION}/ \
+            m4_ifdef({{S390X}},{{--without-pcre-jit}},{{--with-pcre-jit}}) \
             --with-stream \
             --with-stream_ssl_module \
             --with-http_ssl_module \
@@ -66,7 +84,7 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --with-http_degradation_module \
             --with-http_auth_request_module  \
             --with-http_v2_module \
-            --with-luajit \
+            m4_ifdef({{S390X}},{{--with-luajit=${LUAJIT_DIR} }},{{--with-luajit}}) \
             --without-http_ssi_module \
             --without-http_userid_module \
             --without-http_uwsgi_module \
@@ -86,7 +104,8 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --pid-path=${_localstatedir}/run/api-gateway.pid \
             --lock-path=${_localstatedir}/run/api-gateway.lock \
             --add-module=../naxsi-${NAXSI_VERSION}/naxsi_src/ \
-            --with-pcre=../pcre-${PCRE_VERSION}/ --with-pcre-jit \
+            --with-pcre=../pcre-${PCRE_VERSION}/ \
+            m4_ifdef({{S390X}},{{--without-pcre-jit}},{{--with-pcre-jit}}) \
             --with-stream \
             --with-stream_ssl_module \
             --with-http_ssl_module \
@@ -104,7 +123,7 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --with-http_degradation_module \
             --with-http_auth_request_module  \
             --with-http_v2_module \
-            --with-luajit \
+            m4_ifdef({{S390X}},{{--with-luajit=${LUAJIT_DIR} }},{{--with-luajit}}) \
             --without-http_ssi_module \
             --without-http_userid_module \
             --without-http_uwsgi_module \
@@ -122,8 +141,7 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
 
     && ln -s ${_sbindir}/api-gateway-debug ${_sbindir}/nginx \
     && cp /tmp/api-gateway/openresty-${OPENRESTY_VERSION}/build/install ${_prefix}/api-gateway/bin/resty-install \
-    && apk del g++ gcc make \
-    && rm -rf /var/cache/apk/* \
+    && apk del build-deps \
     && rm -rf /tmp/api-gateway
 
 ENV OPM_VERSION 0.0.3
@@ -138,7 +156,7 @@ RUN echo " ... installing opm..." \
     && cd site \
     && ln -s ../lualib ./ \
     && ln -s ${_prefix}/api-gateway/bin/opm /usr/bin/opm \
-    && ln -s ${_prefix}/api-gateway/bin/resty /usr/bin/resty
+    && ln -s ${_prefix}/api-gateway/bin/resty /usr/bin/resty \
 
 ENV LUA_RESTY_HTTP_VERSION 0.10
 RUN opm get pintsized/lua-resty-http=${LUA_RESTY_HTTP_VERSION}
@@ -162,17 +180,8 @@ RUN echo " ... installing neturl.lua ... " \
     && cp lib/net/url.lua ${LUA_LIB_DIR} \
     && rm -rf /tmp/api-gateway
 
-RUN \
-    curl -L -k -s -o /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 \
-    && apk update \
-    && apk add gawk \
-    && chmod 755 /usr/local/bin/jq \
-    && rm -rf /var/cache/apk/*
-
-RUN \
-    echo " ... installing dumb-init ... " \
-    && wget -O /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.0/dumb-init_1.2.0_amd64 \
-    && chmod +x /usr/local/bin/dumb-init
+RUN echo " ... cleaning up ... " \
+ && apk del build-deps
 
 COPY init.sh /etc/init-container.sh
 ONBUILD COPY init.sh /etc/init-container.sh
@@ -185,6 +194,5 @@ ONBUILD COPY . /etc/api-gateway
 
 EXPOSE 80 8080 8423 9000
 
-
-ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
-CMD ["/etc/init-container.sh"]
+#ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
+#CMD ["/etc/init-container.sh"]

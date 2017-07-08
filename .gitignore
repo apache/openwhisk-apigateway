@@ -18,3 +18,6 @@ secrets.yml
 
 # npm
 npm-debug.log
+
+# Profiling
+.profiling.*
