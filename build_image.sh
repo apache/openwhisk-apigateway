@@ -7,11 +7,11 @@ cd "$( dirname "${BASH_SOURCE[0]}" )" || exit
 arch=$(docker info 2>/dev/null | sed -n 's/Architecture: \(.*\)/\1/p')
 echo "Processing for $arch"
 
-    tmpfile="$(mktemp -tp "$1")"
-    echo "...Pre-processing $1/Dockerfile.m4 to $tmpfile"
+    tmpfile="$(mktemp -tp ".")"
+    echo "...Pre-processing ./Dockerfile.m4 to $tmpfile"
     m4 -P \
       -D "$(echo "$arch" | tr '[:lower:]' '[:upper:]')" -D "m4_dockerarch=$arch" \
-		  "$1/Dockerfile.m4" > $tmpfile
+		  "./Dockerfile.m4" > $tmpfile
 
   echo "...Processing $tmpfile"
 
@@ -19,6 +19,6 @@ echo "Processing for $arch"
   docker build -t "$REPOSITORY:$label" -f "$tmpfile" . || {
     echo Failure building $1; exit 1
   }
-  
+
   rm "$tmpfile"
   docker push "$REPOSITORY:$label"

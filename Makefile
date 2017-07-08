@@ -44,6 +44,8 @@ docker-run:
 		-e TOKEN_GOOGLE_URL=https://www.googleapis.com/oauth2/v3/tokeninfo \
 	 	-e TOKEN_FACEBOOK_URL=https://graph.facebook.com/debug_token \
 		-e TOKEN_GITHUB_URL=https://api.github.com/user \
+		-e APPID_PKURL=https://appid-oauth.ng.bluemix.net/oauth/v3/ \
+		-e LD_LIBRARY_PATH=/usr/local/lib \
 		openwhisk/apigateway:latest
 
 .PHONY: docker-debug
