@@ -11,10 +11,10 @@ FROM m4_ifdef(`S390X',`s390x/alpine:latest',`alpine:latest')
 m4_changequote({{,}})
 
 # install dependencies
-RUN apk --no-cache add bash dumb-init libgcc openssl-dev jq
- && apk --no-cache add --virtual build-deps
+RUN apk --no-cache add bash dumb-init geoip libgcc openssl-dev jq \
+ && apk --no-cache add --virtual build-deps \
 	gcc tar libtool zlib jemalloc jemalloc-dev perl \
-        ca-certificates wget make musl-dev openssl-dev pcre-dev g++ zlib-dev curl python \
+        ca-certificates wget make musl-dev pcre-dev g++ zlib-dev curl python \
         perl-test-longstring perl-list-moreutils perl-http-message geoip-dev \
  && update-ca-certificates
 
@@ -34,10 +34,11 @@ ENV OPENRESTY_VERSION=1.9.7.3 \
 m4_ifdef({{S390X}},{{
 RUN echo " ... compiling and installing LuaJIT" \
  && mkdir -p /tmp/api-gateway/LuaJIT-${LUAJIT_VERSION} \
- && cd /tmp/LuaJIT-${LUAJIT_VERSION} \
- && curl -sSL http://api.github.com/repos/linux-on-ibm-z/LuaJIT/tarball/v${LUAJIT_VERSION} \
-        | tar zxf - \
- && make install PREFIX=${LUAJIT_DIR}
+ && cd /tmp/api-gateway/LuaJIT-${LUAJIT_VERSION} \
+ && echo 'Getting' https://api.github.com/repos/linux-on-ibm-z/LuaJIT/tarball/v${LUAJIT_VERSION} \
+ && curl -sSL https://api.github.com/repos/linux-on-ibm-z/LuaJIT/tarball/v${LUAJIT_VERSION} | \
+    tar zxf - --strip-components=1 \
+ && make install PREFIX=${LUAJIT_DIR} \
  && rm -rf /tmp/api-gateway/LuaJIT-${LUAJIT_VERSION} \
 }},{{}})
 
@@ -66,7 +67,7 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --lock-path=${_localstatedir}/run/api-gateway.lock \
             --add-module=../naxsi-${NAXSI_VERSION}/naxsi_src/ \
             --with-pcre=../pcre-${PCRE_VERSION}/ \
-            m4_ifdef({{S390X}},{{--without-pcre-jit}},{{--with-pcre-jit}}) \
+            m4_ifdef({{S390X}},{{}},{{--with-pcre-jit}}) \
             --with-stream \
             --with-stream_ssl_module \
             --with-http_ssl_module \
@@ -105,7 +106,7 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --lock-path=${_localstatedir}/run/api-gateway.lock \
             --add-module=../naxsi-${NAXSI_VERSION}/naxsi_src/ \
             --with-pcre=../pcre-${PCRE_VERSION}/ \
-            m4_ifdef({{S390X}},{{--without-pcre-jit}},{{--with-pcre-jit}}) \
+            m4_ifdef({{S390X}},{{}},{{--with-pcre-jit}}) \
             --with-stream \
             --with-stream_ssl_module \
             --with-http_ssl_module \
@@ -141,7 +142,6 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
 
     && ln -s ${_sbindir}/api-gateway-debug ${_sbindir}/nginx \
     && cp /tmp/api-gateway/openresty-${OPENRESTY_VERSION}/build/install ${_prefix}/api-gateway/bin/resty-install \
-    && apk del build-deps \
     && rm -rf /tmp/api-gateway
 
 ENV OPM_VERSION 0.0.3
@@ -157,6 +157,7 @@ RUN echo " ... installing opm..." \
     && ln -s ../lualib ./ \
     && ln -s ${_prefix}/api-gateway/bin/opm /usr/bin/opm \
     && ln -s ${_prefix}/api-gateway/bin/resty /usr/bin/resty \
+    && rm -rf /tmp/api-gateway
 
 ENV LUA_RESTY_HTTP_VERSION 0.10
 RUN opm get pintsized/lua-resty-http=${LUA_RESTY_HTTP_VERSION}
@@ -194,5 +195,5 @@ ONBUILD COPY . /etc/api-gateway
 
 EXPOSE 80 8080 8423 9000
 
-#ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
-#CMD ["/etc/init-container.sh"]
+ENTRYPOINT ["/bin/dumb-init", "--"]
+CMD ["/etc/init-container.sh"]
