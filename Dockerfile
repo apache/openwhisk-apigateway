@@ -84,7 +84,7 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
         #  Use sh to run configure to avoid variable tokenization anxiety
         && sh -c "./configure \
             --prefix=${_exec_prefix}/api-gateway \
-            --sbin-path=${_sbindir}/api-gateway-debug \
+            --sbin-path=${_sbindir}/api-gateway${with_debug:+-debug} \
             --conf-path=${_sysconfdir}/api-gateway/api-gateway.conf \
             --error-log-path=${_localstatedir}/log/api-gateway/error.log \
             --http-log-path=${_localstatedir}/log/api-gateway/access.log \
@@ -115,11 +115,11 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --without-http_userid_module \
             --without-http_uwsgi_module \
             --without-http_scgi_module \
-            $debug \
+            ${--with-debug} \
             -j${NPROC}" \
-        && make -j${NPROC} \
-        && make install \
-    ; done && echo " ... Done building OpenRESTY (both varieties)" \
+        && make -j${NPROC} install \
+    ; done && echo " ... Done building OpenRESTY (both varieties) ... " \
+    && ls /usr/local/sbin/api-gateway* \
 
     && echo "        - adding Nginx Test support" \
     && curl -k -L https://github.com/openresty/test-nginx/archive/v${TEST_NGINX_VERSION}.tar.gz -o ${_prefix}/test-nginx-${TEST_NGINX_VERSION}.tar.gz \
