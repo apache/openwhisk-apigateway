@@ -26,10 +26,10 @@ local request = require "lib/request"
 local _M = {}
 
 --- Limit a resource/api/tenant, based on the passed in rateLimit object
--- @param red redis client instance
+-- @param dataStore the datastore object
 -- @param obj rateLimit object containing interval, rate, scope, subscription fields
 -- @param apiKey optional api key to use if subscription is set to true
-function limit(red, obj, apiKey)
+function limit(dataStore, obj, apiKey)
   local rate = obj.interval / obj.rate
   local tenantId = ngx.var.tenant
   local gatewayPath = ngx.var.gatewayPath
@@ -47,8 +47,9 @@ function limit(red, obj, apiKey)
   if obj.subscription ~= nil and obj.subscription == true and apiKey ~= nil then
     k = utils.concatStrings({k, ":subscription:", apiKey})
   end
-  if red:get(k) == ngx.null then
-    red:set(k, "", "PX", math.floor(rate*1000))
+
+  if dataStore:getRateLimit(k) == ngx.null then
+    dataStore:setRateLimit(k, "", "PX", math.floor(rate*1000))
   else
     return request.err(429, 'Rate limit exceeded')
   end

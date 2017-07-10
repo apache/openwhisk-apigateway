@@ -106,7 +106,7 @@ _Example body_:
               },
               {
                 "operations": [
-                  "postHello"
+                  "getFoo"
                 ],
                 "execute": [
                   {

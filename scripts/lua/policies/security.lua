@@ -27,14 +27,15 @@ local _M = {}
 local request = require "lib/request"
 local utils = require "lib/utils"
 --- Allow or block a request by calling a loaded security policy
+-- @param dataStore the datastore object
 -- @param securityObj an object out of the security array in a given tenant / api / resource
-function process(securityObj)
+function process(dataStore, securityObj)
   local ok, result = pcall(require, utils.concatStrings({'policies/security/', securityObj.type}))
   if not ok then
     ngx.log(ngx.ERR, 'An unexpected error ocurred while processing the security policy: ' .. securityObj.type)
     request.err(500, 'Gateway error.')
   end
-  return result.process(securityObj)
+  return result.process(dataStore, securityObj)
 end
 
 -- Wrap process in code to load the correct module

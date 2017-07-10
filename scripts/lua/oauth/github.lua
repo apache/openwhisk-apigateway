@@ -21,25 +21,25 @@
 -- A Proxy for Github OAuth API
 local cjson = require "cjson"
 local http = require "resty.http"
-local httpc = http.new()
 local request = require "lib/request"
 local cjson = require "cjson"
 local utils = require "lib/utils"
+local _M = {}
 
-function validateOAuthToken (red, token)
- 
-  local key = utils.concatStrings({'oauth:provider:github:', token})
-  if redis.exists(red, key) == 1 then
-    redis.close(red)
-    return cjson.decode(redis.get(red, key))
+function _M.process(dataStore, token)
+  local result = dataStore:getOAuthToken('github', token)
+  if result ~= ngx.null then
+    return cjson.decode(result)
   end
- 
+
   local request_options = {
     headers = {
       ["Accept"] = "application/json"
     },
     ssl_verify = false
   }
+
+  local httpc = http.new()
 
   local envUrl = os.getenv('TOKEN_GITHUB_URL')
   envUrl = envUrl ~= nil and envUrl or 'https://api.github.com/user'
@@ -51,7 +51,7 @@ function validateOAuthToken (red, token)
     request.err(500, 'OAuth provider error.')
     return
   end
- 
+
   local json_resp = cjson.decode(res.body)
   if json_resp.id == nil then
     return nil
@@ -61,12 +61,10 @@ function validateOAuthToken (red, token)
     return nil
   end
 
-  redis.set(red, key, cjson.encode(json_resp))
+  dataStore:saveOAuthToken('github', token, cjson.encode(json_resp))
   -- convert Github's response
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
   return json_resp
 end
 
-return validateOAuthToken
-
-
+return _M

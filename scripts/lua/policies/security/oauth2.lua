@@ -26,7 +26,7 @@
 
 local utils = require "lib/utils"
 local request = require "lib/request"
-local redis = require "lib/redis"
+local dataStore = require "lib/dataStore"
 local cjson = require "cjson"
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
@@ -35,26 +35,20 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
-function process(securityObj)
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
-  local result = processWithRedis(red, securityObj)
-  redis.close(red)
-  return result
-end
 
 
 -- Process the security object
 -- @param securityObj security object from nginx conf file
 -- @return oauthId oauth identification
-function processWithRedis(red, securityObj)
+function process(dataStore, securityObj)
   local accessToken = ngx.var['http_Authorization']
   if accessToken == nil then
     request.err(401, "No Authorization header provided")
     return nil
   end
   accessToken = string.gsub(accessToken, '^Bearer%s', '')
- 
-  local token = exchangeWithRedis(red, accessToken, securityObj.provider)
+
+  local token = exchange(dataStore, accessToken, securityObj.provider, securityObj)
   if token == nil then
     request.err(401, 'Token didn\'t work or provider doesn\'t support OpenID connect. ')
     return nil
@@ -69,24 +63,26 @@ function processWithRedis(red, securityObj)
 end
 
 --- Exchange tokens with an oauth provider. Loads a provider based on configuration in the nginx.conf
+-- @param dataStore the datastore object
 -- @param token the accessToken passed in the authorization header of the routing request
 -- @param provider the name of the provider we will load from a file. Currently supported google/github/facebook
 -- @return the json object recieved from exchanging tokens with the provider
-  function exchangeWithRedis(red, token, provider)
+function exchange(dataStore, token, provider, securityObj)
     -- exchange tokens with the provider
-    print (provider)
-    local loaded, provider = pcall(require, utils.concatStrings({'oauth/', provider}))
- 
+    local loaded, impl = pcall(require, utils.concatStrings({'oauth/', provider}))
     if not loaded then
       request.err(500, 'Error loading OAuth provider authentication module')
       print("error loading provider.")
       return nil
     end
-    local token = provider(red, token)
+
+    local result = impl.process(dataStore, token, securityObj)
+    if result == nil then
+      request.err('401', 'OAuth token didn\'t work or provider doesn\'t support OpenID connect')
+    end
     -- cache the token
-    return token
+    return result
 end
 
 _M.process = process
-_M.processWithRedis = processWithRedis
 return _M

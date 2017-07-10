@@ -25,37 +25,48 @@ local cjson = require "cjson"
 local url = require "url"
 local utils = require "lib/utils"
 local request = require "lib/request"
-local redis = require "lib/redis"
 -- load policies
 local security = require "policies/security"
 local mapping = require "policies/mapping"
 local rateLimit = require "policies/rateLimit"
 local backendRouting = require "policies/backendRouting"
 local cors = require "cors"
+local OPTIMIZE = os.getenv("OPTIMIZE")
 
-local REDIS_HOST = os.getenv("REDIS_HOST")
-local REDIS_PORT = os.getenv("REDIS_PORT")
-local REDIS_PASS = os.getenv("REDIS_PASS")
+if OPTIMIZE ~= nil then
+  OPTIMIZE = tonumber(OPTIMIZE)
+else
+  OPTIMIZE = 0
+end
+
+local SNAPSHOTTING = os.getenv('SNAPSHOTTING')
 
 local _M = {}
 
 --- Main function that handles parsing of invocation details and carries out implementation
-function _M.processCall()
+function _M.processCall(dataStore)
   -- Get resource object from redis
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   local tenantId = ngx.var.tenant
+
+  if SNAPSHOTTING == 'true' then
+    dataStore:setSnapshotId(tenantId) 
+  end
   local gatewayPath = ngx.var.gatewayPath
   local i, j = ngx.var.request_uri:find("/api/([^/]+)")
   ngx.var.analyticsUri = ngx.var.request_uri:sub(j+1)
   if ngx.req.get_headers()["x-debug-mode"] == "true" then
     setRequestLogs()
   end
-  local resourceKeys = redis.getAllResourceKeys(red, tenantId)
-  local redisKey = _M.findRedisKey(resourceKeys, tenantId, gatewayPath)
+  local redisKey = _M.findResource(dataStore, tenantId, gatewayPath)
   if redisKey == nil then
     request.err(404, 'Not found.')
   end
-  local obj = cjson.decode(redis.getResource(red, redisKey, "resources"))
+  local resource = dataStore:getResource(redisKey, "resources")
+  if resource == nil then
+    request.err(404, 'Snapshot not found.')
+  end
+  local obj = cjson.decode(resource) 
+
   cors.processCall(obj)
   ngx.var.tenantNamespace = obj.tenantNamespace
   ngx.var.tenantInstance = obj.tenantInstance
@@ -66,7 +77,7 @@ function _M.processCall()
       local key
       if (opFields.security) then
         for _, sec in ipairs(opFields.security) do
-          local result = security.process(sec)
+          local result = security.process(dataStore, sec)
           if key == nil and sec.type ~= "oauth2" then
             key = result -- use key from either apiKey or clientSecret security policy
           end
@@ -80,24 +91,24 @@ function _M.processCall()
       backendRouting.setRoute(opFields.backendUrl)
       -- Parse policies
       if opFields.policies ~= nil then
-        parsePolicies(red, opFields.policies, key)
+        parsePolicies(dataStore, opFields.policies, key)
       end
       -- Log updated request headers/body info to access logs
       if ngx.req.get_headers()["x-debug-mode"] == "true" then
         setRequestLogs()
       end
-      redis.close(red)
-      return
+      dataStore:close()
+      return nil
     end
   end
   request.err(404, 'Whoops. Verb not supported.')
 end
 
 --- Find the correct redis key based on the path that's passed in
--- @param resourceKeys list of resourceKeys to search through
+-- @param dataStore the datastore object
 -- @param tenant tenantId
 -- @param path path to look for
-function _M.findRedisKey(resourceKeys, tenant, path)
+function _M.findResource(dataStore, tenant, path)
   -- Check for exact match
   local redisKey = utils.concatStrings({"resources:", tenant, ":", path})
   local cfRedisKey
@@ -110,6 +121,33 @@ function _M.findRedisKey(resourceKeys, tenant, path)
       ngx.var.analyticsUri = utils.concatStrings({ngx.var.analyticsUri, '?', u.query})
     end
   end
+
+  local result
+  if OPTIMIZE > 0 then
+    result = dataStore:optimizedLookup(tenant, path)
+  end
+  if result ~= nil then
+    ngx.var.gatewayPath = result:gsub(utils.concatStrings({'resources:', tenant, ':'}), '')
+    return result
+  end
+
+  local resourceKeys = dataStore:getAllResources(tenant)
+  local result = _M.slowLookup(resourceKeys, tenant, path, redisKey, cfRedisKey)
+
+  if OPTIMIZE > 0 and result ~= nil then
+    dataStore:optimizeLookup(tenant, result, path)
+  end
+
+  return result
+end
+
+--- Perform a linear lookup of the api based on the apis in a tenant
+-- @param resourceKeys all of the resources under a given tenant
+-- @param tenant the tenant we are looking up for
+-- @param path the path used to call the api gateway
+-- @param redisKey a guess for a redis key based on the tenant id and path
+-- @param cfRedisKey a redis key that will exist if cloud foundry routing logic is used
+function _M.slowLookup(resourceKeys, tenant, path, redisKey, cfRedisKey)
   for _, key in pairs(resourceKeys) do
     if key == redisKey or key == cfRedisKey then
       local res = {string.match(key, "([^:]+):([^:]+):([^:]+)")}
@@ -156,6 +194,7 @@ function _M.findRedisKey(resourceKeys, tenant, path)
     redisKey = string.sub(redisKey, 1, index - 1)
   end
   return nil
+
 end
 
 --- Check redis if resourceKey matches path parameters
@@ -185,12 +224,12 @@ end
 -- @param red redis client instance
 -- @param obj List of policies containing a type and value field. This function reads the type field and routes it appropriately.
 -- @param apiKey optional subscription api key
-function parsePolicies(red, obj, apiKey)
+function parsePolicies(dataStore, obj, apiKey)
   for k, v in pairs (obj) do
     if v.type == 'reqMapping' then
       mapping.processMap(v.value)
     elseif v.type == 'rateLimit' then
-      rateLimit.limit(red, v.value, apiKey)
+      rateLimit.limit(dataStore, v.value, apiKey)
     elseif v.type == 'backendRouting' then
       backendRouting.setDynamicRoute(v.value)
     end
