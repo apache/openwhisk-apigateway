@@ -1,22 +1,19 @@
--- Copyright (c) 2016 IBM. All rights reserved.
 --
---   Permission is hereby granted, free of charge, to any person obtaining a
---   copy of this software and associated documentation files (the "Software"),
---   to deal in the Software without restriction, including without limitation
---   the rights to use, copy, modify, merge, publish, distribute, sublicense,
---   and/or sell copies of the Software, and to permit persons to whom the
---   Software is furnished to do so, subject to the following conditions:
+-- Licensed to the Apache Software Foundation (ASF) under one or more
+-- contributor license agreements.  See the NOTICE file distributed with
+-- this work for additional information regarding copyright ownership.
+-- The ASF licenses this file to You under the Apache License, Version 2.0
+-- (the "License"); you may not use this file except in compliance with
+-- the License.  You may obtain a copy of the License at
 --
---   The above copyright notice and this permission notice shall be included in
---   all copies or substantial portions of the Software.
+--     http://www.apache.org/licenses/LICENSE-2.0
 --
---   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
---   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
---   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
---   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
---   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
---   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
---   DEALINGS IN THE SOFTWARE.
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+--
 
 --- @module redis
 -- Module that the gateway uses to interact with redis
@@ -29,16 +26,6 @@ local lrucache
 local CACHE_SIZE
 local CACHE_TTL
 local c, err
-
-local REDIS_HOST = os.getenv("REDIS_HOST")
-local REDIS_PORT = os.getenv("REDIS_PORT")
-local REDIS_PASS = os.getenv("REDIS_PASS")
-local REDIS_TIMEOUT = os.getenv("REDIS_TIMEOUT")
-if REDIS_TIMEOUT == nil then
-  REDIS_TIMEOUT = 10000
-else
-  REDIS_TIMEOUT = tonumber(REDIS_TIMEOUT)
-end
 local CACHING_ENABLED = os.getenv('CACHING_ENABLED')
 if CACHING_ENABLED then
   lrucache = require "resty.lrucache"
@@ -61,13 +48,14 @@ local _M = {}
 ----------------------------
 
 --- Initialize and connect to Redis
-function _M.init()
-  local host = REDIS_HOST
-  local password = REDIS_PASS
-  local port = REDIS_PORT
+-- @param host redis host
+-- @param port redis port
+-- @param password redis password (nil if no password)
+-- @param timeout redis timeout in milliseconds
+function _M.init(host, port, password, timeout)
   local redis = require "resty.redis"
   local red = redis:new()
-  red:set_timeout(REDIS_TIMEOUT)
+  red:set_timeout(timeout)
   -- Connect to Redis server
   local retryCount = REDIS_RETRY_COUNT
   local connect, err = red:connect(host, port)
@@ -126,16 +114,15 @@ function _M.addAPI(red, id, apiObj, existingAPI)
       end
     end
   else
-    local snapshotId = _M.getSnapshotId(red, apiObj.tenantId)
     -- Delete all resources for the existingAPI
     local basePath = existingAPI.basePath:sub(2)
     for path, v in pairs(existingAPI.resources) do
       local gatewayPath = ngx.unescape_uri(utils.concatStrings({basePath, ngx.escape_uri(path)}))
       gatewayPath = gatewayPath:sub(1,1) == "/" and gatewayPath:sub(2) or gatewayPath
       local redisKey = utils.concatStrings({"resources:", existingAPI.tenantId, ":", gatewayPath})
-      _M.deleteResource(red, redisKey, REDIS_FIELD, snapshotId)
+      _M.deleteResource(red, redisKey, REDIS_FIELD)
       local indexKey = utils.concatStrings({"resources:", existingAPI.tenantId, ":__index__"})
-      _M.deleteResourceFromIndex(red, indexKey, redisKey, snapshotId)
+      _M.deleteResourceFromIndex(red, indexKey, redisKey)
     end
   end
   -- Add new API
@@ -181,10 +168,7 @@ function _M.deleteAPI(red, id)
   end
 end
 
-function _M.resourceToApi(red, resource, snapshotId)
-  if snapshotId ~= nil then
-    resource = utils.concatStrings({'snapshots:', snapshotId, ':', resource})
-  end
+function _M.resourceToApi(red, resource)
   local resource = hget(red, resource, "resources")
   if resource == ngx.null then
     return nil
@@ -236,10 +220,7 @@ end
 -- @param key redis resource key
 -- @param field redis resource field
 -- @param resourceObj redis object containing operations for resource
-function _M.createResource(red, key, field, resourceObj, snapshotId)
-  if snapshotId ~= nil then
-    key = utils.concatStrings({'snapshots:', snapshotId, ':', key})
-  end
+function _M.createResource(red, key, field, resourceObj)
   -- Add/update resource to redis
   local ok, err = hset(red, key, field, resourceObj)
   if not ok then
@@ -251,10 +232,7 @@ end
 -- @param red redis client instance
 -- @param index index key
 -- @param resourceKey resource key to add
-function _M.addResourceToIndex(red, index, resourceKey, snapshotId)
-  if snapshotId ~= nil then
-    index = utils.concatStrings({'snapshots:', snapshotId, ':', index})
-  end
+function _M.addResourceToIndex(red, index, resourceKey)
   local ok, err = sadd(red, index, resourceKey)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to update the resource index set: ", err}))
@@ -265,10 +243,7 @@ end
 -- @param red redis client instance
 -- @param index index key
 -- @param key resourceKey key to delete
-function _M.deleteResourceFromIndex(red, index, resourceKey, snapshotId)
-  if snapshotId ~= nil then
-    index = utils.concatStrings({'snapshots:', snapshotId, ':', index})
-  end
+function _M.deleteResourceFromIndex(red, index, resourceKey)
   local ok, err = srem(red, index, resourceKey)
   if not ok then
     request.err(500, utils.concatStrings({"Failed to update the resource index set: ", err}))
@@ -279,12 +254,8 @@ end
 -- @param red redis client instance
 -- @param key redis resource key
 -- @param field redis resource field
--- @param snapshotId an optional snapshotId
 -- @return resourceObj redis object containing operations for resource
-function _M.getResource(red, key, field, snapshotId)
-  if snapshotId ~= nil then
-    key = utils.concatStrings({"snapshots:", snapshotId, ":", key})
-  end
+function _M.getResource(red, key, field)
   local resourceObj, err = hget(red, key, field)
   if not resourceObj then
     request.err(500, utils.concatStrings({"Failed to retrieve the resource: ", err}))
@@ -299,31 +270,19 @@ end
 --- Get all resource keys for a tenant in redis
 -- @param red redis client instance
 -- @param tenantId tenant id
-function _M.getAllResources(red, tenantId, snapshotId)
-  local key = utils.concatStrings({'resources:', tenantId, ':__index__'})
-  if snapshotId ~= nil then
-    key = utils.concatStrings({'snapshots:', snapshotId, ':', key})
-  end
-  local keys, err = smembers(red, key)
+function _M.getAllResourceKeys(red, tenantId)
+  local keys, err = smembers(red, utils.concatStrings({"resources:", tenantId, ":__index__"}))
   if not keys then
     request.err(500, utils.concatStrings({"Failed to retrieve resource keys: ", err}))
   end
-  local result = {}
-  for _, v in ipairs(keys) do
-    local str = v:gsub(utils.concatStrings({'snapshots:', snapshotId, ':', ''}), '')
-    table.insert(result, str)
-  end
-  return result
+  return keys
 end
 
 --- Delete resource in redis
 -- @param red redis client instance
 -- @param key redis resource key
 -- @param field redis resource field
-function _M.deleteResource(red, key, field, snapshotId)
-  if snapshotId ~= nil then
-    key = utils.concatStrings({'snapshots:', snapshotId, ':', key})
-  end
+function _M.deleteResource(red, key, field)
   local resourceObj, err = hget(red, key, field)
   if not resourceObj then
     request.err(500, utils.concatStrings({"Failed to delete the resource: ", err}))
@@ -368,14 +327,6 @@ function _M.addTenant(red, id, tenantObj)
   return tenantObj
 end
 
-function _M.getSnapshotId(red, tenantId)
- local result = red:get(utils.concatStrings({'snapshots:tenant:', tenantId}))
-  if result == ngx.null then
-    return nil
-  end
-  return result
-end
-
 --- Get all tenants from redis
 -- @param red Redis client instance
 function _M.getAllTenants(red)
@@ -417,10 +368,7 @@ end
 --- Create/update subscription/apikey in redis
 -- @param red redis client instance
 -- @param key redis subscription key to create
-function _M.createSubscription(red, key, snapshotId)
-  if snapshotId ~= nil then
-    key = utils.concatStrings({'snapshots:', snapshotId, ':', key})
-  end
+function _M.createSubscription(red, key)
   -- Add/update a subscription key to redis
   local ok, err = set(red, key, '')
   if not ok then
@@ -431,10 +379,7 @@ end
 --- Delete subscription/apikey int redis
 -- @param red redis client instance
 -- @param key redis subscription key to delete
-function _M.deleteSubscription(red, key, snapshotId)
-  if snapshotId ~= nil then
-    key = utils.concatStrings({'snapshots:', snapshotId, ':', key})
-  end
+function _M.deleteSubscription(red, key)
   local subscription, err = get(red, key)
   if not subscription then
     request.err(500, utils.concatStrings({"Failed to delete the subscription key: ", err}))
@@ -447,48 +392,6 @@ function _M.deleteSubscription(red, key, snapshotId)
     request.err(500, utils.concatStrings({"Failed to delete the subscription key: ", err}))
   end
 end
-
-function _M.cleanSubscriptions(red, pattern)
-  return red:eval("return redis.call('del', unpack(redis.call('keys', ARGV[1])))", 0, pattern)
-end
-
-
-function _M.getSubscriptions(red, artifactId, tenantId, snapshotId)
-  local res = red:scan(0, "match", utils.concatStrings({"subscriptions:tenant:", tenantId, ":api:", artifactId, ":*"}))
-  local cursor = res[1]
-  local subscriptions = {}
-  for _, v in pairs(res[2]) do
-    local matched = {string.match(v, "subscriptions:tenant:([^:]+):api:([^:]+):([^:]+):([^:]+):*")}
-    subscriptions[#subscriptions + 1] = matched[4]
-  end
-  while cursor ~= "0" do
-    res = red:scan(cursor, "match", utils.concatStrings({"subscriptions:tenant:", tenantId, ":api:", artifactId, ":*"}))
-    cursor = res[1]
-    for _, v in pairs(res[2]) do
-      local matched = {string.match(v, "subscriptions:tenant:([^:]+):api:([^:]+):([^:]+):([^:]+):*")}
-      subscriptions[#subscriptions + 1] = matched[4]
-    end
-  end
-  return subscriptions
-end
-
------------------------------
---- OAuth Tokens          ---
------------------------------
-function _M.getOAuthToken(red, provider, token)
-  return get(red, utils.concatStrings({'oauth:providers:', provider, ':tokens:', token}))
-end
-
-
-
-function _M.saveOAuthToken(red, provider, token, body, ttl)
-  set(red, utils.concatStrings({'oauth:providers:', provider, ':tokens:', token}), body)
-  if ttl ~= nil then
-    expire(red, utils.concatStrings({'oauth:providers:', provider, ':tokens:', token}), ttl)
-  end
-end
-
-
 
 --- Check health of gateway
 function _M.healthCheck()
@@ -530,136 +433,24 @@ function _M.deleteSwagger(red, id)
   end
 end
 
-function _M.setRateLimit(red, key, value, interval, expires)
-  return red:set(key, value, interval, expires)
-end
-
--- rate limiting is kind of special in that I don't want to get it from the cache because the intervals are too small.
--- eventually may consider moving it into an nginx variable instead of redis
-function _M.getRateLimit(red, key)
-  if red == nil then
-    red = _M.init()
-  end
-  return red:get(key), red
-end
-
-function _M.optimizedLookup(red, tenant, path)
-  if CACHING_ENABLED then
-    local cached = c:get(utils.concatStrings({'fastmap:', tenant, ':', path}))
-    if cached ~= nil then
-      return cached
-    end
-  end
-  local script = [[
-    local tenant = ']] .. tenant .. [['
-    local path = ']] .. path .. [['
-    if redis.call('EXISTS', 'resources:' .. tenant .. ':' .. path) ~= 0 then
-      return 'resources:' .. tenant .. ':' .. path
-    end
-    local currStr = 'fastmap:' .. tenant
-    path = string.match(path, '[^?]*')
-    local exp_path = string.gmatch(path, '[^/]*')
-    local path = {}
-
-    for i in exp_path do
-      if i ~= nil and i ~= '' then
-        table.insert(path, i)
-      end
-    end
-
-    for i,v in ipairs(path) do
-      if redis.call('EXISTS', currStr .. '/' .. v) == 1 then
-        currStr = currStr .. '/' .. v
-      elseif redis.call('EXISTS', currStr .. '/.*') == 1 then
-        currStr = currStr .. '/.*'
-      else
-        return 0
-      end
-    end
-    return redis.call('GET', currStr)
-  ]]
-  if red == nil then
-    red = _M.init()
-  end
-  local result = red:eval(script, 0)
-  if type(result) ~= 'string' or result == '' then
-    return nil, red
-  end
-  ngx.var.gatewayPath = result:gsub(utils.concatStrings({'resources:', tenant, ':'}), '')
-
-  if CACHING_ENABLED then
-    c:set(utils.concatStrings({'fastmap:', tenant, ':', path}), result, CACHE_TTL)
-  end
-
-  return result, red
-end
-
-function _M.optimizeLookup(red, tenant, resourceKey, pathStr)
-  local startingString = utils.concatStrings({'fastmap:', tenant})
-  if get(red, startingString) == nil then
-    set(red, startingString, '')
-  end
-  path = {}
-  key = {}
-  for p in string.gmatch(pathStr, '[^/]*') do
-    if p ~= '' then
-      table.insert(path, p)
-    end
-  end
-
-  for r in string.gmatch(resourceKey:gsub('[^:]*:[^:]*:', ''), '[^/]*') do
-    if r ~= '' then
-      table.insert(key, r)
-    end
-  end
-
-  for i = 1, table.getn(path) do
-    if path[i] == key[i] then
-      startingString = utils.concatStrings({startingString, '/', key[i]})
-      if (exists(red, startingString)) == 0 then
-        set(red, startingString, '')
-      end
-    else
-      startingString = utils.concatStrings({startingString, '/.*'})
-      if (exists(red,startingString) == 0) then
-        set(red, startingString, '')
-      end
-    end
-  end
-  set(red, startingString, resourceKey)
-end
-
-function _M.lockSnapshot(red, snapshotId)
-  red:set(utils.concatStrings({'lock:snapshots:', snapshotId}), 'true')
-  red:expire(utils.concatStrings({'lock:snapshots:', snapshotId}), 60)
-end
 
 -- LRU Caching methods
 
-function exists(red, key, snapshotId)
-  if snapshotId ~= nil then
-    key = utils.concatStrings({'snapshots:', snapshotId, ':', key})
-  end
+function exists(red, key)
   if CACHING_ENABLED then
     local cached = c:get(key)
     if cached ~= nil then
       return 1
     end
   -- if it isn't in the cache, try and load it in there
-    if red == nil then
-      red = _M.init()
-    end
     local result = red:get(key)
     if result ~= ngx.null then
       c:set(key, result, CACHE_TTL)
-      return 1, red
+      return 1
     end
     return 0
   else
-    if red == nil then
-      red = _M.init()
-    end
-    return red:exists(key), red
+    return red:exists(key)
   end
 end
 
@@ -669,17 +460,11 @@ function get(red, key)
     if cached ~= nil then
       return cached
     else
-      if red == nil then
-        red = _M.init()
-      end
       local result = red:get(key)
       c:set(key, result, CACHE_TTL)
-      return result, red
+      return result
     end
   else
-    if red == nil then
-      red = _M.init()
-    end
     return red:get(key)
   end
 end
@@ -692,29 +477,20 @@ function hget(red, key, id)
       if cached ~= nil then
          return cached
       else
-        if red == nil then
-          red = _M.init()
-        end
         local result = red:hget(key, id)
         cachedmap:set(id, result, CACHE_TTL)
         c:set(key, cachedmap, CACHE_TTL)
-        return result, red
+        return result
       end
     else
-      if red == nil then
-        red = _M.init()
-      end
       local result = red:hget(key, id)
       local newcache = lrucache.new(CACHE_SIZE)
       newcache:set(id, result, CACHE_TTL)
       c:set(key, newcache, CACHE_TTL)
-      return result, red
+      return result
     end
   else
-    if red == nil then
-      red = _M.init()
-    end
-    return red:hget(key, id), red
+    return red:hget(key, id)
   end
 end
 

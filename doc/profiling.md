@@ -1,16 +1,16 @@
 # Profiling
 
-I've build a docker file to build everything to run the profiling tools. You can read more about using systemtap++ [here](http://github.com/openresty/stapxx) 
+I've build a docker file to build everything to run the profiling tools. You can read more about using systemtap++ [here](http://github.com/openresty/stapxx)
 
-Note because this relies on hooking into the linux kernel, this will run in docker ONLY on an ubuntu docker host system.. We need to be able to pull in the kernel headers for the current kernel version. 
+Note because this relies on hooking into the linux kernel, this will run in docker ONLY on an ubuntu docker host system.. We need to be able to pull in the kernel headers for the current kernel version.
 
 ## Example
-### Generating a Lua flamegraph: 
+### Generating a Lua flamegraph:
 
-Build the docker image: 
-`make profile-build` 
+Build the docker image:
+`make profile-build`
 
-Run the docker image detached: 
+Run the docker image detached:
 `make profile-run REDIS_HOST=172.17.0.1 REDIS_PORT=6379`
 
 Attach to the docker image:
@@ -23,10 +23,10 @@ CONTAINER ID        IMAGE                                   COMMAND             
 $ docker exec -ti 9395 /bin/bash
 ```
 
-Figure out the pid of the nginx worker process: 
+Figure out the pid of the nginx worker process:
 
 ```
-# ps aux 
+# ps aux
 # ps aux
 USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
 root         1  0.0  0.0    200     4 ?        Ss   15:19   0:00 /usr/local/bin/dumb-init -- /etc/init-container.sh
@@ -40,27 +40,26 @@ root        36  0.0  0.0  34424  2712 ?        R+   15:21   0:00 ps aux
 
 Run the profiling tool:
 
-Note during this step you need to be running traffic through the gateway so that lua code is actually being called. This command will get stack traces of whatever lua code is executed at the time this code is run. 
+Note during this step you need to be running traffic through the gateway so that lua code is actually being called. This command will get stack traces of whatever lua code is executed at the time this code is run.
 
 ```
 # ./stap++ samples/lj-lua-stacks.sxx -x 16 --arg time=5 --skip-badvars > a.bt
 
 ```
 
-Run the flamegraph generation tool: 
+Run the flamegraph generation tool:
 
 ```
 # ./stackcollapse-stap.pl a.bt > a.cbt
 # ./flamegraph.pl --encoding="ISO-8859-1" \
-              --title="Lua-land on-CPU flamegraph" \
-							              a.cbt > a.svg
+                  --title="Lua-land on-CPU flamegraph" \
+                    a.cbt > a.svg
 ```
 
-Copy the SVG out of the docker container: 
+Copy the SVG out of the docker container:
 
 ```
 # cp a.svg /
 # exit
 $ docker cp 939556284e96:/a.svg .
 ```
-

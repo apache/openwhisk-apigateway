@@ -1,32 +1,28 @@
--- Copyright (c) 2016 IBM. All rights reserved.
 --
---   Permission is hereby granted, free of charge, to any person obtaining a
---   copy of this software and associated documentation files (the "Software"),
---   to deal in the Software without restriction, including without limitation
---   the rights to use, copy, modify, merge, publish, distribute, sublicense,
---   and/or sell copies of the Software, and to permit persons to whom the
---   Software is furnished to do so, subject to the following conditions:
+-- Licensed to the Apache Software Foundation (ASF) under one or more
+-- contributor license agreements.  See the NOTICE file distributed with
+-- this work for additional information regarding copyright ownership.
+-- The ASF licenses this file to You under the Apache License, Version 2.0
+-- (the "License"); you may not use this file except in compliance with
+-- the License.  You may obtain a copy of the License at
 --
---   The above copyright notice and this permission notice shall be included in
---   all copies or substantial portions of the Software.
+--     http://www.apache.org/licenses/LICENSE-2.0
 --
---   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
---   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
---   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
---   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
---   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
---   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
---   DEALINGS IN THE SOFTWARE.
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+--
 
 --- @module oauth
 -- A module to check with an oauth provider and reject an api call with a bad oauth token
 -- @author David Green (greend), Alex Song (songs)
 
 
-
 local utils = require "lib/utils"
 local request = require "lib/request"
-local dataStore = require "lib/dataStore"
+local redis = require "lib/redis"
 local cjson = require "cjson"
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
@@ -35,12 +31,18 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
+function process(securityObj)
+  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 1000)
+  local result = processWithRedis(red, securityObj)
+  redis.close(red)
+  return result
+end
 
 
 -- Process the security object
 -- @param securityObj security object from nginx conf file
 -- @return oauthId oauth identification
-function process(dataStore, securityObj)
+function processWithRedis(red, securityObj)
   local accessToken = ngx.var['http_Authorization']
   if accessToken == nil then
     request.err(401, "No Authorization header provided")
@@ -48,7 +50,7 @@ function process(dataStore, securityObj)
   end
   accessToken = string.gsub(accessToken, '^Bearer%s', '')
 
-  local token = exchange(dataStore, accessToken, securityObj.provider, securityObj)
+  local token = exchangeWithRedis(red, accessToken, securityObj.provider)
   if token == nil then
     request.err(401, 'Token didn\'t work or provider doesn\'t support OpenID connect. ')
     return nil
@@ -63,26 +65,24 @@ function process(dataStore, securityObj)
 end
 
 --- Exchange tokens with an oauth provider. Loads a provider based on configuration in the nginx.conf
--- @param dataStore the datastore object
 -- @param token the accessToken passed in the authorization header of the routing request
 -- @param provider the name of the provider we will load from a file. Currently supported google/github/facebook
 -- @return the json object recieved from exchanging tokens with the provider
-function exchange(dataStore, token, provider, securityObj)
+  function exchangeWithRedis(red, token, provider)
     -- exchange tokens with the provider
-    local loaded, impl = pcall(require, utils.concatStrings({'oauth/', provider}))
+    print (provider)
+    local loaded, provider = pcall(require, utils.concatStrings({'oauth/', provider}))
+
     if not loaded then
       request.err(500, 'Error loading OAuth provider authentication module')
       print("error loading provider.")
       return nil
     end
-
-    local result = impl.process(dataStore, token, securityObj)
-    if result == nil then
-      request.err('401', 'OAuth token didn\'t work or provider doesn\'t support OpenID connect')
-    end
+    local token = provider(red, token)
     -- cache the token
-    return result
+    return token
 end
 
 _M.process = process
+_M.processWithRedis = processWithRedis
 return _M
