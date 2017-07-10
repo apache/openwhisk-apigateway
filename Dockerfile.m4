@@ -4,9 +4,10 @@
 #
 # From https://hub.docker.com/_/alpine/
 #
-#LABEL apigateway
 
 FROM m4_ifdef(`S390X',`s390x/alpine:latest',`alpine:latest')
+
+LABEL image_name=apigateway tags=1.9.7.3,1.9.7,1.9,latest
 
 m4_changequote({{,}})
 
