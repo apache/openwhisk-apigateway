@@ -22,3 +22,7 @@ npm-debug.log
 # Temporary files
 tmp.*
 ._*
+
+# Profiling files
+api-gateway.conf.profiling*
+Dockerfile.profiling

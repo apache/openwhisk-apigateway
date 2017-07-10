@@ -74,7 +74,7 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
           with_pcrejit="" ; \
         else \
           with_luajit="--with-luajit" ; \
-          with_pcrejit="--with-pcrejit" ; \
+          with_pcrejit="--with-pcre-jit" ; \
         fi \
 
     #  Put this into a for loop so the other arguments didn't have to be
