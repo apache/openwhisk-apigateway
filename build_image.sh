@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#  Bash 4 lets us run the last pipe command in the current context,
+#  which eases error testing and reading stdout.
 shopt -s lastpipe
 
 DOCKER_REGISTRY=${DOCKER_REGISTRY:-docker.xanophis.com}
@@ -10,26 +12,22 @@ arch=$(docker info 2>/dev/null | sed -n 's/Architecture: \(.*\)/\1/p')
 echo "Processing for $arch"
 
 process_dockerfile() {
-  local tmpfile dockerfile
 
-  if [ -f "$1/Dockerfile.$arch" ]; then dockerfile="$1/Dockerfile.$arch"
-  elif [ -f "$1/Dockerfile.m4" ]; then
-    tmpfile="$(mktemp -tp "$1")"
-    echo "...Pre-processing $1/Dockerfile.m4 to $tmpfile"
-    m4 -P \
-      -D "$(echo "$arch" | tr '[:lower:]' '[:upper:]')" -D "m4_dockerarch=$arch" \
-		  "$1/Dockerfile.m4" > $tmpfile
-    dockerfile="$tmpfile"
-  elif [ -f "$1/Dockerfile" ]; then dockerfile="$1/Dockerfile"
-  else exit 1
+  cd $1 || exit
+
+  if [ "$arch" = "x86_64" ]; then
+    sedcmd="";
+  else
+    sedcmd="s!^FROM alpine!FROM $arch/alpine!"
   fi
 
-  echo "...Processing $dockerfile"
-
   #label=$(grep '^#LABEL ' "$dockerfile" | sed -n 's/^#LABEL \(.*\)$/\1/p')
-  docker build -t "t_$$" -f "$dockerfile" "$1" || {
+  tmpfile=$(mktemp -p "$1")
+  sed -e "$sedcmd" <Dockerfile >"$tmpfile"
+  docker build -t "t_$$" -f "$tmpfile" "$1" || {
     echo Failure building $1; exit 1
   }
+  [ -n "$tmpfile" ] || rm "$tmpfile"
 
   #  TODO:  Fail gracefully if the LABELs weren't set up properly
   docker inspect "t_$$" \
@@ -49,7 +47,6 @@ process_dockerfile() {
   done
 
   docker rmi "t_$$"  # Remove the temporary tag
-  [ -n "$tmpfile" ] && rm "$tmpfile"
 }
 
 process_dockerfile .
