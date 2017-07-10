@@ -75,7 +75,7 @@ function processWithHashFunction(dataStore, securityObj, hashFunction)
   local scope = securityObj.scope
   local name = (securityObj.name == nil) and ((securityObj.header == nil) and 'x-api-key' or securityObj.header) or securityObj.name
   local queryString = ngx.req.get_uri_args()
-  local location = (securityObj.location == nil) and 'header' or securityObj.location
+  local location = (securityObj.location == nil) and 'header' or securityObj['in']
 -- backwards compatible with "header" argument for name value. "name" argument takes precedent if both provided
   local name = (securityObj.name == nil and securityObj.header == nil) and 'x-api-key' or (securityObj.name or securityObj.header)
   local apiKey = nil

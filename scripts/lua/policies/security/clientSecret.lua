@@ -52,7 +52,7 @@ function processWithHashFunction(dataStore, securityObj, hashFunction)
   local apiId = ngx.var.apiId
   local scope = securityObj.scope
   local queryString = ngx.req.get_uri_args()
-  local location = (securityObj.location == nil) and 'header' or securityObj.location
+  local location = (securityObj.location == nil) and 'header' or securityObj['in']
   local clientId = nil
   local clientSecret = nil
 
