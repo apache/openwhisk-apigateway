@@ -19,9 +19,6 @@ secrets.yml
 # npm
 npm-debug.log
 
-# Profiling
-.profiling.*
-
 # Temporary files
 tmp.*
 ._*
