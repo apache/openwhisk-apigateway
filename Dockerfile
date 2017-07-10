@@ -36,7 +36,7 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
      && tar -zxf ./openresty-${OPENRESTY_VERSION}.tar.gz \
      && tar -zxf ./pcre-${PCRE_VERSION}.tar.gz \
      && tar -zxf ./naxsi-${NAXSI_VERSION}.tar.gz \
-     && cd /tmp/api-gateway/openresty-${OPENRESTY_VERSION} \ 
+     && cd /tmp/api-gateway/openresty-${OPENRESTY_VERSION} \
 
      && echo "        - building debugging version of the api-gateway ... " \
      && ./configure \
@@ -126,61 +126,31 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
     && rm -rf /var/cache/apk/* \
     && rm -rf /tmp/api-gateway
 
-ENV LUA_RESTY_HTTP_VERSION 0.07
-RUN echo " ... installing lua-resty-http..." \
-    && apk update \
-    && apk add make \
+ENV OPM_VERSION 0.0.3
+RUN echo " ... installing opm..." \
     && mkdir -p /tmp/api-gateway \
-    && curl -k -L https://github.com/pintsized/lua-resty-http/archive/v${LUA_RESTY_HTTP_VERSION}.tar.gz -o /tmp/api-gateway/lua-resty-http-${LUA_RESTY_HTTP_VERSION}.tar.gz \
-    && tar -xf /tmp/api-gateway/lua-resty-http-${LUA_RESTY_HTTP_VERSION}.tar.gz -C /tmp/api-gateway/ \
-    && cd /tmp/api-gateway/lua-resty-http-${LUA_RESTY_HTTP_VERSION} \
-    && make install \
-            LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
-            INSTALL=${_prefix}/api-gateway/bin/resty-install \
-    && rm -rf /tmp/api-gateway
+    && curl -k -L https://github.com/openresty/opm/archive/v${OPM_VERSION}.tar.gz -o /tmp/api-gateway/opm-${OPM_VERSION}.tar.gz \
+    && tar -xf /tmp/api-gateway/opm-${OPM_VERSION}.tar.gz -C /tmp/api-gateway \
+    && cd /tmp/api-gateway/opm-${OPM_VERSION} \
+    && cp bin/opm ${_prefix}/api-gateway/bin \
+    && cd ${_prefix}/api-gateway \
+    && mkdir -p site/manifest site/pod \
+    && cd site \
+    && ln -s ../lualib ./ \
+    && ln -s ${_prefix}/api-gateway/bin/opm /usr/bin/opm \
+    && ln -s ${_prefix}/api-gateway/bin/resty /usr/bin/resty
 
-ENV LUA_RESTY_IPUTILS_VERSION 0.2.0
-RUN echo " ... installing lua-resty-iputils..." \
-    && apk update \
-    && apk add make \
-    && mkdir -p /tmp/api-gateway \
-    && curl -k -L https://github.com/hamishforbes/lua-resty-iputils/archive/v${LUA_RESTY_IPUTILS_VERSION}.tar.gz -o /tmp/api-gateway/lua-resty-iputils-${LUA_RESTY_IPUTILS_VERSION}.tar.gz \
-    && tar -xf /tmp/api-gateway/lua-resty-iputils-${LUA_RESTY_IPUTILS_VERSION}.tar.gz -C /tmp/api-gateway/ \
-    && cd /tmp/api-gateway/lua-resty-iputils-${LUA_RESTY_IPUTILS_VERSION} \
-    && export LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
-    && export INSTALL=${_prefix}/api-gateway/bin/resty-install \
-    && $INSTALL -d ${LUA_LIB_DIR}/resty \
-    && $INSTALL lib/resty/*.lua ${LUA_LIB_DIR}/resty/ \
-    && rm -rf /tmp/api-gateway
-
-
-
+ENV LUA_RESTY_HTTP_VERSION 0.10
+RUN opm get pintsized/lua-resty-http=${LUA_RESTY_HTTP_VERSION}
+ENV LUA_RESTY_IPUTILS_VERSION 0.2.1
+RUN opm get hamishforbes/lua-resty-iputils=${LUA_RESTY_IPUTILS_VERSION}
 ENV LUA_RESTY_STRING_VERSION 0.09
-RUN echo " ... installing lua-resty-string..." \
-    && apk update \
-    && apk add make \
-    && mkdir -p /tmp/api-gateway \
-    && curl -k -L https://github.com/openresty/lua-resty-string/archive/v${LUA_RESTY_STRING_VERSION}.tar.gz -o /tmp/api-gateway/lua-resty-string-${LUA_RESTY_STRING_VERSION}.tar.gz \
-    && tar -xf /tmp/api-gateway/lua-resty-string-${LUA_RESTY_STRING_VERSION}.tar.gz -C /tmp/api-gateway/ \
-    && cd /tmp/api-gateway/lua-resty-string-${LUA_RESTY_STRING_VERSION} \
-    && make install \
-            LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
-            INSTALL=${_prefix}/api-gateway/bin/resty-install \
-    && rm -rf /tmp/api-gateway
-
+RUN opm get openresty/lua-resty-string=${LUA_RESTY_STRING_VERSION}
 ENV LUA_RESTY_LRUCACHE_VERSION 0.04
-RUN echo " ... installing lua-resty-lrucache... " \
-    && apk update \
-    && apk add make \
-    && mkdir -p /tmp/api-gateway \
-    && curl -k -L https://github.com/openresty/lua-resty-lrucache/archive/v${LUA_RESTY_LRUCACHE_VERSION}.tar.gz -o /tmp/api-gateway/lua-resty-lrucache-${LUA_RESTY_LRUCACHE_VERSION}.tar.gz \
-    && tar -xf /tmp/api-gateway/lua-resty-lrucache-${LUA_RESTY_LRUCACHE_VERSION}.tar.gz -C /tmp/api-gateway/ \
-    && cd /tmp/api-gateway/lua-resty-lrucache-${LUA_RESTY_LRUCACHE_VERSION} \
-    && make install \
-            LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
-            INSTALL=${_prefix}/api-gateway/bin/resty-install \
-    && rm -rf /tmp/api-gateway
-
+RUN opm get openresty/lua-resty-lrucache=${LUA_RESTY_LRUCACHE_VERSION}
+ENV LUA_RESTY_CJOSE_VERSION 0.3
+RUN opm get taylorking/lua-resty-cjose=${LUA_RESTY_CJOSE_VERSION}
+RUN opm get taylorking/lua-resty-rate-limit
 
 
 ENV NETURL_LUA_VERSION 0.9-1
@@ -192,6 +162,17 @@ RUN echo " ... installing neturl.lua ... " \
     && cd /tmp/api-gateway/neturl-${NETURL_LUA_VERSION} \
     && cp lib/net/url.lua ${LUA_LIB_DIR} \
     && rm -rf /tmp/api-gateway
+
+ENV CJOSE_VERSION 0.5.1
+RUN echo " ... installing cjose ... " \
+    && apk update && apk add automake autoconf git gcc make jansson jansson-dev \
+    && mkdir -p /tmp/api-gateway \
+    && curl -L -k https://github.com/cisco/cjose/archive/${CJOSE_VERSION}.tar.gz -o /tmp/api-gateway/cjose-${CJOSE_VERSION}.tar.gz \
+    && tar -xf /tmp/api-gateway/cjose-${CJOSE_VERSION}.tar.gz -C /tmp/api-gateway/ \
+    && cd /tmp/api-gateway/cjose-${CJOSE_VERSION} \
+    && sh configure \
+    && make && make install
+RUN mkdir -p /tmp/api-gateway
 
 
 RUN \
@@ -208,7 +189,6 @@ RUN \
 
 COPY init.sh /etc/init-container.sh
 ONBUILD COPY init.sh /etc/init-container.sh
-
 # add the default configuration for the Gateway
 COPY . /etc/api-gateway
 RUN adduser -S nginx-api-gateway \
@@ -217,6 +197,7 @@ ONBUILD COPY . /etc/api-gateway
 
 EXPOSE 80 8080 8423 9000
 
+ENV LD_LIBRARY_PATH /usr/local/lib
 
 ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
 CMD ["/etc/init-container.sh"]

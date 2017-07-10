@@ -30,65 +30,62 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 local _M = {};
 
 --- Request handler for routing tenant calls appropriately
-function _M.requestHandler()
+function _M.requestHandler(dataStore)
   local requestMethod = ngx.req.get_method()
   ngx.header.content_type = "application/json; charset=utf-8"
   if requestMethod == "GET" then
-    getTenants()
+    getTenants(dataStore)
   elseif requestMethod == "PUT" or requestMethod == "POST" then
-    addTenant()
+    addTenant(dataStore)
   elseif requestMethod == "DELETE" then
-    deleteTenant()
+    deleteTenant(dataStore)
   else
     request.err(400, "Invalid verb.")
   end
 end
 
-function addTenant()
+function addTenant(dataStore)
   -- Open connection to redis or use one from connection pool
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   -- Check for tenant id and use existingTenant if it already exists in redis
-  local existingTenant = checkForExistingTenant(red)
+  local existingTenant = checkForExistingTenant(dataStore)
   -- Read in the PUT JSON Body
   ngx.req.read_body()
   local args = ngx.req.get_body_data()
   if not args then
-    redis.close(red)
+    dataStore:close()
     request.err(400, "Missing request body")
   end
   -- Convert json into Lua table
   local decoded = cjson.decode(args)
   -- Check for tenant id in JSON body
   if existingTenant == nil and decoded.id ~= nil then
-    existingTenant = redis.getTenant(red, decoded.id)
+    existingTenant = dataStore:getTenant(decoded.id)
     if existingTenant == nil then
-      redis.close(red)
       request.err(404, utils.concatStrings({"Unknown Tenant id ", decoded.id}))
     end
   end
   -- Error checking
   local res, err = utils.tableContainsAll(decoded, {"namespace", "instance"})
   if res == false then
-    redis.close(red)
+    dataStore:close()
     request.err(err.statusCode, err.message)
   end
   -- Return tenant object
-  local tenantObj = tenants.addTenant(red, decoded, existingTenant)
+  local tenantObj = tenants.addTenant(dataStore, decoded, existingTenant)
   tenantObj = cjson.encode(tenantObj)
-  redis.close(red)
   request.success(200, tenantObj)
 end
 
 --- Check for tenant id from uri and use existing tenant if it already exists in redis
 -- @param red Redis client instance
-function checkForExistingTenant(red)
+function checkForExistingTenant(dataStore)
   local id = ngx.var.tenant_id
   local existing
   -- Get object from redis
   if id ~= nil and id ~= '' then
-    existing = redis.getTenant(red, id)
+    existing = dataStore:getTenant(id)
     if existing == nil then
-      redis.close(red)
+      dataStore:close()
       request.err(404, utils.concatStrings({"Unknown Tenant id ", id}))
     end
   end
@@ -97,31 +94,30 @@ end
 
 --- Get one or all tenants from the gateway
 -- GET /v1/tenants
-function getTenants()
+function getTenants(dataStore)
   local queryParams = ngx.req.get_uri_args()
   local id = ngx.var.tenant_id
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
   if id == '' then
-    local tenantList = tenants.getAllTenants(red, queryParams)
+    local tenantList = tenants.getAllTenants(dataStore, queryParams)
     tenantList = (next(tenantList) == nil) and "[]" or cjson.encode(tenantList)
-    redis.close(red)
+    dataStore:close()
     request.success(200, tenantList)
   else
     local query = ngx.var.query
     if query ~= '' then
       if query ~= "apis" then
-        redis.close(red)
+        dataStore:close()
         request.err(400, "Invalid request")
       else
-        local apiList = tenants.getTenantAPIs(red, id, queryParams)
+        local apiList = tenants.getTenantAPIs(dataStore, id, queryParams)
         apiList = (next(apiList) == nil) and "[]" or cjson.encode(apiList)
-        redis.close(red)
+        dataStore:close()
         request.success(200, apiList)
       end
     else
-      local tenant = tenants.getTenant(red, id)
+      local tenant = tenants.getTenant(dataStore, id)
       tenant = cjson.encode(tenant)
-      redis.close(red)
+      dataStore:close()
       request.success(200, tenant)
     end
   end
@@ -129,19 +125,17 @@ end
 
 --- Delete tenant from gateway
 -- DELETE /v1/tenants/<id>
-function deleteTenant()
+function deleteTenant(dataStore)
   local id = ngx.var.tenant_id
   if id == nil or id == '' then
     request.err(400, "No id specified.")
   end
-  local red = redis.init(REDIS_HOST, REDIS_PORT, REDIS_PASS, 10000)
-  local tenant = redis.getTenant(red, id)
+  local tenant = dataStore:getTenant(id)
   if tenant == nil then
-    redis.close(red)
+    dataStore:close()
     request.err(404, utils.concatStrings({"Unknown tenant id ", id}))
   end
-  tenants.deleteTenant(red, id)
-  redis.close(red)
+  tenants.deleteTenant(dataStore, id)
   request.success(200, cjson.encode({}))
 end
 

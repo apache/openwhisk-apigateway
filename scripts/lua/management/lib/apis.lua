@@ -19,7 +19,6 @@
 -- Module for querying APIs
 
 local cjson = require "cjson"
-local redis = require "lib/redis"
 local utils = require "lib/utils"
 local request = require "lib/request"
 local resources = require "management/lib/resources"
@@ -32,10 +31,10 @@ MANAGEDURL_PORT = (MANAGEDURL_PORT ~= nil and MANAGEDURL_PORT ~= '') and MANAGED
 local _M = {}
 
 --- Get all APIs in redis
--- @param red redis client
+-- @param ds dataStore.client
 -- @param queryParams object containing optional query parameters
-function _M.getAllAPIs(red, queryParams)
-  local apis = redis.getAllAPIs(red)
+function _M.getAllAPIs(dataStore, queryParams)
+  local apis = dataStore:getAllAPIs()
   local apiList
   if next(queryParams) ~= nil then
     apiList = filterAPIs(apis, queryParams);
@@ -52,10 +51,10 @@ function _M.getAllAPIs(red, queryParams)
 end
 
 --- Get API by its id
--- @param red redis client
+-- @param ds dataStore.client
 -- @param id of API
-function _M.getAPI(red, id)
-  local api = redis.getAPI(red, id)
+function _M.getAPI(dataStore, id)
+  local api = dataStore:getAPI(id)
   if api == nil then
     request.err(404, utils.concatStrings({"Unknown api id ", id}))
   end
@@ -63,15 +62,15 @@ function _M.getAPI(red, id)
 end
 
 --- Get belongsTo relation tenant
--- @param red redis client
+-- @param ds dataStore.client
 -- @param id id of API
-function _M.getAPITenant(red, id)
-  local api = redis.getAPI(red, id)
+function _M.getAPITenant(dataStore, id)
+  local api = dataStore:getAPI(id)
   if api == nil then
     request.err(404, utils.concatStrings({"Unknown api id ", id}))
   end
   local tenantId = api.tenantId
-  local tenant = redis.getTenant(red, tenantId)
+  local tenant = dataStore:getTenant(tenantId)
   if tenant == nil then
     request.err(404, utils.concatStrings({"Unknown tenant id ", tenantId}))
   end
@@ -79,10 +78,10 @@ function _M.getAPITenant(red, id)
 end
 
 --- Add API to redis
--- @param red redis client
+-- @param ds dataStore.client
 -- @param decoded JSON body as a lua table
 -- @param existingAPI optional existing API for updates
-function _M.addAPI(red, decoded, existingAPI)
+function _M.addAPI(dataStore, decoded, existingAPI)
   -- Format basePath
   local basePath = decoded.basePath:sub(1,1) == '/' and decoded.basePath:sub(2) or decoded.basePath
   basePath = basePath:sub(-1) == '/' and basePath:sub(1, -2) or basePath
@@ -92,7 +91,7 @@ function _M.addAPI(red, decoded, existingAPI)
   if basePath:sub(1,1) ~= '' then
     managedUrl = utils.concatStrings({managedUrl, "/", basePath})
   end
-  local tenantObj = redis.getTenant(red, decoded.tenantId)
+  local tenantObj = dataStore:getTenant(decoded.tenantId)
   local managedUrlObj = {
     id = uuid,
     name = decoded.name,
@@ -104,33 +103,34 @@ function _M.addAPI(red, decoded, existingAPI)
     managedUrl = managedUrl
   }
   -- Add API object to redis
-  managedUrlObj = redis.addAPI(red, uuid, managedUrlObj, existingAPI)
+  managedUrlObj = dataStore:addAPI(uuid, managedUrlObj, existingAPI)
   -- Add resources to redis
   for path, resource in pairs(decoded.resources) do
     local gatewayPath = utils.concatStrings({basePath, path})
     gatewayPath = (gatewayPath:sub(1,1) == '/') and gatewayPath:sub(2) or gatewayPath
     resource.apiId = uuid
-    resources.addResource(red, resource, gatewayPath, tenantObj)
+    print('creating resource: ' .. cjson.encode(resource) .. 'path: ' .. gatewayPath .. 'tenantobj' .. cjson.encode(tenantObj))
+    resources.addResource(dataStore, resource, gatewayPath, tenantObj)
   end
   return managedUrlObj
 end
 
 --- Delete API from gateway
--- @param red redis client
+-- @param ds dataStore.client
 -- @param id id of API to delete
-function _M.deleteAPI(red, id)
-  local api = redis.getAPI(red, id)
+function _M.deleteAPI(dataStore, id)
+  local api = dataStore:getAPI(id)
   if api == nil then
     request.err(404, utils.concatStrings({"Unknown API id ", id}))
   end
   -- Delete API
-  redis.deleteAPI(red, id)
+  dataStore:deleteAPI(id)
   -- Delete all resources for the API
   local basePath = api.basePath:sub(2)
   for path in pairs(api.resources) do
     local gatewayPath = utils.concatStrings({basePath, path})
     gatewayPath = (gatewayPath:sub(1,1) == '/') and gatewayPath:sub(2) or gatewayPath
-    resources.deleteResource(red, gatewayPath, api.tenantId)
+    resources.deleteResource(dataStore, gatewayPath, api.tenantId)
   end
   return {}
 end

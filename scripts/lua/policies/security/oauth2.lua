@@ -20,7 +20,6 @@
 -- @author David Green (greend), Alex Song (songs)
 
 
-
 local utils = require "lib/utils"
 local request = require "lib/request"
 local redis = require "lib/redis"

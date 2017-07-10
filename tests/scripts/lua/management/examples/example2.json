@@ -19,21 +19,6 @@
       "get": {
         "operationId": "getHello",
         "description": "Returns a greeting to the user!",
-        "x-openwhisk": {
-          "namespace": "greend@us.ibm.com_dev",
-          "package": "demo",
-          "action": "hello",
-          "url": "https://openwhisk.ng.bluemix.net/api/some/action/path.http"
-        },
-        "parameters": [
-          {
-            "name": "user",
-            "in": "path",
-            "type": "string",
-            "required": true,
-            "description": "The name of the user to greet."
-          }
-        ],
         "responses": {
           "200": {
             "description": "Returns the greeting.",
@@ -48,12 +33,7 @@
       },
       "post": {
         "operationId": "postHello",
-        "description": null,
-        "x-openwhisk": {
-          "package": "demo",
-          "action": "createUser",
-          "url": "https://openwhisk.ng.bluemix.net/api/user@us.ibm.com/demo/createuser"
-        }
+        "description": null
       }
     }
   },

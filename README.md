@@ -1,12 +1,13 @@
 OpenWhisk API Gateway
 =============
 [![Build Status](https://travis-ci.org/apache/incubator-openwhisk-apigateway.svg?branch=master)](https://travis-ci.org/apache/incubator-openwhisk-apigateway)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0)
 
 A performant API Gateway based on Openresty and NGINX.
 
 Project status
 ---------------
-This project is currently considered pre-alpha stage, and should not be used in production. Large swaths of code or APIs may change without notice.
+This project is currently considered beta stage, Large swaths of code or APIs may change.
 
 
 ## Table of Contents

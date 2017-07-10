@@ -185,8 +185,10 @@ function transformAllParams(s, d)
 end
 
 function finalize()
-  local bodyJson = cjson.encode(body)
-  ngx.req.set_body_data(bodyJson)
+  if next(body) ~= nil then
+    local bodyJson = cjson.encode(body)
+    ngx.req.set_body_data(bodyJson)
+  end
   ngx.req.set_uri_args(query)
 end
 

@@ -18,9 +18,9 @@
 local request = require 'lib/request'
 local cjson = require 'cjson'
 local utils = require "lib/utils"
-local redis = require "lib/redis"
 
-function validateOAuthToken (red, token)
+local _M = {}
+function _M.process(dataStore, token)
 
   local headerName = utils.concatStrings({'http_', 'x-facebook-app-token'}):gsub("-", "_")
 
@@ -30,19 +30,19 @@ function validateOAuthToken (red, token)
     return nil
   end
 
-  local key = utils.concatStrings({'oauth:providers:facebook:tokens:', token})
-  if redis.exists(red, key) == 1 then
-    return cjson.decode(redis.get(red,key))
+  local result = dataStore:getOAuthToken('facebook', token)
+  if result ~= ngx.null then
+    return cjson.decode(result)
+  end
+  result = dataStore:getOAuthToken('facebook', utils.concatStrings({token, facebookAppToken}))
+  if result ~= ngx.null then
+    return cjson.decode(result)
   end
 
-  local key = utils.concatStrings({'oauth:providers:facebook:tokens:', token, facebookAppToken})
-  if redis.exists(red, key) == 1 then
-    return cjson.decode(redis.get(red, key))
-  end
-  return exchangeOAuthToken(red, token, facebookAppToken)
+   return exchangeOAuthToken(dataStore, token, facebookAppToken)
 end
 
-function exchangeOAuthToken(red, token, facebookAppToken)
+function exchangeOAuthToken(dataStore, token, facebookAppToken)
   local http = require 'resty.http'
   local request = require "lib/request"
   local httpc = http.new()
@@ -68,14 +68,10 @@ function exchangeOAuthToken(red, token, facebookAppToken)
   if (json_resp['error']) then
     return nil
   end
-  -- facebook uses a different expire field than others
-  json_resp['expires'] = json_resp['expires_at']
   -- convert Facebook's response
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
-  redis.set(red, key, cjson.encode(json_resp))
-  redis.expire(red, json_resp, json_resp['expires'])
+  dataStore:saveOAuthToken('facebook', utils.concatStrings({token, facebookAppToken}), cjson.encode(json_resp), json_resp['expires_at'])
   return json_resp
 end
 
-return validateOAuthToken
-
+return _M
