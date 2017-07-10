@@ -148,7 +148,7 @@ ENV LUA_RESTY_STRING_VERSION 0.09
 RUN opm get openresty/lua-resty-string=${LUA_RESTY_STRING_VERSION}
 ENV LUA_RESTY_LRUCACHE_VERSION 0.04
 RUN opm get openresty/lua-resty-lrucache=${LUA_RESTY_LRUCACHE_VERSION}
-ENV LUA_RESTY_CJOSE_VERSION 0.3
+ENV LUA_RESTY_CJOSE_VERSION 0.4
 RUN opm get taylorking/lua-resty-cjose=${LUA_RESTY_CJOSE_VERSION}
 RUN opm get taylorking/lua-resty-rate-limit
 
