@@ -138,9 +138,13 @@ RUN echo " ... installing opm..." \
     && cd site \
     && ln -s ../lualib ./ \
     && ln -s ${_prefix}/api-gateway/bin/opm /usr/bin/opm \
-    && ln -s ${_prefix}/api-gateway/bin/resty /usr/bin/resty
+    && ln -s ${_prefix}/api-gateway/bin/resty /usr/bin/resty \
 
-RUN LUA_RESTY_HTTP_VERSION=0.10 \
+    
+    && echo " ... installing opm packages ... " \
+
+
+    && LUA_RESTY_HTTP_VERSION=0.10 \
     && opm get pintsized/lua-resty-http=${LUA_RESTY_HTTP_VERSION} \
     && LUA_RESTY_IPUTILS_VERSION=0.2.1 \
     && opm get hamishforbes/lua-resty-iputils=${LUA_RESTY_IPUTILS_VERSION} \
@@ -150,40 +154,37 @@ RUN LUA_RESTY_HTTP_VERSION=0.10 \
     && opm get openresty/lua-resty-lrucache=${LUA_RESTY_LRUCACHE_VERSION} \
     && LUA_RESTY_CJOSE_VERSION=0.4 \
     && opm get taylorking/lua-resty-cjose=${LUA_RESTY_CJOSE_VERSION} \
-    && opm get taylorking/lua-resty-rate-limit
-
-
-ENV NETURL_LUA_VERSION 0.9-1
-RUN echo " ... installing neturl.lua ... " \
+    && opm get taylorking/lua-resty-rate-limit \
+    
+    && NETURL_LUA_VERSION=0.9-1 \
+    && echo " ... installing neturl.lua ... " \
     && mkdir -p /tmp/api-gateway \
     && curl -k -L https://github.com/golgote/neturl/archive/${NETURL_LUA_VERSION}.tar.gz -o /tmp/api-gateway/neturl.lua-${NETURL_LUA_VERSION}.tar.gz \
     && tar -xf /tmp/api-gateway/neturl.lua-${NETURL_LUA_VERSION}.tar.gz -C /tmp/api-gateway/ \
     && export LUA_LIB_DIR=${_prefix}/api-gateway/lualib \
     && cd /tmp/api-gateway/neturl-${NETURL_LUA_VERSION} \
     && cp lib/net/url.lua ${LUA_LIB_DIR} \
-    && rm -rf /tmp/api-gateway
+    && rm -rf /tmp/api-gateway \
 
-ENV CJOSE_VERSION 0.5.1
-RUN echo " ... installing cjose ... " \
+    && CJOSE_VERSION=0.5.1 \
+    && echo " ... installing cjose ... " \
     && apk update && apk add automake autoconf git gcc make jansson jansson-dev \
     && mkdir -p /tmp/api-gateway \
     && curl -L -k https://github.com/cisco/cjose/archive/${CJOSE_VERSION}.tar.gz -o /tmp/api-gateway/cjose-${CJOSE_VERSION}.tar.gz \
     && tar -xf /tmp/api-gateway/cjose-${CJOSE_VERSION}.tar.gz -C /tmp/api-gateway/ \
     && cd /tmp/api-gateway/cjose-${CJOSE_VERSION} \
     && sh configure \
-    && make && make install
-RUN mkdir -p /tmp/api-gateway
+    && make && make install \
 
-
-RUN \
-    curl -L -k -s -o /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 \
+    && echo "... installing jq-linux64... " \
+    && mkdir -p /tmp/api-gateway \
+    && curl -L -k -s -o /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 \
     && apk update \
     && apk add gawk \
     && chmod 755 /usr/local/bin/jq \
-    && rm -rf /var/cache/apk/*
+    && rm -rf /var/cache/apk/* \
 
-RUN \
-    echo " ... installing dumb-init ... " \
+    && echo " ... installing dumb-init ... " \
     && wget -O /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.0/dumb-init_1.2.0_amd64 \
     && chmod +x /usr/local/bin/dumb-init
 
