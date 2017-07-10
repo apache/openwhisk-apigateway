@@ -27,7 +27,7 @@ process_dockerfile() {
   docker build -t "t_$$" -f "$tmpfile" "$1" || {
     echo Failure building $1; exit 1
   }
-  [ -n "$tmpfile" ] || rm "$tmpfile"
+  [ -n "$tmpfile" ] && rm "$tmpfile"
 
   #  TODO:  Fail gracefully if the LABELs weren't set up properly
   docker inspect "t_$$" \
