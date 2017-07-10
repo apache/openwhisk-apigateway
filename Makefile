@@ -4,13 +4,13 @@ DOCKER_ARCH = $(shell sh -c "docker info 2>/dev/null | sed -n -e 's/Architecture
 
 #  Architecture-dependent manipulations of the Dockerfile
 ifeq "$(DOCKER_ARCH)" "s390x"
-SEDCMD=s!^FROM alpine!FROM $(DOCKER_ARCH)/alpine!
+SEDCMD=s!^FROM \(alpine\|ubuntu\)!FROM $(DOCKER_ARCH)/\1!
 else
 SEDCMD=
 endif
 
 Dockerfile.generated: Dockerfile
-	sed -e "$(SEDCMD)" <Dockerfile >Dockerfile.generated
+	sed -e '$(SEDCMD)' <Dockerfile >Dockerfile.generated
 
 .PHONY: docker
 docker: Dockerfile.generated
@@ -28,6 +28,7 @@ test-build:
 .PHONY: profile-build
 profile-build:
 	./build_profiling.sh
+	sed -i -e '$(SEDCMD)' Dockerfile.profiling
 	docker build -t openwhisk/apigateway-profiling -f Dockerfile.profiling .
 
 .PHONY: profile-run
@@ -43,7 +44,7 @@ profile-run: profile-build
 		-e CACHE_SIZE=2048 \
 		-e CACHE_TTL=180 \
 		-e OPTIMIZE=1 \
-		-d openwhisk/apigateway-profiling:latest
+		openwhisk/apigateway-profiling:latest
 
 .PHONY: test-run
 test-run:
