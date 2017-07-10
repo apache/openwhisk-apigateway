@@ -1,8 +1,20 @@
 DOCKER_TAG ?= snapshot-`date +'%Y%m%d-%H%M'`
 DOCKER_REGISTRY ?= ''
+DOCKER_ARCH = $(shell sh -c "docker info 2>/dev/null | sed -n -e 's/Architecture: \(.*\)/\1/p'")
 
-docker:
-	docker build -t openwhisk/apigateway .
+#  Architecture-dependent manipulations of the Dockerfile
+ifeq "$(DOCKER_ARCH)" "s390x"
+SEDCMD=s!^FROM alpine!FROM $(DOCKER_ARCH)/alpine!
+else
+SEDCMD=
+endif
+
+Dockerfile.generated: Dockerfile
+	sed -e "$(SEDCMD)" <Dockerfile >Dockerfile.generated
+
+.PHONY: docker
+docker: Dockerfile.generated
+	docker build -t openwhisk/apigateway -f Dockerfile.generated .
 
 .PHONY: docker-ssh
 docker-ssh:
@@ -12,13 +24,14 @@ docker-ssh:
 test-build:
 	cd tests; ./install-deps.sh
 
+# TODO: Integrate the architecture changes into the profiling
 .PHONY: profile-build
 profile-build:
 	./build_profiling.sh
 	docker build -t openwhisk/apigateway-profiling -f Dockerfile.profiling .
 
 .PHONY: profile-run
-profile-run: profile-build 
+profile-run: profile-build
 	docker run --rm --name="apigateway" --privileged -p 80:80 -p ${PUBLIC_MANAGEDURL_PORT}:8080 -p 9000:9000 \
 		-e PUBLIC_MANAGEDURL_HOST=${PUBLIC_MANAGEDURL_HOST} -e PUBLIC_MANAGEDURL_PORT=${PUBLIC_MANAGEDURL_PORT} \
 		-e REDIS_HOST=${REDIS_HOST} -e REDIS_PORT=${REDIS_PORT} -e REDIS_PASS=${REDIS_PASS} \
@@ -74,3 +87,7 @@ docker-attach:
 docker-stop:
 	docker stop apigateway
 	docker rm apigateway
+
+.PHONY: clean
+clean:
+	rm -f Dockerfile.generated Dockerfile.profile api-gateway.conf.profile*

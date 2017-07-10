@@ -26,3 +26,6 @@ tmp.*
 # Profiling files
 api-gateway.conf.profiling*
 Dockerfile.profiling
+
+# Generated files
+Dockerfile.generated
