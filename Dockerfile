@@ -140,17 +140,17 @@ RUN echo " ... installing opm..." \
     && ln -s ${_prefix}/api-gateway/bin/opm /usr/bin/opm \
     && ln -s ${_prefix}/api-gateway/bin/resty /usr/bin/resty
 
-ENV LUA_RESTY_HTTP_VERSION 0.10
-RUN opm get pintsized/lua-resty-http=${LUA_RESTY_HTTP_VERSION}
-ENV LUA_RESTY_IPUTILS_VERSION 0.2.1
-RUN opm get hamishforbes/lua-resty-iputils=${LUA_RESTY_IPUTILS_VERSION}
-ENV LUA_RESTY_STRING_VERSION 0.09
-RUN opm get openresty/lua-resty-string=${LUA_RESTY_STRING_VERSION}
-ENV LUA_RESTY_LRUCACHE_VERSION 0.04
-RUN opm get openresty/lua-resty-lrucache=${LUA_RESTY_LRUCACHE_VERSION}
-ENV LUA_RESTY_CJOSE_VERSION 0.3
-RUN opm get taylorking/lua-resty-cjose=${LUA_RESTY_CJOSE_VERSION}
-RUN opm get taylorking/lua-resty-rate-limit
+RUN LUA_RESTY_HTTP_VERSION=0.10 \
+    && opm get pintsized/lua-resty-http=${LUA_RESTY_HTTP_VERSION} \
+    && LUA_RESTY_IPUTILS_VERSION=0.2.1 \
+    && opm get hamishforbes/lua-resty-iputils=${LUA_RESTY_IPUTILS_VERSION} \
+    && LUA_RESTY_STRING_VERSION=0.09 \
+    && opm get openresty/lua-resty-string=${LUA_RESTY_STRING_VERSION} \
+    && LUA_RESTY_LRUCACHE_VERSION=0.06 \
+    && opm get openresty/lua-resty-lrucache=${LUA_RESTY_LRUCACHE_VERSION} \
+    && LUA_RESTY_CJOSE_VERSION=0.4 \
+    && opm get taylorking/lua-resty-cjose=${LUA_RESTY_CJOSE_VERSION} \
+    && opm get taylorking/lua-resty-rate-limit
 
 
 ENV NETURL_LUA_VERSION 0.9-1
