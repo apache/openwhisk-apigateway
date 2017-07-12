@@ -46,11 +46,11 @@ RUN if [ -n "${_profiling_on}" ]; then : \
 #
 ENV LUAJIT_VERSION=2.1.0-beta2 LUAJIT_DIR=/usr/local/api-gateway/luajit
 RUN echo " ... compiling and installing LuaJIT" \
- && if [ "`uname -m`" = "s390x" ]; then \
-     luajit_url="https://api.github.com/repos/linux-on-ibm-z/LuaJIT/tarball/tags/${LUAJIT_VERSION}" ; \
-   else \
-      luajit_url="http://luajit.org/download/LuaJIT-${LUAJIT_VERSION}.tar.gz" ; \
-   fi \
+  && if [ "`uname -m`" = "s390x" ]; then \
+       luajit_url="https://api.github.com/repos/linux-on-ibm-z/LuaJIT/tarball/v2.1" \
+     ; else \
+       luajit_url="http://luajit.org/download/LuaJIT-${LUAJIT_VERSION}.tar.gz" \
+     ; fi \
  && mkdir -p /tmp/api-gateway/LuaJIT \
  && cd /tmp/api-gateway/LuaJIT \
  && echo 'Getting' "$luajit_url" \
@@ -192,10 +192,12 @@ RUN echo " ... installing cjose ... " \
     && rm -rf /tmp/api-gateway
 
 ARG DUMB_INIT_VERSION=1.2.0
-RUN cd /tmp \
-     && curl -sSLO https://github.com/Yelp/dumb-init/releases/download/v1.2.0/dumb-init_${DUMB_INIT_VERSION}_amd64.deb \
-     && dpkg -i dumb-init_${DUMB_INIT_VERSION}_amd64.deb \
-     && rm /tmp/dumb-init_1.2.0_amd64.deb
+RUN echo " ... building and install dumb-init ... " \
+     && curl -sSL https://github.com/Yelp/dumb-init/archive/v1.2.0.tar.gz | tar zxf - -C /tmp \
+     && cd /tmp/dumb-init-${DUMB_INIT_VERSION} \
+     && make \
+     && mv ./dumb-init /usr/bin \
+     && cd /tmp && rm -rf /tmp/dumb-init-${DUMB_INIT_VERSION}
 
 RUN apt-get purge -y \
   curl \
