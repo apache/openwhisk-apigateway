@@ -27,9 +27,10 @@ test-build:
 # TODO: Integrate the architecture changes into the profiling
 .PHONY: profile-build
 profile-build:
-	./build_profiling.sh
-	sed -i -e '$(SEDCMD)' Dockerfile.profiling
-	docker build -t openwhisk/apigateway-profiling -f Dockerfile.profiling .
+	#./build_profiling.sh
+	sed -e 's/worker_processes\ *auto;/worker_processes\ 1;/g' api-gateway.conf > api-gateway.conf.profiling
+	sed -e '$(SEDCMD)' -e 's/^#PROFILE //' Dockerfile > Dockerfile.profiling
+	docker build --build-arg _profiling_on=yes -t openwhisk/apigateway-profiling -f Dockerfile.profiling .
 
 .PHONY: profile-run
 profile-run: profile-build
@@ -91,4 +92,4 @@ docker-stop:
 
 .PHONY: clean
 clean:
-	rm -f Dockerfile.generated Dockerfile.profile api-gateway.conf.profile*
+	rm -f Dockerfile.generated Dockerfile.profiling api-gateway.conf.profile*

@@ -5,56 +5,70 @@
 # From https://hub.docker.com/_/alpine/
 #
 
-FROM alpine:latest
+FROM ubuntu:xenial
 
-LABEL image_name=apigateway tags=1.9.7.3,1.9.7,1.9,latest
+LABEL image_name=apigateway tags=1.11.2.2,1.11.2,1.11,latest
 
-# install dependencies
 #
-#  Note that we use --no-cache to avoid having to update or (later) rm a cache
-#  Using '--virtual' establishes a stack pointer (essentially) that lets us
-#  remove everything we installed just to make the build work.
+#  Pass the build an environment override for _profiling_on to activate profiling
 #
-#  Also, added bash, dumb-init and jq packages.  The latter two had been
-#  retrieved and compiled, so their addition should speed the Docker build.
+ARG _profiling_on=
+RUN apt-get update && sh -c "apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    file \
+    gcc g++ \
+    jq \
+    libgeoip1 \
+    libgeoip-dev \
+    libjansson4 \
+    libjansson-dev \
+    libssl1.0.0 \
+    libssl-dev \
+    make \
+    perl \
+    ${_profiling_on:+elfutils systemtap systemtap-sdt-dev linux-headers-$(uname -r)}" \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN if [ -n "${_profiling_on}" ]; then : \
+      && cp /proc/kallsyms /boot/System.map-`uname -r` \
+      && mkdir -p /usr/local/share/perl5/site_perl /profiling/stapxx/FlameGraph \
+      && curl -sSL https://api.github.com/repos/openresty/stapxx/tarball/master \
+        | tar zxf - --strip-components=1 -C /profiling/stapxx\
+      && curl -sSL https://api.github.com/repos/brendangregg/FlameGraph/tarball/master \
+        | tar zxf - --strip-components=1 -C /profiling/stapxx/FlameGraph \
+    ; fi
+
 #
-RUN apk --no-cache add bash dumb-init geoip libgcc openssl-dev jq \
- && apk --no-cache add --virtual build-deps \
-	   gcc tar automake autoconf libtool zlib jemalloc jemalloc-dev perl \
-        jansson jansson-dev \
-        ca-certificates wget make musl-dev pcre-dev g++ zlib-dev curl python \
-        perl-test-longstring perl-list-moreutils perl-http-message geoip-dev \
- && update-ca-certificates
+#  The S390X architecture needs a very specific patch to LuaJIT to work, so we
+#  download andcompile it here for OpenRESTY to use later.  In the interests of
+#  balancing workload across RUN stanzas, we always run this step.
+#
+ENV LUAJIT_VERSION=2.1.0-beta2 LUAJIT_DIR=/usr/local/api-gateway/luajit
+RUN echo " ... compiling and installing LuaJIT" \
+ && if [ "`uname -m`" = "s390x" ]; then \
+     luajit_url="https://api.github.com/repos/linux-on-ibm-z/LuaJIT/tarball/tags/${LUAJIT_VERSION}" ; \
+   else \
+      luajit_url="http://luajit.org/download/LuaJIT-${LUAJIT_VERSION}.tar.gz" ; \
+   fi \
+ && mkdir -p /tmp/api-gateway/LuaJIT \
+ && cd /tmp/api-gateway/LuaJIT \
+ && echo 'Getting' "$luajit_url" \
+ && curl -sSL "$luajit_url" \
+    | tar zxf - --strip-components=1 \
+ && make install PREFIX=${LUAJIT_DIR} \
+ && rm -rf /tmp/api-gateway/LuaJIT
 
 # openresty build
-ENV OPENRESTY_VERSION=1.9.7.3 \
-    NAXSI_VERSION=0.53-2 \
-    PCRE_VERSION=8.37 \
-    TEST_NGINX_VERSION=0.24 \
-    LUAJIT_VERSION=2.1 \
-    LUAJIT_DIR=/usr/local/api-gateway/luajit \
-    _prefix=/usr/local \
-    _exec_prefix=/usr/local \
-    _localstatedir=/var \
-    _sysconfdir=/etc \
-    _sbindir=/usr/local/sbin
-
-#
-#  The S390X architecture needs a very specific patch to LuaJIT to work, so we download and
-#  compile it here for OpenRESTY to use later.  The 'if' statement should prevent excess
-#  work from happening on other builds.
-#
-RUN : \
- && if [ "`uname -m`" = "s390x" ]; then \
-        echo " ... compiling and installing LuaJIT" \
-     && mkdir -p /tmp/api-gateway/LuaJIT-${LUAJIT_VERSION} \
-     && cd /tmp/api-gateway/LuaJIT-${LUAJIT_VERSION} \
-     && echo 'Getting' https://api.github.com/repos/linux-on-ibm-z/LuaJIT/tarball/v${LUAJIT_VERSION} \
-     && curl -sSL https://api.github.com/repos/linux-on-ibm-z/LuaJIT/tarball/v${LUAJIT_VERSION} | \
-        tar zxf - --strip-components=1 \
-     && make install PREFIX=${LUAJIT_DIR} \
-     && rm -rf /tmp/api-gateway/LuaJIT-${LUAJIT_VERSION} \
- ; fi
+#ENV OPENRESTY_VERSION=1.9.7.3 \
+ENV OPENRESTY_VERSION=1.11.2.2 \
+     NAXSI_VERSION=0.53-2 \
+     PCRE_VERSION=8.37 \
+     _prefix=/usr/local \
+     _exec_prefix=/usr/local \
+     _localstatedir=/var \
+     _sysconfdir=/etc \
+     _sbindir=/usr/local/sbin
 
 RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
      && mkdir -p /tmp/api-gateway \
@@ -70,10 +84,8 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
 
     #  Configure options based on processor architecture
      && if [ "`uname -m`" = "s390x" ]; then \
-          with_luajit="--with-luajit=${LUAJIT_DIR}" ; \
           with_pcrejit="" ; \
         else \
-          with_luajit="--with-luajit" ; \
           with_pcrejit="--with-pcre-jit" ; \
         fi \
 
@@ -92,7 +104,7 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --lock-path=${_localstatedir}/run/api-gateway.lock \
             --add-module=../naxsi-${NAXSI_VERSION}/naxsi_src/ \
             --with-pcre=../pcre-${PCRE_VERSION}/ \
-            $with_pcrejit \
+            ${with_pcrejit} \
             --with-stream \
             --with-stream_ssl_module \
             --with-http_ssl_module \
@@ -110,42 +122,37 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --with-http_degradation_module \
             --with-http_auth_request_module  \
             --with-http_v2_module \
-            $with_luajit \
+            --with-luajit=${LUAJIT_DIR} \
             --without-http_ssi_module \
             --without-http_userid_module \
             --without-http_uwsgi_module \
             --without-http_scgi_module \
-            ${--with-debug} \
-            -j${NPROC}" \
+            ${with_debug} \
+            ${_profiling_on:+--with-dtrace-probes} \
+            -j${NPROC} \
+            || { cat config.log; exit 1; }" \
         && make -j${NPROC} install \
     ; done && echo " ... Done building OpenRESTY (both varieties) ... " \
-    && ls /usr/local/sbin/api-gateway* \
-
-    && echo "        - adding Nginx Test support" \
-    && curl -k -L https://github.com/openresty/test-nginx/archive/v${TEST_NGINX_VERSION}.tar.gz -o ${_prefix}/test-nginx-${TEST_NGINX_VERSION}.tar.gz \
-    && cd ${_prefix} \
-    && tar -xf ${_prefix}/test-nginx-${TEST_NGINX_VERSION}.tar.gz \
-    && rm ${_prefix}/test-nginx-${TEST_NGINX_VERSION}.tar.gz \
-    && cp -r ${_prefix}/test-nginx-0.24/inc/* /usr/local/share/perl5/site_perl/ \
 
     && ln -s ${_sbindir}/api-gateway-debug ${_sbindir}/nginx \
     && cp /tmp/api-gateway/openresty-${OPENRESTY_VERSION}/build/install ${_prefix}/api-gateway/bin/resty-install \
     && rm -rf /tmp/api-gateway
 
-ENV OPM_VERSION 0.0.3
+ARG TEST_NGINX_VERSION=0.24
+RUN echo "        - adding Nginx Test support" \
+    && mkdir -p /usr/local/share/perl5/site_perl/ \
+    && curl -sSL https://github.com/openresty/test-nginx/archive/v${TEST_NGINX_VERSION}.tar.gz \
+      | tar zxfv - -C /usr/local/share/perl5/site_perl/ test-nginx-${TEST_NGINX_VERSION}/inc/ --strip-components=2 \
+    && ls -lR /usr/local/share/perl5/site_perl
+
+ARG OPM_VERSION=0.0.3
 RUN echo " ... installing opm..." \
-    && mkdir -p /tmp/api-gateway \
-    && curl -k -L https://github.com/openresty/opm/archive/v${OPM_VERSION}.tar.gz -o /tmp/api-gateway/opm-${OPM_VERSION}.tar.gz \
-    && tar -xf /tmp/api-gateway/opm-${OPM_VERSION}.tar.gz -C /tmp/api-gateway \
-    && cd /tmp/api-gateway/opm-${OPM_VERSION} \
-    && cp bin/opm ${_prefix}/api-gateway/bin \
-    && cd ${_prefix}/api-gateway \
-    && mkdir -p site/manifest site/pod \
-    && cd site \
-    && ln -s ../lualib ./ \
+    && curl -sSL https://github.com/openresty/opm/archive/v${OPM_VERSION}.tar.gz  \
+        | tar zxf - -C ${_prefix}/api-gateway/bin/ opm-${OPM_VERSION}/bin/opm --strip-components=1 \
+    && mkdir -p ${_prefix}/api-gateway/site/manifest ${_prefix}/api-gateway/site/pod \
     && ln -s ${_prefix}/api-gateway/bin/opm /usr/bin/opm \
     && ln -s ${_prefix}/api-gateway/bin/resty /usr/bin/resty \
-    && rm -rf /tmp/api-gateway
+    && :
 
 #
 #  TODO:  Clean this up so we aren't creating 11 additional layers.
@@ -167,14 +174,14 @@ RUN opm get \
      taylorking/lua-resty-cjose=${LUA_RESTY_CJOSE_VERSION} \
      taylorking/lua-resty-rate-limit
 
-ENV NETURL_LUA_VERSION 0.9-1
+ARG NETURL_LUA_VERSION=0.9-1
 #  Tightened this up to pull the file directly out of the archive
 RUN echo " ... installing neturl.lua ... " \
     && curl -sSL https://github.com/golgote/neturl/archive/${NETURL_LUA_VERSION}.tar.gz \
         | tar -zxf - -C ${_prefix}/api-gateway/lualib --strip-components=3 \
             neturl-${NETURL_LUA_VERSION}/lib/net/url.lua
 
-ENV CJOSE_VERSION 0.5.1
+ARG CJOSE_VERSION=0.5.1
 RUN echo " ... installing cjose ... " \
     && mkdir -p /tmp/api-gateway \
     && curl -sSL https://github.com/cisco/cjose/archive/${CJOSE_VERSION}.tar.gz \
@@ -184,20 +191,44 @@ RUN echo " ... installing cjose ... " \
     && make install \
     && rm -rf /tmp/api-gateway
 
-RUN apk del build-deps
+ARG DUMB_INIT_VERSION=1.2.0
+RUN cd /tmp \
+     && curl -sSLO https://github.com/Yelp/dumb-init/releases/download/v1.2.0/dumb-init_${DUMB_INIT_VERSION}_amd64.deb \
+     && dpkg -i dumb-init_${DUMB_INIT_VERSION}_amd64.deb \
+     && rm /tmp/dumb-init_1.2.0_amd64.deb
+
+RUN apt-get purge -y \
+  curl \
+  file \
+  gcc g++ \
+  libgeoip-dev \
+  libjansson-dev \
+  libssl-dev \
+  make \
+ && apt-get autoremove -y \
+ && apt-get clean
+#RUN apk del build-deps
 
 COPY init.sh /etc/init-container.sh
 ONBUILD COPY init.sh /etc/init-container.sh
 # add the default configuration for the Gateway
 COPY . /etc/api-gateway
-RUN adduser -S nginx-api-gateway \
-    && addgroup -S nginx-api-gateway
 ONBUILD COPY . /etc/api-gateway
+
+RUN adduser --system --group nginx-api-gateway
 
 EXPOSE 80 8080 8423 9000
 
 #
-#  The dumb-init is available as an Alpine package now, so its location has changed.
+#  These lines will be automatically uncommented when building with
+#  'make build-profile'
 #
+#PROFILE COPY ./api-gateway.conf.profiling /etc/api-gateway/api-gateway.conf
+#PROFILE WORKDIR /tmp/stapxx
+
+#
+#  The dumb-init is available as a package now, so its location has changed.
+#s
+ENV LD_LIBRARY_PATH /usr/local/lib
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/etc/init-container.sh"]
