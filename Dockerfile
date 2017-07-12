@@ -54,6 +54,8 @@ RUN if [ "$DISTRO" = "ubuntu" ]; then \
         echo "UNRECOGNIZED DISTRO $DISTRO" && exit 1 \
   ; fi
 
+#
+#  If profiling is requested, set up certain extra software.
 RUN if [ -n "${PROFILE}" ]; then : \
       && cp /proc/kallsyms /boot/System.map-`uname -r` \
       && mkdir -p /usr/local/share/perl5/site_perl /profiling/stapxx/FlameGraph \
@@ -83,8 +85,11 @@ RUN echo " ... compiling and installing LuaJIT" \
  && make install PREFIX=${LUAJIT_DIR} \
  && rm -rf /tmp/api-gateway/LuaJIT
 
-# openresty build
-#ENV OPENRESTY_VERSION=1.9.7.3 \
+#
+# OpenRESTy build
+#
+#  Perhaps some of these environment variables should be build args?
+#
 ENV OPENRESTY_VERSION=1.11.2.2 \
      NAXSI_VERSION=0.53-2 \
      PCRE_VERSION=8.37 \
@@ -191,12 +196,6 @@ RUN echo " ... installing opm..." \
     && ln -s ${_prefix}/api-gateway/bin/resty /usr/bin/resty \
     && :
 
-#
-#  TODO:  Clean this up so we aren't creating 11 additional layers.
-#         Define all the ENV variables in one statement and run the
-#         OPM gets as a command chain (or does OPM support multiple
-#         packages in one get statement?
-
 ENV LUA_RESTY_HTTP_VERSION=0.10 \
     LUA_RESTY_IPUTILS_VERSION=0.2.1 \
     LUA_RESTY_STRING_VERSION=0.09 \
@@ -212,7 +211,6 @@ RUN opm get \
      taylorking/lua-resty-rate-limit
 
 ARG NETURL_LUA_VERSION=0.9-1
-#  Tightened this up to pull the file directly out of the archive
 RUN echo " ... installing neturl.lua ... " \
     && neturl_url="https://github.com/golgote/neturl/archive/${NETURL_LUA_VERSION}.tar.gz" \
     && echo "Getting neturl: $neturl_url" \
@@ -261,11 +259,10 @@ RUN if [ "$DISTRO" = "ubuntu" ]; then \
    ; else \
        echo "UNRECOGNIZED DISTRO $DISTRO" && exit 1 \
    ; fi
-#RUN apk del build-deps
 
 COPY init.sh /etc/init-container.sh
 ONBUILD COPY init.sh /etc/init-container.sh
-# add the default configuration for the Gateway
+
 COPY . /etc/api-gateway
 ONBUILD COPY . /etc/api-gateway
 
@@ -278,9 +275,6 @@ EXPOSE 80 8080 8423 9000
 #PROFILE COPY ./api-gateway.conf.profiling /etc/api-gateway/api-gateway.conf
 #PROFILE WORKDIR /tmp/stapxx
 
-#
-#  The dumb-init is available as a package now, so its location has changed.
-#
 ENV LD_LIBRARY_PATH /usr/local/lib
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/etc/init-container.sh"]

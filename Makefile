@@ -29,7 +29,6 @@ docker-ssh:
 test-build:
 	cd tests; ./install-deps.sh
 
-# TODO: Integrate the architecture changes into the profiling
 .PHONY: profile-build
 profile-build: DOCKER_DISTRO ?= ubuntu
 profile-build:
