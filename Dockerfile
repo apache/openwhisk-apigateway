@@ -4,38 +4,62 @@
 #
 # From https://hub.docker.com/_/alpine/
 #
-
-FROM ubuntu:xenial
+FROM ubuntu:latest
 
 LABEL image_name=apigateway tags=1.11.2.2,1.11.2,1.11,latest
 
 #
-#  Pass the build an environment override for _profiling_on to activate profiling
+#  Pass the build an environment override for PROFILE to activate profiling
 #
-ARG _profiling_on=
-RUN apt-get update && sh -c "apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    file \
-    gcc g++ \
-    jq \
-    libgeoip1 \
-    libgeoip-dev \
-    libjansson4 \
-    libjansson-dev \
-    libssl1.0.0 \
-    libssl-dev \
-    make \
-    perl \
-    ${_profiling_on:+elfutils systemtap systemtap-sdt-dev linux-headers-$(uname -r)}" \
- && apt-get clean && rm -rf /var/lib/apt/lists/*
+ARG DISTRO=ubuntu
+ARG PROFILE=
+RUN if [ "$DISTRO" = "ubuntu" ]; then \
+      apt-get update && sh -c "apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        file \
+        gcc g++ \
+        jq \
+        libgeoip1 \
+        libgeoip-dev \
+        libjansson4 \
+        libjansson-dev \
+        libssl1.0.0 \
+        libssl-dev \
+        make \
+        perl \
+        ${PROFILE:+elfutils systemtap systemtap-sdt-dev linux-headers-$(uname -r)}" \
+      && apt-get clean && rm -rf /var/lib/apt/lists/* \
+  ; elif [ "$DISTRO" = "alpine" ] && [ -n "$PROFILE" ]; then \
+      echo "Alpine does not support profiling." && exit 1 \
+  ; elif [ "$DISTRO" = "alpine" ]; then \
+      apk add --no-cache \
+          bash \
+          ca-certificates \
+          jq \
+          geoip \
+          jansson \
+          libgcc \
+          openssl \
+          perl \
+      && apk add --no-cache --virtual .build-deps \
+          curl \
+          file \
+          gcc g++ \
+          geoip-dev \
+          jansson-dev \
+          openssl-dev \
+          make \
+  ; else \
+        echo "UNRECOGNIZED DISTRO $DISTRO" && exit 1 \
+  ; fi
 
-RUN if [ -n "${_profiling_on}" ]; then : \
+RUN if [ -n "${PROFILE}" ]; then : \
       && cp /proc/kallsyms /boot/System.map-`uname -r` \
       && mkdir -p /usr/local/share/perl5/site_perl /profiling/stapxx/FlameGraph \
-      && curl -sSL https://api.github.com/repos/openresty/stapxx/tarball/master \
+      && curl -L https://api.github.com/repos/openresty/stapxx/tarball/master \
         | tar zxf - --strip-components=1 -C /profiling/stapxx\
-      && curl -sSL https://api.github.com/repos/brendangregg/FlameGraph/tarball/master \
+      && curl -L https://api.github.com/repos/brendangregg/FlameGraph/tarball/master \
         | tar zxf - --strip-components=1 -C /profiling/stapxx/FlameGraph \
     ; fi
 
@@ -53,8 +77,8 @@ RUN echo " ... compiling and installing LuaJIT" \
      ; fi \
  && mkdir -p /tmp/api-gateway/LuaJIT \
  && cd /tmp/api-gateway/LuaJIT \
- && echo 'Getting' "$luajit_url" \
- && curl -sSL "$luajit_url" \
+ && echo 'Getting LuaJIT:' "$luajit_url" \
+ && curl -L "$luajit_url" \
     | tar zxf - --strip-components=1 \
  && make install PREFIX=${LUAJIT_DIR} \
  && rm -rf /tmp/api-gateway/LuaJIT
@@ -76,9 +100,17 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
      && echo "using up to $NPROC threads" \
 
      && cd /tmp/api-gateway/ \
-     && curl -sSL https://github.com/nbs-system/naxsi/archive/${NAXSI_VERSION}.tar.gz | tar zfx - \
-     && curl -sSL http://downloads.sourceforge.net/project/pcre/pcre/${PCRE_VERSION}/pcre-${PCRE_VERSION}.tar.gz | tar zfx - \
-     && curl -sSL https://openresty.org/download/openresty-${OPENRESTY_VERSION}.tar.gz | tar zfx - \
+     && naxsi_url="https://github.com/nbs-system/naxsi/archive/${NAXSI_VERSION}.tar.gz" \
+     && echo "Getting naxsi: $naxsi_url" \
+     && curl -L "$naxsi_url" | tar zfx - \
+
+     && pcre_url="http://downloads.sourceforge.net/project/pcre/pcre/${PCRE_VERSION}/pcre-${PCRE_VERSION}.tar.gz" \
+     && echo "Getting pcre: $pcre_url" \
+     && curl -L "$pcre_url" | tar zfx - \
+
+     && openresty_url="https://openresty.org/download/openresty-${OPENRESTY_VERSION}.tar.gz" \
+     && echo "Getting OpenRESTY: $openresty_url" \
+     && curl -L "$openresty_url" | tar zfx - \
 
      && cd /tmp/api-gateway/openresty-${OPENRESTY_VERSION} \
 
@@ -128,7 +160,7 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --without-http_uwsgi_module \
             --without-http_scgi_module \
             ${with_debug} \
-            ${_profiling_on:+--with-dtrace-probes} \
+            ${PROFILE:+--with-dtrace-probes} \
             -j${NPROC} \
             || { cat config.log; exit 1; }" \
         && make -j${NPROC} install \
@@ -141,13 +173,18 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
 ARG TEST_NGINX_VERSION=0.24
 RUN echo "        - adding Nginx Test support" \
     && mkdir -p /usr/local/share/perl5/site_perl/ \
-    && curl -sSL https://github.com/openresty/test-nginx/archive/v${TEST_NGINX_VERSION}.tar.gz \
+
+    && test_nginx_url="https://github.com/openresty/test-nginx/archive/v${TEST_NGINX_VERSION}.tar.gz" \
+    && echo "Getting test-nginx: $test_nginx_url" \
+    && curl -L "$test_nginx_url" \
       | tar zxfv - -C /usr/local/share/perl5/site_perl/ test-nginx-${TEST_NGINX_VERSION}/inc/ --strip-components=2 \
-    && ls -lR /usr/local/share/perl5/site_perl
+    && :
 
 ARG OPM_VERSION=0.0.3
 RUN echo " ... installing opm..." \
-    && curl -sSL https://github.com/openresty/opm/archive/v${OPM_VERSION}.tar.gz  \
+    && opm_url="https://github.com/openresty/opm/archive/v${OPM_VERSION}.tar.gz" \
+    && echo "Getting opm: $opm_url" \
+    && curl -L  "$opm_url" \
         | tar zxf - -C ${_prefix}/api-gateway/bin/ opm-${OPM_VERSION}/bin/opm --strip-components=1 \
     && mkdir -p ${_prefix}/api-gateway/site/manifest ${_prefix}/api-gateway/site/pod \
     && ln -s ${_prefix}/api-gateway/bin/opm /usr/bin/opm \
@@ -177,15 +214,18 @@ RUN opm get \
 ARG NETURL_LUA_VERSION=0.9-1
 #  Tightened this up to pull the file directly out of the archive
 RUN echo " ... installing neturl.lua ... " \
-    && curl -sSL https://github.com/golgote/neturl/archive/${NETURL_LUA_VERSION}.tar.gz \
+    && neturl_url="https://github.com/golgote/neturl/archive/${NETURL_LUA_VERSION}.tar.gz" \
+    && echo "Getting neturl: $neturl_url" \
+    && curl -L "$neturl_url" \
         | tar -zxf - -C ${_prefix}/api-gateway/lualib --strip-components=3 \
             neturl-${NETURL_LUA_VERSION}/lib/net/url.lua
 
 ARG CJOSE_VERSION=0.5.1
 RUN echo " ... installing cjose ... " \
     && mkdir -p /tmp/api-gateway \
-    && curl -sSL https://github.com/cisco/cjose/archive/${CJOSE_VERSION}.tar.gz \
-        | tar zxf - -C /tmp/api-gateway/ \
+    && cjose_url="https://github.com/cisco/cjose/archive/${CJOSE_VERSION}.tar.gz" \
+    && echo "Getting cjose: $chose_url" \
+    && curl -L  "$cjose_url" | tar zxf - -C /tmp/api-gateway/ \
     && cd /tmp/api-gateway/cjose-${CJOSE_VERSION} \
     && sh configure \
     && make install \
@@ -193,22 +233,34 @@ RUN echo " ... installing cjose ... " \
 
 ARG DUMB_INIT_VERSION=1.2.0
 RUN echo " ... building and install dumb-init ... " \
-     && curl -sSL https://github.com/Yelp/dumb-init/archive/v1.2.0.tar.gz | tar zxf - -C /tmp \
+     && dumb_init_url="https://github.com/Yelp/dumb-init/archive/v${DUMB_INIT_VERSION}.tar.gz" \
+     && echo "Getting dumb-init: &dumb_init_url" \
+     && curl -L "$dumb_init_url" | tar zxf - -C /tmp \
      && cd /tmp/dumb-init-${DUMB_INIT_VERSION} \
      && make \
      && mv ./dumb-init /usr/bin \
      && cd /tmp && rm -rf /tmp/dumb-init-${DUMB_INIT_VERSION}
 
-RUN apt-get purge -y \
-  curl \
-  file \
-  gcc g++ \
-  libgeoip-dev \
-  libjansson-dev \
-  libssl-dev \
-  make \
- && apt-get autoremove -y \
- && apt-get clean
+RUN if [ "$DISTRO" = "ubuntu" ]; then \
+       adduser --system --group nginx-api-gateway \
+       && apt-get purge -y \
+          curl \
+          file \
+          gcc g++ \
+          libgeoip-dev \
+          libjansson-dev \
+          libssl-dev \
+          make \
+       && apt-get autoremove -y \
+       && apt-get clean \
+   ; elif [ "$DISTRO" = "alpine" ]; then \
+       addgroup -S nginx-api-gateway \
+       && adduser -S nginx-api-gateway \
+       && adduser nginx-api-gateway nginx-api-gateway \
+       && apk del .build-deps \
+   ; else \
+       echo "UNRECOGNIZED DISTRO $DISTRO" && exit 1 \
+   ; fi
 #RUN apk del build-deps
 
 COPY init.sh /etc/init-container.sh
@@ -216,8 +268,6 @@ ONBUILD COPY init.sh /etc/init-container.sh
 # add the default configuration for the Gateway
 COPY . /etc/api-gateway
 ONBUILD COPY . /etc/api-gateway
-
-RUN adduser --system --group nginx-api-gateway
 
 EXPOSE 80 8080 8423 9000
 
@@ -230,7 +280,7 @@ EXPOSE 80 8080 8423 9000
 
 #
 #  The dumb-init is available as a package now, so its location has changed.
-#s
+#
 ENV LD_LIBRARY_PATH /usr/local/lib
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/etc/init-container.sh"]

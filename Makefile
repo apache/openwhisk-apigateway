@@ -3,18 +3,23 @@ DOCKER_REGISTRY ?= ''
 DOCKER_ARCH = $(shell sh -c "docker info 2>/dev/null | sed -n -e 's/Architecture: \(.*\)/\1/p'")
 
 #  Architecture-dependent manipulations of the Dockerfile
+#
+#  Note:  The variables don't bind until execution time, so the default
+#         for DOCKER_DISTRO is set below in 'docker' and 'profile-build'
+#         and could be set for other build steps.
 ifeq "$(DOCKER_ARCH)" "s390x"
-SEDCMD=s!^FROM \(alpine\|ubuntu\)!FROM $(DOCKER_ARCH)/\1!
+SEDCMD=s!^FROM \(alpine\|ubuntu\):!FROM $(DOCKER_ARCH)/$(DOCKER_DISTRO):!
 else
-SEDCMD=
+SEDCMD=s!^FROM \(alpine\|ubuntu\):!FROM $(DOCKER_DISTRO):!
 endif
 
 Dockerfile.generated: Dockerfile
 	sed -e '$(SEDCMD)' <Dockerfile >Dockerfile.generated
 
 .PHONY: docker
+docker: DOCKER_DISTRO ?= alpine
 docker: Dockerfile.generated
-	docker build -t openwhisk/apigateway -f Dockerfile.generated .
+	docker build -t openwhisk/apigateway --build-arg DISTRO=$(DOCKER_DISTRO) -f Dockerfile.generated .
 
 .PHONY: docker-ssh
 docker-ssh:
@@ -26,11 +31,12 @@ test-build:
 
 # TODO: Integrate the architecture changes into the profiling
 .PHONY: profile-build
+profile-build: DOCKER_DISTRO ?= ubuntu
 profile-build:
-	#./build_profiling.sh
 	sed -e 's/worker_processes\ *auto;/worker_processes\ 1;/g' api-gateway.conf > api-gateway.conf.profiling
 	sed -e '$(SEDCMD)' -e 's/^#PROFILE //' Dockerfile > Dockerfile.profiling
-	docker build --build-arg _profiling_on=yes -t openwhisk/apigateway-profiling -f Dockerfile.profiling .
+	docker build --build-arg PROFILE=yes --build-arg DISTRO=$(DOCKER_DISTRO) \
+			-t openwhisk/apigateway-profiling -f Dockerfile.profiling .
 
 .PHONY: profile-run
 profile-run: profile-build
