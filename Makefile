@@ -18,8 +18,9 @@ Dockerfile.generated: Dockerfile
 
 .PHONY: docker
 docker: DOCKER_DISTRO ?= alpine
+docker: DOCKER_TAG ?= openwhisk/apigateway
 docker: Dockerfile.generated
-	docker build -t openwhisk/apigateway --build-arg DISTRO=$(DOCKER_DISTRO) -f Dockerfile.generated .
+	docker build -t $(DOCKER_TAG) --build-arg DISTRO=$(DOCKER_DISTRO) -f Dockerfile.generated .
 
 .PHONY: docker-ssh
 docker-ssh:
@@ -31,11 +32,12 @@ test-build:
 
 .PHONY: profile-build
 profile-build: DOCKER_DISTRO ?= ubuntu
+profile-build: DOCKER_TAG ?= openwhisk/apigateway-profiling
 profile-build:
 	sed -e 's/worker_processes\ *auto;/worker_processes\ 1;/g' api-gateway.conf > api-gateway.conf.profiling
 	sed -e '$(SEDCMD)' -e 's/^#PROFILE //' Dockerfile > Dockerfile.profiling
 	docker build --build-arg PROFILE=yes --build-arg DISTRO=$(DOCKER_DISTRO) \
-			-t openwhisk/apigateway-profiling -f Dockerfile.profiling .
+			-t $(DOCKER_TAG) -f Dockerfile.profiling .
 
 .PHONY: profile-run
 profile-run: profile-build
