@@ -26,6 +26,9 @@ pip install --user ansible==2.3.0.0
 sudo apt-get -y install nodejs npm
 sudo npm install -g jshint
 
-# OpenWhisk stuff
+# clone OpenWhisk main repo.
 cd $HOMEDIR
 git clone --depth=1 https://github.com/apache/incubator-openwhisk.git openwhisk
+
+# clone the openwhisk utilities repo.
+git clone https://github.com/apache/incubator-openwhisk-utilities.git

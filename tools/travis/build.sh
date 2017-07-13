@@ -3,10 +3,14 @@ set -e
 set -x
 
 # Build script for Travis-CI.
-
 SCRIPTDIR=$(cd $(dirname "$0") && pwd)
 ROOTDIR="$SCRIPTDIR/../.."
+HOMEDIR="$ROOTDIR/.."
 WHISKDIR="$ROOTDIR/../openwhisk"
+
+# run the scancode util. against project source code starting at its root
+cd $HOMEDIR
+incubator-openwhisk-utilities/scancode/scanCode.py $ROOTDIR
 
 # Install OpenWhisk
 cd $WHISKDIR/ansible
@@ -18,10 +22,10 @@ $ANSIBLE_CMD prereq.yml
 $ANSIBLE_CMD couchdb.yml
 $ANSIBLE_CMD initdb.yml
 
-#build docker image locally 
+# build docker image locally
 pushd $ROOTDIR
 pwd
-docker build . -t "openwhisk/apigateway" 
+docker build . -t "openwhisk/apigateway"
 popd
 
 #Use local
@@ -52,4 +56,3 @@ sleep 60
 TERM=dumb ./gradlew tests:test --tests whisk.core.apigw.* ${WSK_TESTS_DEPS_EXCLUDE}
 sleep 60
 TERM=dumb ./gradlew tests:test --tests whisk.core.cli.test.ApiGwTests ${WSK_TESTS_DEPS_EXCLUDE}
-
