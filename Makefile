@@ -1,6 +1,9 @@
-DOCKER_TAG ?= snapshot-`date +'%Y%m%d-%H%M'`
-DOCKER_REGISTRY ?= ''
 DOCKER_ARCH = $(shell sh -c "docker info 2>/dev/null | sed -n -e 's/Architecture: \(.*\)/\1/p'")
+
+#
+#  Default tags.  To override for a given run, use 'DOCKER_TAG=mytag make ...'
+DOCKER_RUN_TAG = openwhisk/apigateway:latest
+DOCKER_PROFILE_TAG = openwhisk/apigateway-profiling:latest
 
 #  Architecture-dependent manipulations of the Dockerfile
 #
@@ -18,13 +21,14 @@ Dockerfile.generated: Dockerfile
 
 .PHONY: docker
 docker: DOCKER_DISTRO ?= alpine
-docker: DOCKER_TAG ?= openwhisk/apigateway
+docker: DOCKER_TAG ?= $(DOCKER_RUN_TAG)
 docker: Dockerfile.generated
 	docker build -t $(DOCKER_TAG) --build-arg DISTRO=$(DOCKER_DISTRO) -f Dockerfile.generated .
 
 .PHONY: docker-ssh
+docker-ssh: DOCKER_TAG ?= $(DOCKER_RUN_TAG)
 docker-ssh:
-	docker run -ti --entrypoint='bash' openwhisk/apigateway:latest
+	docker run -ti --entrypoint='bash' $(DOCKER_TAG)
 
 .PHONY: test-build
 test-build:
@@ -32,7 +36,7 @@ test-build:
 
 .PHONY: profile-build
 profile-build: DOCKER_DISTRO ?= ubuntu
-profile-build: DOCKER_TAG ?= openwhisk/apigateway-profiling
+profile-build: DOCKER_TAG ?= $(DOCKER_PROFILE_TAG)
 profile-build:
 	sed -e 's/worker_processes\ *auto;/worker_processes\ 1;/g' api-gateway.conf > api-gateway.conf.profiling
 	sed -e '$(SEDCMD)' -e 's/^#PROFILE //' Dockerfile > Dockerfile.profiling
@@ -40,6 +44,7 @@ profile-build:
 			-t $(DOCKER_TAG) -f Dockerfile.profiling .
 
 .PHONY: profile-run
+profile-run: DOCKER_TAG ?= $(DOCKER_PROFILE_TAG)
 profile-run: profile-build
 	docker run --rm --name="apigateway" --privileged -p 80:80 -p ${PUBLIC_MANAGEDURL_PORT}:8080 -p 9000:9000 \
 		-e PUBLIC_MANAGEDURL_HOST=${PUBLIC_MANAGEDURL_HOST} -e PUBLIC_MANAGEDURL_PORT=${PUBLIC_MANAGEDURL_PORT} \
@@ -52,13 +57,14 @@ profile-run: profile-build
 		-e CACHE_SIZE=2048 \
 		-e CACHE_TTL=180 \
 		-e OPTIMIZE=1 \
-		openwhisk/apigateway-profiling:latest
+		$(DOCKER_TAG)
 
 .PHONY: test-run
 test-run:
 	cd tests; ./run-tests.sh
 
 .PHONY: docker-run
+docker-ssh: DOCKER_TAG ?= $(DOCKER_RUN_TAG)
 docker-run:
 	docker run --rm --name="apigateway" -p 80:80 -p ${PUBLIC_MANAGEDURL_PORT}:8080 -p 9000:9000 \
 		-e PUBLIC_MANAGEDURL_HOST=${PUBLIC_MANAGEDURL_HOST} -e PUBLIC_MANAGEDURL_PORT=${PUBLIC_MANAGEDURL_PORT} \
@@ -68,9 +74,10 @@ docker-run:
 		-e TOKEN_GITHUB_URL=https://api.github.com/user \
 		-e APPID_PKURL=https://appid-oauth.ng.bluemix.net/oauth/v3/ \
 		-e LD_LIBRARY_PATH=/usr/local/lib \
-		openwhisk/apigateway:latest
+		$(DOCKER_TAG)
 
 .PHONY: docker-debug
+docker-debug: DOCKER_TAG ?= $(DOCKER_RUN_TAG)
 docker-debug:
 	#Volumes directories must be under your Users directory
 	mkdir -p ${HOME}/tmp/apiplatform/apigateway
@@ -80,7 +87,7 @@ docker-debug:
 			-p 80:80 -p 5000:5000 \
 			-e "LOG_LEVEL=info" -e "DEBUG=true" \
 			-v ${HOME}/tmp/apiplatform/apigateway/:/etc/api-gateway \
-			openwhisk/apigateway:latest ${DOCKER_ARGS}
+			$(DOCKER_TAG) ${DOCKER_ARGS}
 
 .PHONY: docker-reload
 docker-reload:
