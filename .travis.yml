@@ -36,9 +36,11 @@ deploy:
     script: ./tools/travis/deploy.sh openwhisk apigateway latest
     on:
       branch: master
+      repo: apache/incubator-openwhisk-api
   # deploy tag
   - provider: script
     script: ./tools/travis/deploy.sh openwhisk apigateway $TRAVIS_TAG
     on:
       tags: true
       all_branches: true
+      repo: apache/incubator-openwhisk-api
