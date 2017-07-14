@@ -26,6 +26,7 @@ tmp.*
 # Profiling files
 api-gateway.conf.profiling*
 Dockerfile.profiling
+kernel-src
 
 # Generated files
 Dockerfile.generated

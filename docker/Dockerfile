@@ -28,7 +28,7 @@ RUN if [ "$DISTRO" = "ubuntu" ]; then \
         libssl-dev \
         make \
         perl \
-        ${PROFILE:+elfutils systemtap systemtap-sdt-dev linux-headers-$(uname -r)}" \
+        ${PROFILE:+elfutils systemtap systemtap-sdt-dev}" \
       && apt-get clean && rm -rf /var/lib/apt/lists/* \
   ; elif [ "$DISTRO" = "alpine" ] && [ -n "$PROFILE" ]; then \
       echo "Alpine does not support profiling." && exit 1 \
@@ -260,11 +260,11 @@ RUN if [ "$DISTRO" = "ubuntu" ]; then \
        echo "UNRECOGNIZED DISTRO $DISTRO" && exit 1 \
    ; fi
 
-COPY init.sh /etc/init-container.sh
-ONBUILD COPY init.sh /etc/init-container.sh
+COPY init-container.sh /etc/init-container.sh
+ONBUILD COPY init-container.sh /etc/init-container.sh
 
-COPY . /etc/api-gateway
-ONBUILD COPY . /etc/api-gateway
+COPY etc-api-gateway /etc/api-gateway
+ONBUILD COPY etc /etc/api-gateway
 
 EXPOSE 80 8080 8423 9000
 
@@ -274,6 +274,7 @@ EXPOSE 80 8080 8423 9000
 #
 #PROFILE COPY ./api-gateway.conf.profiling /etc/api-gateway/api-gateway.conf
 #PROFILE WORKDIR /tmp/stapxx
+#PROFILE VOLUME /usr/src
 
 ENV LD_LIBRARY_PATH /usr/local/lib
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
