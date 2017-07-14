@@ -2,7 +2,7 @@
 #  Figure out a few of the environmental aspects of docker
 #
 DOCKER_ARCH = $(shell sh -c "docker info 2>/dev/null | sed -n -e 's/^Architecture: \(.*\)/\1/p'")
-DOCKER_KERNEL_VERSION = $(shell sh -c "docker info 2>/dev/null | sed -n -e 's/^Kernel Version: \([^-]*\).*/\1/p'")
+DOCKER_KERNEL_VERSION = $(shell sh -c "docker info 2>/dev/null | sed -n -e 's/^Kernel Version: \([^-]*\).*/\1/;T;s/.0$$//;p'")
 DOCKER_KERNEL_MAJOR = $(shell sh -c "docker info 2>/dev/null | sed -n -e 's/^Kernel Version: \([0-9]*\).*/\1/p'")
 
 #
