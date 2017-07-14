@@ -18,10 +18,11 @@ $ANSIBLE_CMD prereq.yml
 $ANSIBLE_CMD couchdb.yml
 $ANSIBLE_CMD initdb.yml
 
-#build docker image locally 
+#build docker image locally - use Makefile
 pushd $ROOTDIR
 pwd
-docker build . -t "openwhisk/apigateway" 
+#docker build . -t "openwhisk/apigateway"
+DOCKER_TAG="openwhisk/apigateway" make docker
 popd
 
 #Use local
@@ -52,4 +53,3 @@ sleep 60
 TERM=dumb ./gradlew tests:test --tests whisk.core.apigw.* ${WSK_TESTS_DEPS_EXCLUDE}
 sleep 60
 TERM=dumb ./gradlew tests:test --tests whisk.core.cli.test.ApiGwTests ${WSK_TESTS_DEPS_EXCLUDE}
-
