@@ -7,17 +7,27 @@
 FROM alpine:latest
 
 # install dependencies
-RUN apk update \
-    && apk add gcc tar libtool zlib jemalloc jemalloc-dev perl \
+RUN apk --update add \
+    gcc tar libtool zlib jemalloc jemalloc-dev perl \
     ca-certificates wget make musl-dev openssl-dev pcre-dev g++ zlib-dev curl python \
-    perl-test-longstring perl-list-moreutils perl-http-message geoip-dev \
-    && update-ca-certificates
+    perl-test-longstring perl-list-moreutils perl-http-message geoip-dev dumb-init jq \
+    && update-ca-certificates \
+    && rm -rf /var/cache/apk/*
 
 # openresty build
 ENV OPENRESTY_VERSION=1.9.7.3 \
     NAXSI_VERSION=0.53-2 \
     PCRE_VERSION=8.37 \
     TEST_NGINX_VERSION=0.24 \
+    OPM_VERSION=0.0.3 \
+    LUA_RESTY_HTTP_VERSION=0.10 \
+    LUA_RESTY_IPUTILS_VERSION=0.2.1 \
+    LUA_RESTY_STRING_VERSION=0.09 \
+    LUA_RESTY_LRUCACHE_VERSION=0.06 \
+    LUA_RESTY_CJOSE_VERSION=0.4 \
+    NETURL_LUA_VERSION=0.9-1 \
+    CJOSE_VERSION=0.5.1 \
+    LD_LIBRARY_PATH=/usr/local/lib \
     _prefix=/usr/local \
     _exec_prefix=/usr/local \
     _localstatedir=/var \
@@ -126,7 +136,6 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
     && rm -rf /var/cache/apk/* \
     && rm -rf /tmp/api-gateway
 
-ENV OPM_VERSION 0.0.3
 RUN echo " ... installing opm..." \
     && mkdir -p /tmp/api-gateway \
     && curl -k -L https://github.com/openresty/opm/archive/v${OPM_VERSION}.tar.gz -o /tmp/api-gateway/opm-${OPM_VERSION}.tar.gz \
@@ -138,22 +147,18 @@ RUN echo " ... installing opm..." \
     && cd site \
     && ln -s ../lualib ./ \
     && ln -s ${_prefix}/api-gateway/bin/opm /usr/bin/opm \
-    && ln -s ${_prefix}/api-gateway/bin/resty /usr/bin/resty
+    && ln -s ${_prefix}/api-gateway/bin/resty /usr/bin/resty \
+    && rm -rf /tmp/api-gateway
 
-ENV LUA_RESTY_HTTP_VERSION 0.10
-RUN opm get pintsized/lua-resty-http=${LUA_RESTY_HTTP_VERSION}
-ENV LUA_RESTY_IPUTILS_VERSION 0.2.1
-RUN opm get hamishforbes/lua-resty-iputils=${LUA_RESTY_IPUTILS_VERSION}
-ENV LUA_RESTY_STRING_VERSION 0.09
-RUN opm get openresty/lua-resty-string=${LUA_RESTY_STRING_VERSION}
-ENV LUA_RESTY_LRUCACHE_VERSION 0.04
-RUN opm get openresty/lua-resty-lrucache=${LUA_RESTY_LRUCACHE_VERSION}
-ENV LUA_RESTY_CJOSE_VERSION 0.3
-RUN opm get taylorking/lua-resty-cjose=${LUA_RESTY_CJOSE_VERSION}
-RUN opm get taylorking/lua-resty-rate-limit
-
-
-ENV NETURL_LUA_VERSION 0.9-1
+    
+RUN echo " ... installing opm packages ... " \
+    && opm get pintsized/lua-resty-http=${LUA_RESTY_HTTP_VERSION} \
+               hamishforbes/lua-resty-iputils=${LUA_RESTY_IPUTILS_VERSION} \
+               openresty/lua-resty-string=${LUA_RESTY_STRING_VERSION} \
+               openresty/lua-resty-lrucache=${LUA_RESTY_LRUCACHE_VERSION} \
+               taylorking/lua-resty-cjose=${LUA_RESTY_CJOSE_VERSION} \
+               taylorking/lua-resty-rate-limit
+    
 RUN echo " ... installing neturl.lua ... " \
     && mkdir -p /tmp/api-gateway \
     && curl -k -L https://github.com/golgote/neturl/archive/${NETURL_LUA_VERSION}.tar.gz -o /tmp/api-gateway/neturl.lua-${NETURL_LUA_VERSION}.tar.gz \
@@ -163,7 +168,6 @@ RUN echo " ... installing neturl.lua ... " \
     && cp lib/net/url.lua ${LUA_LIB_DIR} \
     && rm -rf /tmp/api-gateway
 
-ENV CJOSE_VERSION 0.5.1
 RUN echo " ... installing cjose ... " \
     && apk update && apk add automake autoconf git gcc make jansson jansson-dev \
     && mkdir -p /tmp/api-gateway \
@@ -171,21 +175,8 @@ RUN echo " ... installing cjose ... " \
     && tar -xf /tmp/api-gateway/cjose-${CJOSE_VERSION}.tar.gz -C /tmp/api-gateway/ \
     && cd /tmp/api-gateway/cjose-${CJOSE_VERSION} \
     && sh configure \
-    && make && make install
-RUN mkdir -p /tmp/api-gateway
-
-
-RUN \
-    curl -L -k -s -o /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 \
-    && apk update \
-    && apk add gawk \
-    && chmod 755 /usr/local/bin/jq \
-    && rm -rf /var/cache/apk/*
-
-RUN \
-    echo " ... installing dumb-init ... " \
-    && wget -O /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.0/dumb-init_1.2.0_amd64 \
-    && chmod +x /usr/local/bin/dumb-init
+    && make && make install \
+    && rm -rf /tmp/api-gateway
 
 COPY init.sh /etc/init-container.sh
 ONBUILD COPY init.sh /etc/init-container.sh
@@ -196,8 +187,6 @@ RUN adduser -S nginx-api-gateway \
 ONBUILD COPY . /etc/api-gateway
 
 EXPOSE 80 8080 8423 9000
-
-ENV LD_LIBRARY_PATH /usr/local/lib
 
 ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
 CMD ["/etc/init-container.sh"]
