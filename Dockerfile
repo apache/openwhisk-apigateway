@@ -179,12 +179,10 @@ RUN echo " ... installing cjose ... " \
     && rm -rf /tmp/api-gateway
 
 COPY init.sh /etc/init-container.sh
-ONBUILD COPY init.sh /etc/init-container.sh
 # add the default configuration for the Gateway
 COPY . /etc/api-gateway
 RUN adduser -S nginx-api-gateway \
     && addgroup -S nginx-api-gateway
-ONBUILD COPY . /etc/api-gateway
 
 EXPOSE 80 8080 8423 9000
 
