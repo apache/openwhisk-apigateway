@@ -39,7 +39,8 @@ function process(dataStore, securityObj)
     request.err(401, "No Authorization header provided")
     return nil
   end
-  accessToken = string.gsub(accessToken, '^Bearer%s', '')
+
+  accessToken = string.gsub(accessToken, '^[B|b][E|e][A|a][R|r][E|e][R|r]%s', '')
 
   local token = exchange(dataStore, accessToken, securityObj.provider, securityObj)
   if token == nil then
