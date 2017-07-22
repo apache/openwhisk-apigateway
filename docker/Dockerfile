@@ -264,7 +264,7 @@ COPY init-container.sh /etc/init-container.sh
 ONBUILD COPY init-container.sh /etc/init-container.sh
 
 COPY etc-api-gateway /etc/api-gateway
-ONBUILD COPY etc /etc/api-gateway
+ONBUILD COPY etc-api-gateway /etc/api-gateway
 
 EXPOSE 80 8080 8423 9000
 
