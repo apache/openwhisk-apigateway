@@ -10,7 +10,7 @@ WHISKDIR="$ROOTDIR/../openwhisk"
 
 # run the scancode util. against project source code starting at its root
 cd $HOMEDIR
-incubator-openwhisk-utilities/scancode/scanCode.py $ROOTDIR
+incubator-openwhisk-utilities/scancode/scanCode.py $ROOTDIR --config $ROOTDIR/tools/build/scanCode.cfg
 
 # Install OpenWhisk
 cd $WHISKDIR/ansible

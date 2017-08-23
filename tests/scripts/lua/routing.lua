@@ -134,7 +134,6 @@ describe('Testing routing with snapshotting', function()
     local dataStore = ds.initWithDriver(red)
     dataStore:setSnapshotId('test')
     local result = dataStore:getAllResources('test')[1]
-    print ('etst')
     assert.are.same(result, 'resources:test:v1/test')
     local routing = require  'routing'
     local result = routing.findResource(dataStore, dataStore:getAllResources('test'), 'test', 'v1/test')
