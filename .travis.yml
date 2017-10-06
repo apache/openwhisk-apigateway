@@ -17,7 +17,7 @@ env:
 
 before_install:
   - ./tools/travis/setup.sh
-  - pip install hererocks
+  - pip install hererocks --user
   - hererocks lua_install -r^ --$LUA
   - export PATH=$PATH:$PWD/lua_install/bin # Add directory with all installed binaries to PATH
 
