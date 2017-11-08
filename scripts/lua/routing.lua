@@ -22,6 +22,7 @@ local cjson = require "cjson"
 local url = require "url"
 local utils = require "lib/utils"
 local request = require "lib/request"
+local logger = require "lib/logger"
 -- load policies
 local security = require "policies/security"
 local mapping = require "policies/mapping"
@@ -85,7 +86,7 @@ function _M.processCall(dataStore)
         setVerb(opFields.backendMethod)
       end
       -- Set backend upstream and uri
-      backendRouting.setRoute(opFields.backendUrl)
+      backendRouting.setRoute(opFields.backendUrl, gatewayPath)
       -- Parse policies
       if opFields.policies ~= nil then
         parsePolicies(dataStore, opFields.policies, key)

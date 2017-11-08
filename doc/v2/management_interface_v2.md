@@ -308,6 +308,8 @@ See below for a list of policies that are supported in the gateway and how they 
   }
   ```
   * `target-url`: the backend url
+    * _optional:_ to pass the path of your managed url down to the `target-url`, append `/${request.path}` to the end of `target-url`.  
+    Eg. `"target-url": "https://openwhisk.ng.bluemix.net/api/some/action/path.http/${request.path}"`
   * `verb`: the method to use when invoking the target-url (use "keep" to use the keep the same verb as the API)
   
   To set a different `target-url` for different paths, use the `operation-switch` policy inside `x-gateway-configuration`.
