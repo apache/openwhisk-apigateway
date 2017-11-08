@@ -50,7 +50,7 @@ export OPENWHISK_HOME=$WHISKDIR
 # Tests
 cd $WHISKDIR
 cat whisk.properties
-WSK_TESTS_DEPS_EXCLUDE="-x :core:swift3Action:distDocker -x :core:pythonAction:distDocker -x :core:javaAction:distDocker -x :core:nodejsAction:distDocker -x :core:actionProxy:distDocker -x :sdk:docker:distDocker -x :core:python2Action:copyFiles -x :core:python2Action:distDocker -x :tests:dat:blackbox:badaction:distDocker -x :tests:dat:blackbox:badproxy:distDocker"
+WSK_TESTS_DEPS_EXCLUDE="-x :core:swift3Action:distDocker -x :core:pythonAction:distDocker -x :core:javaAction:distDocker -x :core:nodejsAction:distDocker -x :core:actionProxy:distDocker -x :sdk:docker:distDocker -x :core:python2Action:distDocker -x :tests:dat:blackbox:badaction:distDocker -x :tests:dat:blackbox:badproxy:distDocker"
 TERM=dumb ./gradlew tests:test --tests apigw.healthtests.* ${WSK_TESTS_DEPS_EXCLUDE}
 sleep 60
 TERM=dumb ./gradlew tests:test --tests whisk.core.apigw.* ${WSK_TESTS_DEPS_EXCLUDE}

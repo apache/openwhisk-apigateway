@@ -26,17 +26,23 @@ local logger = require "lib/logger"
 local _M = {}
 
 --- Set upstream based on the backendUrl
-function _M.setRoute(backendUrl)
+function _M.setRoute(backendUrl, gatewayPath)
   local u = url.parse(backendUrl)
   if u.scheme == nil then
     u = url.parse(utils.concatStrings({'http://', backendUrl}))
   end
+  -- pass down gateway path to upstream path if $(request.path) is specified at the end of backendUrl
+  if u.path:sub(-15) == '$(request.path)' then
+    u.path = utils.concatStrings({u.path:sub(1, -16), u.path:sub(-16, -16) == '/' and '' or '/', gatewayPath})
+    ngx.req.set_uri(u.path)
+  else
+    ngx.req.set_uri(getUriPath(u.path))
+  end
   ngx.var.backendUrl = backendUrl
-  ngx.req.set_uri(getUriPath(u.path))
   setUpstream(u)
 end
 
---- Set dynamic route based on the based on the header that is passed in
+--- Set dynamic route based on the header that is passed in
 function _M.setDynamicRoute(obj)
   local whitelist = obj.whitelist
   for k in pairs(whitelist) do
