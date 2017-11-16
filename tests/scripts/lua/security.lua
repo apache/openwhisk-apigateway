@@ -237,33 +237,6 @@ describe('OAuth security module', function()
     assert.same(red:exists('oauth:providers:mock:tokens:bad'), 0)
     assert.falsy(result)
   end)
-  it('Loads a facebook token from the cache without a valid app id', function()
-    local red = fakeredis.new()
-    local ds = require "lib/dataStore"
-    local dataStore = ds.initWithDriver(red)
-    local token = "test"
-    local ngxattrs = [[
-      {
-        "http_Authorization":"]] .. token .. [[",
-        "http_x_facebook_app_token":"nothing",
-        "tenant":"1234",
-        "gatewayPath":"v1/test"
-      }
-    ]]
-    local ngx = fakengx.new()
-    ngx.var = cjson.decode(ngxattrs)
-    _G.ngx = ngx
-    local securityObj = [[
-      {
-        "type":"oauth2",
-        "provider":"facebook",
-        "scope":"resource"
-      }
-    ]]
-    red:set('oauth:providers:facebook:tokens:test', '{ "token":"good"}')
-    local result = oauth.process(dataStore, cjson.decode(securityObj))
-    assert.truthy(result)
-  end)
   it('Loads a facebook token from the cache with a valid app id', function()
     local red = fakeredis.new()
     local ds = require "lib/dataStore"

@@ -57,4 +57,4 @@ TERM=dumb ./gradlew tests:test --tests apigw.healthtests.* ${WSK_TESTS_DEPS_EXCL
 sleep 60
 TERM=dumb ./gradlew tests:test --tests whisk.core.apigw.* ${WSK_TESTS_DEPS_EXCLUDE}
 sleep 60
-TERM=dumb ./gradlew tests:test --tests whisk.core.cli.test.ApiGwTests ${WSK_TESTS_DEPS_EXCLUDE}
+TERM=dumb ./gradlew tests:test --tests whisk.core.cli.test.ApiGwRestTests ${WSK_TESTS_DEPS_EXCLUDE}

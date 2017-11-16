@@ -55,10 +55,17 @@ function _M.process(dataStore, token, securityObj)
     request.err(401, 'AppId key signature verification failed.')
     return nil
   end
-  jwt_obj = cjson.decode(cjose.getJWSInfo(token))
+  local jwt_obj = cjson.decode(cjose.getJWSInfo(token))
+  local expireTime = jwt_obj['exp']
+  if expireTime < os.time() then
+    request.err(401, 'Access token expired.')
+    return nil
+  end
   ngx.header['X-OIDC-Email'] = jwt_obj['email']
   ngx.header['X-OIDC-Sub'] = jwt_obj['sub']
-  dataStore:saveOAuthToken('appId', token, cjson.encode(jwt_obj), jwt_obj['exp'])
+  -- keep token in cache until it expires
+  local ttl = expireTime - os.time()
+  dataStore:saveOAuthToken('appId', token, cjson.encode(jwt_obj), ttl)
   return jwt_obj
 end
 

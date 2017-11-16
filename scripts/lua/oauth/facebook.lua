@@ -30,11 +30,7 @@ function _M.process(dataStore, token)
     return nil
   end
 
-  local result = dataStore:getOAuthToken('facebook', token)
-  if result ~= ngx.null then
-    return cjson.decode(result)
-  end
-  result = dataStore:getOAuthToken('facebook', utils.concatStrings({token, facebookAppToken}))
+  local result = dataStore:getOAuthToken('facebook', utils.concatStrings({token, facebookAppToken}))
   if result ~= ngx.null then
     return cjson.decode(result)
   end
@@ -64,13 +60,16 @@ function exchangeOAuthToken(dataStore, token, facebookAppToken)
     return
   end
   local json_resp = cjson.decode(res.body)
+  if json_resp['error'] ~= nil then
+    return nil
+  end
 
   if (json_resp['error']) then
     return nil
   end
-  -- convert Facebook's response
-  -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
-  dataStore:saveOAuthToken('facebook', utils.concatStrings({token, facebookAppToken}), cjson.encode(json_resp), json_resp['expires_at'])
+  -- keep token in cache until it expires
+  local ttl = json_resp.data['expires_at'] - os.time()
+  dataStore:saveOAuthToken('facebook', utils.concatStrings({token, facebookAppToken}), cjson.encode(json_resp), ttl)
   return json_resp
 end
 

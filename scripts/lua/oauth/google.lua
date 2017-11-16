@@ -58,7 +58,9 @@ function _M.process (dataStore, token)
     return nil
   end
 
-  dataStore:saveOAuthToken('google', token, cjson.encode(json_resp), json_resp['expires'])
+  -- keep token in cache until it expires
+  local ttl = json_resp['expires_in']
+  dataStore:saveOAuthToken('google', token, cjson.encode(json_resp), ttl)
   -- convert Google's response
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
   ngx.header['X-OIDC-Sub'] = json_resp['sub']
