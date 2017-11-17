@@ -58,7 +58,9 @@ function _M.process(dataStore, token)
     return nil
   end
 
-  dataStore:saveOAuthToken('github', token, cjson.encode(json_resp))
+  -- Github tokens do not expire; keep token in cache and clean up after 7 days
+  local ttl = 604800
+  dataStore:saveOAuthToken('github', token, cjson.encode(json_resp), ttl)
   -- convert Github's response
   -- Read more about the fields at: https://developers.google.com/identity/protocols/OpenIDConnect#obtainuserinfo
   return json_resp
