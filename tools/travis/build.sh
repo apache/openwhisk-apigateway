@@ -34,15 +34,9 @@ $ANSIBLE_CMD apigateway.yml -e apigateway_local_build=true
 #Use dockerhub
 #$ANSIBLE_CMD apigateway.yml
 
-cd $WHISKDIR
-
-TERM=dumb ./gradlew tools:cli:distDocker -PdockerImagePrefix=openwhisk
-
-cd $WHISKDIR/ansible
-
 
 $ANSIBLE_CMD wipe.yml
-$ANSIBLE_CMD openwhisk.yml
+$ANSIBLE_CMD openwhisk.yml -e cli_installation_mode=remote
 
 # Set Environment
 export OPENWHISK_HOME=$WHISKDIR
