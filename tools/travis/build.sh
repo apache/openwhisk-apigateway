@@ -3,7 +3,7 @@ set -e
 set -x
 
 # Build script for Travis-CI.
-SCRIPTDIR=$(cd $(dirname "$0") && pwd)
+SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
 ROOTDIR="$SCRIPTDIR/../.."
 HOMEDIR="$ROOTDIR/.."
 WHISKDIR="$ROOTDIR/../openwhisk"
@@ -45,7 +45,7 @@ export OPENWHISK_HOME=$WHISKDIR
 cd $WHISKDIR
 cat whisk.properties
 
-WSK_TESTS_DEPS_EXCLUDE="-x :actionRuntimes:swift3Action:distDocker -x :actionRuntimes:pythonAction:distDocker -x :actionRuntimes:javaAction:distDocker -x :actionRuntimes:nodejsAction:distDocker -x :actionRuntimes:actionProxy:distDocker -x :sdk:docker:distDocker -x :actionRuntimes:python2Action:distDocker -x :tests:dat:blackbox:badaction:distDocker -x :tests:dat:blackbox:badproxy:distDocker"
+WSK_TESTS_DEPS_EXCLUDE="-x :actionRuntimes:pythonAction:distDocker -x :actionRuntimes:javaAction:distDocker -x :actionRuntimes:nodejsAction:distDocker -x :actionRuntimes:actionProxy:distDocker -x :sdk:docker:distDocker -x :actionRuntimes:python2Action:distDocker -x :tests:dat:blackbox:badaction:distDocker -x :tests:dat:blackbox:badproxy:distDocker"
 
 TERM=dumb ./gradlew tests:test --tests apigw.healthtests.* ${WSK_TESTS_DEPS_EXCLUDE}
 sleep 60
