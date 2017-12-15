@@ -34,6 +34,18 @@ ENV OPENRESTY_VERSION=1.9.7.3 \
     _sysconfdir=/etc \
     _sbindir=/usr/local/sbin
 
+RUN  if [ x`uname -m` = xs390x ]; then \
+         echo "Building LuaJIT for s390x" \
+	 && mkdir -p /tmp/luajit \
+	 && cd /tmp/luajit \
+	 && curl -k -L https://api.github.com/repos/linux-on-ibm-z/LuaJIT/tarball/v2.1 > luajit.tar.gz \
+	 && tar -zxf luajit.tar.gz \
+	 && cd linux-on-ibm-z-LuaJIT-* \
+	 && make install \
+	 && cd /tmp \ 
+	 && rm -rf /tmp/luajit \
+     ; fi
+
 RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
      && mkdir -p /tmp/api-gateway \
      && readonly NPROC=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1) \
@@ -48,6 +60,14 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
      && tar -zxf ./naxsi-${NAXSI_VERSION}.tar.gz \
      && cd /tmp/api-gateway/openresty-${OPENRESTY_VERSION} \
 
+     && if [ x`uname -m` = xs390x ]; then \
+          luajitdir="=/usr/local/" \
+	  pcrejit="" \
+        ; else \
+	  luajitdir="" \
+	  pcrejit="--with-pcre-jit" \
+	; fi \
+
      && echo "        - building debugging version of the api-gateway ... " \
      && ./configure \
             --prefix=${_exec_prefix}/api-gateway \
@@ -58,7 +78,7 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --pid-path=${_localstatedir}/run/api-gateway.pid \
             --lock-path=${_localstatedir}/run/api-gateway.lock \
             --add-module=../naxsi-${NAXSI_VERSION}/naxsi_src/ \
-            --with-pcre=../pcre-${PCRE_VERSION}/ --with-pcre-jit \
+            --with-pcre=../pcre-${PCRE_VERSION}/ ${pcrejit} \
             --with-stream \
             --with-stream_ssl_module \
             --with-http_ssl_module \
@@ -76,7 +96,7 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --with-http_degradation_module \
             --with-http_auth_request_module  \
             --with-http_v2_module \
-            --with-luajit \
+            --with-luajit${luajitdir} \
             --without-http_ssi_module \
             --without-http_userid_module \
             --without-http_uwsgi_module \
@@ -96,7 +116,7 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --pid-path=${_localstatedir}/run/api-gateway.pid \
             --lock-path=${_localstatedir}/run/api-gateway.lock \
             --add-module=../naxsi-${NAXSI_VERSION}/naxsi_src/ \
-            --with-pcre=../pcre-${PCRE_VERSION}/ --with-pcre-jit \
+            --with-pcre=../pcre-${PCRE_VERSION}/ ${pcrejit} \
             --with-stream \
             --with-stream_ssl_module \
             --with-http_ssl_module \
@@ -114,7 +134,7 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --with-http_degradation_module \
             --with-http_auth_request_module  \
             --with-http_v2_module \
-            --with-luajit \
+            --with-luajit${luajitdir} \
             --without-http_ssi_module \
             --without-http_userid_module \
             --without-http_uwsgi_module \
