@@ -27,6 +27,8 @@ local MANAGEDURL_HOST = os.getenv("PUBLIC_MANAGEDURL_HOST")
 MANAGEDURL_HOST = (MANAGEDURL_HOST ~= nil and MANAGEDURL_HOST ~= '') and MANAGEDURL_HOST or "0.0.0.0"
 local MANAGEDURL_PORT = os.getenv("PUBLIC_MANAGEDURL_PORT")
 MANAGEDURL_PORT = (MANAGEDURL_PORT ~= nil and MANAGEDURL_PORT ~= '') and MANAGEDURL_PORT or "8080"
+local GATEWAY_URL = os.getenv("PUBLIC_GATEWAY_URL")
+GATEWAY_URL = (GATEWAY_URL ~= nil and GATEWAY_URL ~= '') and GATEWAY_URL or utils.concatStrings({"http://", MANAGEDURL_HOST, ":", MANAGEDURL_PORT})
 
 local _M = {}
 
@@ -87,7 +89,7 @@ function _M.addAPI(dataStore, decoded, existingAPI)
   basePath = basePath:sub(-1) == '/' and basePath:sub(1, -2) or basePath
   -- Create managedUrl object
   local uuid = existingAPI ~= nil and existingAPI.id or utils.uuid()
-  local managedUrl = utils.concatStrings({"http://", MANAGEDURL_HOST, ":", MANAGEDURL_PORT, "/api/", decoded.tenantId})
+  local managedUrl = utils.concatStrings({GATEWAY_URL, "/api/", decoded.tenantId})
   if basePath:sub(1,1) ~= '' then
     managedUrl = utils.concatStrings({managedUrl, "/", basePath})
   end
