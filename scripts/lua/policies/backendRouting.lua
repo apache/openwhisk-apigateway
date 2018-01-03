@@ -57,11 +57,13 @@ function _M.setDynamicRoute(obj)
     end
     if utils.tableContains(whitelist, u.host) then
       ngx.req.set_uri(getUriPath(u.path))
-      local query = ngx.req.get_uri_args()
-      for k, v in pairs(u.query) do
-        query[k] = v
+      -- Split the dynamicBackend url to get the query parameters in the exact order that it was passed in.
+      -- Don't use u.query here because it returns the parameters in an unordered lua table.
+      local split = {string.match(dynamicBackend, '([^?]*)?(.*)')}
+      local qs = split[2]
+      if qs ~= nil then
+        ngx.req.set_uri_args(qs)
       end
-      ngx.req.set_uri_args(query)
       setUpstream(u)
     else
       request.err(403, 'Dynamic backend host not part of whitelist.')
