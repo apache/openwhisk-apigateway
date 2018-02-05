@@ -15,7 +15,7 @@ RUN apk --update add \
     && rm -rf /var/cache/apk/*
 
 # openresty build
-ENV OPENRESTY_VERSION=1.9.7.3 \
+ENV OPENRESTY_VERSION=1.13.6.1 \
     NAXSI_VERSION=0.53-2 \
     PCRE_VERSION=8.37 \
     TEST_NGINX_VERSION=0.24 \
@@ -46,6 +46,17 @@ RUN  if [ x`uname -m` = xs390x ]; then \
 	 && rm -rf /tmp/luajit \
      ; fi
 
+RUN  if [ x`uname -m` = xppc64le ]; then \
+         echo "Building LuaJIT for ppc64le" \
+         && mkdir /tmp/luajit  \
+         && cd /tmp/luajit \
+         && curl -k -L https://api.github.com/repos/PPC64/LuaJIT/tarball > luajit.tar.gz \
+         && tar -zxf luajit.tar.gz \
+         && cd PPC64-LuaJIT-* \
+         && make && make install \
+         && rm -rf /tmp/luajit \
+     ; fi
+
 RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
      && mkdir -p /tmp/api-gateway \
      && readonly NPROC=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1) \
@@ -63,6 +74,9 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
      && if [ x`uname -m` = xs390x ]; then \
           luajitdir="=/usr/local/" \
 	  pcrejit="" \
+        ; elif [ x`uname -m` = xppc64le ]; then \
+          luajitdir="=/usr/local/" \
+          pcrejit="--with-pcre-jit" \
         ; else \
 	  luajitdir="" \
 	  pcrejit="--with-pcre-jit" \
@@ -165,7 +179,7 @@ RUN echo " ... installing opm..." \
     && cd ${_prefix}/api-gateway \
     && mkdir -p site/manifest site/pod \
     && cd site \
-    && ln -s ../lualib ./ \
+    && ( [ -x ../lualib ] || ln -s ../lualib ./ ) \
     && ln -s ${_prefix}/api-gateway/bin/opm /usr/bin/opm \
     && ln -s ${_prefix}/api-gateway/bin/resty /usr/bin/resty \
     && rm -rf /tmp/api-gateway
