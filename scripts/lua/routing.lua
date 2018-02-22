@@ -200,7 +200,7 @@ end
 -- @param resourceKey redis resourceKey to check if it matches path parameter
 function _M.pathParamMatch(key, resourceKey)
   local pathParamVars = {}
-  for w in string.gfind(key, "({%w+})") do
+  for w in string.gmatch(key, "({%w+})") do
     w = string.sub(w, 2, string.len(w) - 1)
     pathParamVars[#pathParamVars + 1] = w
   end
