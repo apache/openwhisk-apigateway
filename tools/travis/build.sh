@@ -2,6 +2,7 @@
 set -e
 set -x
 
+
 # Build script for Travis-CI.
 SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
 ROOTDIR="$SCRIPTDIR/../.."
