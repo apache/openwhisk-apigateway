@@ -4,7 +4,7 @@
     "version": "1.0",
     "title": "Hello World API"
   },
-  "basePath": "/whisk",
+  "basePath": "/whisk2",
   "schemes": [
     "https"
   ],
@@ -15,9 +15,9 @@
     "application/json"
   ],
   "paths": {
-    "/hello": {
+    "/bye": {
       "get": {
-        "operationId": "getHello",
+        "operationId": "getBye",
         "description": "Returns a greeting to the user!",
         "responses": {
           "200": {
@@ -32,55 +32,23 @@
         }
       },
       "post": {
-        "operationId": "postHello",
+        "operationId": "postBye",
         "description": null
       }
     }
   },
-  "securityDefinitions": {
-    "client_id": {
-      "type": "apiKey",
-      "name": "X-Api-Key",
-      "in": "header"
-    },
-    "client_secret": {
-      "type": "apiKey",
-      "name": "X-Api-Secret",
-      "in": "header"
-    }
-  },
-  "security": [
-    {
-      "client_id": [],
-      "client_secret": []
-    }
-  ],
-  "x-ibm-rate-limit": [
-    {
-      "unit": "minute",
-      "units": 3,
-      "rate": 100
-    }
-  ],
+  "securityDefinitions": {},
+  "security": [],
+  "x-ibm-rate-limit": [],
   "x-gateway-configuration": {
     "assembly": {
       "execute": [
-        {
-          "set-variable": {
-            "actions": [
-              {
-                "set": "message.headers.Authorization",
-                "value": "Basic xxx"
-              }
-            ]
-          }
-        },
         {
           "operation-switch": {
             "case": [
               {
                 "operations": [
-                  "getHello"
+                  "getBye"
                 ],
                 "execute": [
                   {
@@ -89,6 +57,16 @@
                         {
                           "set": "message.headers.foo",
                           "value": "bar"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "set-variable": {
+                      "actions": [
+                        {
+                          "set": "message.headers.hello",
+                          "value": "world"
                         }
                       ]
                     }
@@ -103,7 +81,7 @@
               },
               {
                 "operations": [
-                  "postHello"
+                  "postBye"
                 ],
                 "execute": [
                   {
