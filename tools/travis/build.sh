@@ -53,7 +53,7 @@ $ANSIBLE_CMD apigateway.yml -e apigateway_local_build=true
 
 
 $ANSIBLE_CMD wipe.yml
-$ANSIBLE_CMD openwhisk.yml -e cli_installation_mode=remote
+$ANSIBLE_CMD openwhisk.yml -e cli_installation_mode=remote -e controllerProtocolForSetup=http
 
 # Set Environment
 export OPENWHISK_HOME=$WHISKDIR
