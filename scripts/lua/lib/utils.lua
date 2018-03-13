@@ -117,4 +117,28 @@ function _Utils.hash(str)
   return resty_str.to_hex(digest)
 end
 
+--- Return the length of the table
+-- @param table
+function _Utils.tableLength(table)
+  local count = 0
+  for _ in pairs(table) do
+    count = count + 1
+  end
+  return count
+end
+
+--- Create a deep clone of the given table
+-- @param table table to clone
+function _Utils.deepCloneTable(table)
+  local tblRes = {}
+  if type(table) == "table" then
+    for k,v in pairs(table) do
+      tblRes[k] = _Utils.deepCloneTable(v)
+    end
+  else
+    tblRes = table
+  end
+  return tblRes
+end
+
 return _Utils

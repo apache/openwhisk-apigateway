@@ -80,7 +80,7 @@ describe('Testing v2 management interface', function()
                       "type": "rateLimit",
                       "value": {
                         "scope": "api",
-                        "subscription": "true",
+                        "subscription": true,
                         "interval": 180,
                         "rate": 100
                       }
@@ -116,35 +116,43 @@ describe('Testing v2 management interface', function()
                       "type": "rateLimit",
                       "value": {
                         "scope": "api",
-                        "subscription": "true",
+                        "subscription": true,
                         "interval": 180,
                         "rate": 100
                       }
                     },
                     {
                       "type": "reqMapping",
-                      "value": [{
-                        "from": {
-                          "value": "Basic xxx"
+                      "value": [
+                        {
+                          "from": {
+                            "value": "Basic xxx"
+                          },
+                          "to": {
+                            "name": "Authorization",
+                            "location": "header"
+                          },
+                          "action": "insert"
                         },
-                        "to": {
-                          "name": "Authorization",
-                          "location": "header"
-                        },
-                        "action": "insert"
-                      }]
+                        {
+                          "from": {
+                            "value": "bar"
+                          },
+                          "to": {
+                            "name": "foo",
+                            "location": "header"
+                          },
+                          "action": "insert"
+                        }
+                      ]
                     }
                   ],
                   "security": [
                     {
-                      "type": "oauth2",
-                      "provider": "google",
-                      "scope": "api"
-                    },
-                    {
-                      "type": "apiKey",
-                      "header": "X-Api-Key",
-                      "scope": "api"
+                      "type": "clientSecret",
+                      "scope": "api",
+                      "idFieldName":"X-Api-Key",
+                      "secretFieldName":"X-Api-Secret"
                     }
                   ],
                   "backendMethod": "get"
@@ -157,7 +165,64 @@ describe('Testing v2 management interface', function()
     local jsonPath = exampleBasePath .. 'example2.json'
     local jsonTable = loadJsonTable(jsonPath)
     local actual = swagger.parseSwagger(jsonTable)
-    assert.are.same(expected.resources["/hello"].operations.post.policies[2].value, actual.resources["/hello"].operations.post.policies[2].value)
+    assert.are.same(expected, actual)
+  end)
+
+  it('should parse set-variable policy within operation-switch correctly', function()
+    local expected = cjson.decode([[
+        {
+          "basePath": "/whisk2",
+          "name": "Hello World API",
+          "resources": {
+            "/bye": {
+              "operations": {
+                "post": {
+                  "backendUrl": "https://openwhisk.ng.bluemix.net/api/user@us.ibm.com/demo/createuser",
+                  "policies": [],
+                  "security": [],
+                  "backendMethod": "post"
+                },
+                "get": {
+                  "backendUrl": "https://openwhisk.ng.bluemix.net/api/some/action/path.http",
+                  "policies": [
+                    {
+                      "type": "reqMapping",
+                      "value": [
+                        {
+                          "from": {
+                            "value": "bar"
+                          },
+                          "to": {
+                            "name": "foo",
+                            "location": "header"
+                          },
+                          "action": "insert"
+                        },
+                        {
+                          "from": {
+                            "value": "world"
+                          },
+                          "to": {
+                            "name": "hello",
+                            "location": "header"
+                          },
+                          "action": "insert"
+                        }
+                      ]
+                    }
+                  ],
+                  "security": [],
+                  "backendMethod": "get"
+                }
+              }
+            }
+          }
+        }
+      ]])
+    local jsonPath = exampleBasePath .. 'example3.json'
+    local jsonTable = loadJsonTable(jsonPath)
+    local actual = swagger.parseSwagger(jsonTable)
+    assert.are.same(expected, actual)
   end)
 end)
 
