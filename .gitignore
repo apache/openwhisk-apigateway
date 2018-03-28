@@ -18,3 +18,12 @@ secrets.yml
 
 # npm
 npm-debug.log
+
+# Gradle
+build
+/.gradle
+
+# Some places where secrets are kept...
+docker-local.json
+*.pem
+/tls

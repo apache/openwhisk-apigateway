@@ -18,7 +18,7 @@ DOCKER_TAG ?= snapshot-`date +'%Y%m%d-%H%M'`
 DOCKER_REGISTRY ?= ''
 
 docker:
-	docker build -t openwhisk/apigateway .
+	docker_local_json='{"local":null}' ./gradlew core:apigateway:dockerBuildImage
 
 .PHONY: docker-ssh
 docker-ssh:
@@ -30,8 +30,7 @@ test-build:
 
 .PHONY: profile-build
 profile-build:
-	./build_profiling.sh
-	docker build -t openwhisk/apigateway-profiling -f Dockerfile.profiling .
+	./gradlew core:apigateway-profiling:dockerBuildImage
 
 .PHONY: profile-run
 profile-run: profile-build
@@ -69,7 +68,7 @@ docker-debug:
 	#Volumes directories must be under your Users directory
 	mkdir -p ${HOME}/tmp/apiplatform/apigateway
 	rm -rf ${HOME}/tmp/apiplatform/apigateway
-	cp -r `pwd` ${HOME}/tmp/apiplatform/apigateway/
+	cp -r $(pwd)/common/etc-api-gateway ${HOME}/tmp/apiplatform/apigateway/
 	docker run --name="apigateway" \
 			-p 80:80 -p 5000:5000 \
 			-e "LOG_LEVEL=info" -e "DEBUG=true" \
@@ -78,7 +77,7 @@ docker-debug:
 
 .PHONY: docker-reload
 docker-reload:
-	cp -r `pwd` ${HOME}/tmp/apiplatform/apigateway/
+	cp -r $(pwd)/common/etc-api-gateway ${HOME}/tmp/apiplatform/apigateway/
 	docker exec apigateway api-gateway -t -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway.conf
 	docker exec apigateway api-gateway -s reload
 

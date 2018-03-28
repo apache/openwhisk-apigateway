@@ -1,0 +1,86 @@
+import groovy.json.JsonSlurper
+include 'tests'
+
+/* -- BEGIN: Project-specific configuration -- */
+/* TODO: Make this into a JSON configuration file? */
+rootProject.name = 'apigateway'
+
+gradle.ext.dockerBuildProjects =
+[
+    /* TODO: default imageName to project folder name in lowercase? */
+    ':core:apigateway': [ 'dockerImageName': 'apigateway' ]
+]
+
+include ':core:apigateway-profiling'
+/* -- END: Project-specific configuration -- */
+
+/*
+    Quick example of the format of the architectures input:
+
+    {
+        "amd64": null,
+        "ppc64le": {
+            "url": "https://1.2.3.4:2376",
+            "certPath": "/home/myusername/tls/ppc64le"
+        },
+        "s390x": {
+            "url": "https://my-personal-docker.my-domain.com:2376",
+            "certPath": "/home/myusername/tls/s390x"
+        }
+    }
+ */
+
+new JsonSlurper().with { slurper ->
+    def dockerLocalJsonEnv = System.getenv('docker_local_json')
+    def dockerLocalJsonFile = new File(rootProject.projectDir, 'docker-local.json')
+
+    if (dockerLocalJsonEnv) {
+        gradle.ext.architectures = slurper.parseText(dockerLocalJsonEnv)
+    } else if (dockerLocalJsonFile.exists()) {
+        gradle.ext.architectures = slurper.parse(dockerLocalJsonFile)
+    } else {
+        gradle.ext.architectures = [ 'amd64': null ]
+    }
+}
+
+gradle.ext.dockerRegistry = System.getenv('DOCKER_REGISTRY') ?: 'docker.io'
+
+gradle.ext.registryCredentials = [
+    name: gradle.ext.dockerRegistry,
+    url: "https://${gradle.ext.dockerRegistry}/v2/" as String,
+    username: System.getenv('DOCKER_USER'),
+    password: System.getenv('DOCKER_PASSWORD'),
+    email: System.getenv('DOCKER_EMAIL') ?: 'dev@openwhisk.apache.org',
+]
+
+rootProject.name = 'runtime-nodejs'
+
+gradle.dockerBuildProjects.each() { baseProjectName, extensions ->
+    include baseProjectName
+    def baseProject = findProject(baseProjectName)
+
+    gradle.architectures.each() { architectureName, architectureClosure ->
+        def architectureProjectName = "${baseProjectName}:${architectureName}"
+        include architectureProjectName
+        def architectureProject = findProject(architectureProjectName)
+
+        logger.debug 'Setup baseProject: ' + baseProject?.path
+        logger.debug 'Setup architectureProject: ' + architectureProject?.path
+
+        architectureProject.projectDir = baseProject.projectDir
+    }
+}
+
+gradle.ext.openwhisk = [
+        version: '1.0.0-SNAPSHOT'
+]
+
+gradle.ext.scala = [
+    version: '2.11.11',
+    compileFlags: ['-feature', '-unchecked', '-deprecation', '-Xfatal-warnings', '-Ywarn-unused-import']
+]
+
+gradle.ext.scalafmt = [
+    version: '1.5.0',
+    config: new File(rootProject.projectDir, '.scalafmt.conf')
+]

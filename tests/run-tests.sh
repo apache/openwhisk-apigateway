@@ -17,4 +17,4 @@
 #
 
 # Run unit tests
-busted --output=TAP --helper=set_paths --pattern=.lua scripts
+busted --output=TAP --helper=set_paths --pattern=.lua --lpath="$(pwd)/../common/etc-api-gateway/scripts/lua/?.lua" scripts

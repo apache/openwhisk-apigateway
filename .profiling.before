@@ -1,9 +1,0 @@
-FROM ubuntu:latest
-
-RUN apt-get update && apt-get install -y gcc make g++ gettext git python zlib1g-dev bzip2 wget m4 git
-WORKDIR /tmp
-RUN wget https://sourceware.org/elfutils/ftp/0.168/elfutils-0.168.tar.bz2 && tar -jxf elfutils-0.168.tar.bz2 && cd elfutils-0.168 && ./configure && make -j4 && make install
-
-RUN wget https://sourceware.org/systemtap/ftp/releases/systemtap-3.1.tar.gz && tar -zxf systemtap-3.1.tar.gz && cd systemtap-3.1 && ./configure && make -j4 && make install
-RUN cp /proc/kallsyms /boot/System.map-`uname -r`
-RUN mkdir -p /usr/local/share/perl5/site_perl

@@ -1,0 +1,23 @@
+subprojects {
+    task copyFilesForImage(type: Copy) {
+        from(new File(rootDir, 'common')) {
+            include 'init.sh'
+            include 'build_config_supervisor.sh'
+            include 'etc-api-gateway/**'
+            include 'build-scripts/**'
+        }
+        from('./Dockerfile')
+        into dockerBuildImage.inputDir
+    }
+    task copyApiGatewayConf(type: Copy, dependsOn: [copyFilesForImage, dockerInfo]) {
+        from(new File(rootDir, 'common/api-gateway.conf.in')) {
+            expand('worker_processes':'auto',
+                'pcre_jit': { dockerInfo.dockerInfo.architecture == 's390x' ? 'no':'yes' })
+            rename { 'api-gateway.conf' }
+        }
+        into new File(dockerBuildImage.inputDir,'etc-api-gateway')
+    }
+
+    dockerBuildImage.dependsOn([copyFilesForImage, copyApiGatewayConf])
+}
+

@@ -2,25 +2,10 @@
 
 sudo: required
 
-language: scala
-scala:
-   - 2.11.8
+language: java # So the runtime is available for gradle
 
 services:
   - docker
-
-notifications:
-  email: false
-  webhooks:
-    urls:
-      # travis2slack webhook to enable DMs on openwhisk-team.slack.com to PR authors with TravisCI results
-      secure: "AEc7oc14mGjxLcnvco61XgUn5icDutoj+5fjQ4SiOqvZIhtwcdlM6T3ELeeorkRUyCwghMWkH89Z5RSqF5uvNBjmn3E+z+x3q3hM2ZF9KaiMuaxHJHydTjQzHOZuYyYeMWSoK/qczoYAVY2c3+3GtAzqZ55V5L2oQa6fpBm384lqJukQpK426kk9wMO6xNaByQxiLDOz9ddDwDeroR7RwclYs1XG68O9a/J2/gBKhjVy10GHAhet5HMO9CCwOsi/VVJMw+Q6zhlErLgmVnA722JlLiqqMJZQ1z5z7MUyt9ZhZc3qhKBNfU0cobEdguEGjo5AwsJTaQq/RdgIRk3kTNxT7t34cLwyCL+e/H2h83Tm1Cv4X4F4Qsk88VSivaKWU4LEv0tJ4cx5wM2nbprZn5MBhVZUD3T4NnbbLgR593gQqB1m4QWbZD4WDPYMFYZn+zOVVYH15DxLJlBNUsoQExknmeAZfGq4Del93bYn7H/c+pQR3XG5ntOTp0xsUxSjxVfEBdMOdR9ev/HO7rN3xIE6bgUdwYZKKcpQLlKkp5EBoBDjl6oLJbEg0oFmn/0l7Da2FxKdD7oxOzEQCvymc74gOVH78Fl9HBFCh0xRJGl6R1ZN1c5mpSRIKuzFTS5oyhbuZdkDxdgyE5XNBvziNdD3Li0xXQkLzXhdxL71KnM="
-
-env:
-  global:
-    - LUA="lua=5.1"
-    - secure: "c8XNwdOryMVJUGLzWv+AzUQaS0Yt7uUmGqw+5/K7o7zmpux7Q5H7OU3jni2kOr+ZoIldsmTnnG7m1N9D8qUjD64KaAfEC0ybo04kDraezVMghUEV8LWMpSRRlAFpzQeVC8IcSiUEXM0H8E6Y09jGMnLKqyFUWAlDB60n0x2rfK/IPU+x4/h+6Y5XpYqaNtujoUf/2XVkrOeRcEhVZQJAwsRtA8HjRUy7PRB/9kepTSln9QzRZYd6v4F1qUKgZhlWNRUXWRbhrNK/z6T7jSlHjY44yvse4fBbie+EsuImtOHnDuTA4XXQlbc0gGVvD3sYYf2CBMxeeE+UTbRPLxgml+uUIviWKt/PKB5qUwQyLKP/Rzr1qv5RryrX0xWoqCrVsaCe0fkh0vUks0AYlzhm1CNK/g1If+qZ6R0GMjawVUbCunhDi1vJlP5PmniIoLpVwLa6XoMYJKtfngGm2763y00ktVGGL1gDtnm0lDuhkinIxOzieh8aRpYDBX6zZZ/n20LzDO/5l0CGErKPgzzt9vRPiQNoGxqC90jtsin+XkOxF9erk0QYt/St7/Qa1R0E+0dA2bHqxz2SWz3cjcc4Cw8/DW3SLFjaONvs6aQyHkrL2LJabARMMgGmf68P5nJrPy56c3gV8jXe7CVaV+5nClT1HYgWSEIna6oyzo8kzFk="
-    - secure: "dM0paMW2d4U4U7OwbnrTjdOqDnvo+nce9r7h+qTbYfbuJe0fpRkHCrxcB//8ESkMrPTr0EDExCxvaywY8pqeVVJbykNswdyze1SWYk6lbUvXTpSrKqp0J0a/FtVjfamc1aMv4c6KIDKh4vIcgK4xrjXj68COCS6uIcFhETNUy5bxH8T2BOJzyf/iWOF7oduXUV/VGNcWnhkPdoPh8xtpmBJ6ZTWQ01MriZ/28hvzgyh1OjJFWCJZ+OZoIDQVPb/jnfPXU4Wk/G/LEPJcBgvN4qSMr2lm3Iq29V0Ltrsx8rrYADO7trCm6qyEQK9TLKfywaYIcm/D9FJ8F4WBHtIeJ3PLY3518L3iZ+Ngd6QTnd0FI6hrG7rpoD/0dz4e//9d3tSsjbh/1BiQwXXTnPyaUjN3C92k4GyITYJTVL5f6evzsTneT6Plj1vWC0E52d1oqVOZDgrWMYZEHdYvpUJTQqclMNhu5SMIYAPqVvibqupcmAh5B+UDr6UvYT/hUAC/d3hyjfHgouRoluJ1mutND88QjDw6UWmXXjHqRSCI6OI5NDZczl/aqz7nPFyTaIe9EibTdZa5LC8fN+Am9MTRxJAv8HXt0zKe5FqHijSvFcVxYlhwlIZg7ShbPh+X2Hnh/JMjx0z/7ujkBRYfmAQW53SBy8Tv/Zv69nCz8eOFOUk="
 
 before_install:
   - ./tools/travis/setup.sh
@@ -33,19 +18,43 @@ install:
   - ./install-deps.sh
 
 script:
-  - busted --output=TAP --helper=set_paths --pattern=.lua scripts
+  - busted --output=TAP --helper=set_paths --pattern=.lua --lpath="$(pwd)/../common/etc-api-gateway/scripts/lua/?.lua" scripts
   - cd ..
   - ./tools/travis/build.sh
 
 deploy:
   # deploy latest
   - provider: script
-    script: ./tools/travis/deploy.sh openwhisk apigateway latest
+    script: ./gradlew --console=plain :core:apigateway:putManifestList -PdockerImagePrefix=openwhisk -PdockerImageTag=latest
     on:
       branch: master
   # deploy tag
   - provider: script
-    script: ./tools/travis/deploy.sh openwhisk apigateway $TRAVIS_TAG
+    script: ./gradlew --console=plain :core:apigateway:putManifestList -PdockerImagePrefix=openwhisk -PdockerImageTag=$TRAVIS_TAG
     on:
       tags: true
       all_branches: true
+
+env:
+  global:
+    - LUA="lua=5.1"
+  #  --- begin: DOCKER_REGISTRY (defaults to docker.io)
+  #      + for jonpspri/incubator-openwhisk-apigateway
+    - secure: "49ms3wjVftu9gsLRGCUZVlR6ezYD0KFoanXnGoYoSi9RjjRanPUAj9zHeIcPbeH7b/N29dX4YSTR64WdcxaOGDSjslkzqHY2kkeklQS19d7lTRn4Sa4wItYN1FMtg99wHSWZlxNjPpLI2KcfOwoVErh+PmIY1G6znHUsFOL2P/u96YKp+SPmqrc8eQEDjzFa574A5tQq40C5bSPNUXLrNJ1J+LnxMZ8Tw/z4ERnMSwtWgBcl2mU0O1XH4KSs2XNRi48xeyc8oVPnJ7DjVXPblh3qzIC1elOoZkcGYLfV7d3DvDOVWsC1Z7ZVDxeDqTJqdjDjInAed6pAB1pFoK7v/EMBhtzf+0M44qv2W6pZrwqxsLX0F9rMgVMfxG+72dQfR2sVFVZG73klJJ80miqgtUv6WEyf7uPeIeFAjDFpekxfoLI4n9817LHYfoOJOqVMJrhris8+ymFHu/l1kThkVbeoQVJlTgEesl7SRLu5fKqx5qpmwUNr123vBMaPF+EH0Aq5bHG1B/LGq9U73TxqC6zM3COAjDl0wmpGqhTopJ90IgjAZ1iTIVtMpmUfymwL7Ed2CWa6yqObdzoA4O7EjDvUEC+ysYKz3faRkxmqJ3utsuOFQH94CCYt8uFIEgfrGtconR9oc79kIaJmv7R0c/2BzeWoK2De2czQJrdYXGw="
+  #  ---
+
+  #  --- begin: DOCKER_USER and DOCKER_PASSWORD
+  #      + for apache/incubator-openwhisk-apigateway
+    - secure: "c8XNwdOryMVJUGLzWv+AzUQaS0Yt7uUmGqw+5/K7o7zmpux7Q5H7OU3jni2kOr+ZoIldsmTnnG7m1N9D8qUjD64KaAfEC0ybo04kDraezVMghUEV8LWMpSRRlAFpzQeVC8IcSiUEXM0H8E6Y09jGMnLKqyFUWAlDB60n0x2rfK/IPU+x4/h+6Y5XpYqaNtujoUf/2XVkrOeRcEhVZQJAwsRtA8HjRUy7PRB/9kepTSln9QzRZYd6v4F1qUKgZhlWNRUXWRbhrNK/z6T7jSlHjY44yvse4fBbie+EsuImtOHnDuTA4XXQlbc0gGVvD3sYYf2CBMxeeE+UTbRPLxgml+uUIviWKt/PKB5qUwQyLKP/Rzr1qv5RryrX0xWoqCrVsaCe0fkh0vUks0AYlzhm1CNK/g1If+qZ6R0GMjawVUbCunhDi1vJlP5PmniIoLpVwLa6XoMYJKtfngGm2763y00ktVGGL1gDtnm0lDuhkinIxOzieh8aRpYDBX6zZZ/n20LzDO/5l0CGErKPgzzt9vRPiQNoGxqC90jtsin+XkOxF9erk0QYt/St7/Qa1R0E+0dA2bHqxz2SWz3cjcc4Cw8/DW3SLFjaONvs6aQyHkrL2LJabARMMgGmf68P5nJrPy56c3gV8jXe7CVaV+5nClT1HYgWSEIna6oyzo8kzFk="
+    - secure: "dM0paMW2d4U4U7OwbnrTjdOqDnvo+nce9r7h+qTbYfbuJe0fpRkHCrxcB//8ESkMrPTr0EDExCxvaywY8pqeVVJbykNswdyze1SWYk6lbUvXTpSrKqp0J0a/FtVjfamc1aMv4c6KIDKh4vIcgK4xrjXj68COCS6uIcFhETNUy5bxH8T2BOJzyf/iWOF7oduXUV/VGNcWnhkPdoPh8xtpmBJ6ZTWQ01MriZ/28hvzgyh1OjJFWCJZ+OZoIDQVPb/jnfPXU4Wk/G/LEPJcBgvN4qSMr2lm3Iq29V0Ltrsx8rrYADO7trCm6qyEQK9TLKfywaYIcm/D9FJ8F4WBHtIeJ3PLY3518L3iZ+Ngd6QTnd0FI6hrG7rpoD/0dz4e//9d3tSsjbh/1BiQwXXTnPyaUjN3C92k4GyITYJTVL5f6evzsTneT6Plj1vWC0E52d1oqVOZDgrWMYZEHdYvpUJTQqclMNhu5SMIYAPqVvibqupcmAh5B+UDr6UvYT/hUAC/d3hyjfHgouRoluJ1mutND88QjDw6UWmXXjHqRSCI6OI5NDZczl/aqz7nPFyTaIe9EibTdZa5LC8fN+Am9MTRxJAv8HXt0zKe5FqHijSvFcVxYlhwlIZg7ShbPh+X2Hnh/JMjx0z/7ujkBRYfmAQW53SBy8Tv/Zv69nCz8eOFOUk="
+  #      + for jonpspri/incubator-openwhisk-apigateway
+    - secure: "q86rA9AwHBywzJkaLWu0UbA5QvKOao+23LTTrq5kpmmHRnolo1HlfHUG4cYFaRTVryqpA09ZYa0XFUCRLvI1KTxaAJkqmgzf88VXXDNulQB48QwTqhCEzU6hX3h/sgkU6WMpP3WPu5qws4Qxo/AV45Sb+sOKtRWbnyUdWqa8dqaGG8LSmiOX/hEIdaToXcnxZMMzCJ2fRSNngii9FbOxUbCPml9/HHJiuqT0xXegYQz3lgOKyApV1oj/g+Z7zkktme86NVTUJT6F9VSn4YRxTqEY8rYoFXiqYyW5wR+abNzF42RmtYFPKN+TbPPygotrzrooMGPstRcZ84c77OLK0XFNFLk92HLf/+Mau28qXW7id7/lSpkz4ogCTtbJUEotQhHkBCuivX6JEsvu1MoQjbzfzx5rJ2jybJo3bTriWkMXslgvabM1YVQOYZjXvtmhDycMUpjzC+TcT3N6lA/WE0wuTuDr2qeJC9xc8f4PAvInxZIiFUjKhRgizMbM31aRgy/ttCg7XsKUDEzj+HYmQo+OqHkMBF2AcHqtjQ6UPnZCUWTAlz1+ksYZjZZBahDh8T90bxj8sDEMSthG40zjLayWpruyUwyj/Ld/eggkaZKy6A/ANl9+gK4TTrs45lfrUVGH3OET1g2rDZIpI7rKaNPTFi2p70i6uD0Stlz2epc="
+    - secure: "jZIQ6Z1lxn/9L/CTMOKtgC+KLmO8ZRiVdYUw2bJPLKunPazTZDJLisbG6HGeVSlnHHak3RXbsMnySuoEriE1+Y2tEPAcXI0S6QXpDL4hf2hZGCcQ+Hyt5YX1y/q1vBwklajGSNkdFqplAnwgKsbAAEm+imq+aOno5NVZPlExL0mXOOtGcJmAYWteTdSHFfAJawXDyp/ORKOLdLN/RQfLr23Kte2KuAApp5xf1+GAcGvNdrAd0NhiYc/0EnqY7Bf4ngNUgC7izxKJOhJNwfzKM06Nk2mAUV9DTkRICISYfj7jb+fSWa2Q/9T0tVeferJWObLgG7jufdDpyTqDzwvwjrVrcJ3HMypGdlZmtt87zkDtTWcFduaBmbMJywgvJMnZtLb+Lhe2cKcMCNKK+fl6g4bOos56997yQXZWADRE73sNkwYlF0za8YCoZEiO829hGiAGjY5JvyFbUMNVdHRTwx6QkPu2p4YK+gV4aKnoCsBFx9hc70fNR/w/WK4aJVaCETIz4EYvwDvD/3sFNCjdy/zhdY7xIaNCWq0OargMggxdl1neqsiQoeWh2aNa6B4vdYGV6DFsoDdkqjcjQovtBLqV7gHFspxGUZm5oJfbaiLBHdd7b3D+eNfPCOSZ2NkK6AGid44TcC1kxI2wc+QDNvxLnIVySTcaeUqZQy12jXc="
+  #  ---
+
+  #  --- begin: DOCKER_EMAIL
+  #      + for apache/incubator-openwhisk-apigateway
+    - secure: "QoJIbU1brSezSNe7HzA54owOe3VRdRTj/XB94DXjpFgKevpthziAZqHisktx3JAYL9ctLGT60hBqltcou0B6+EvOerPh94zjIhTha+ZQxMGXA2MFVhFmgKUBoO+qRIn1haKKsxj+/a4lD+i2NXiFqjVvv6aIMjisCxrO89xAG9f9jx37tgBrw8WhjVIyfolL1MhUHz+e6shQu/MReByoY/4zW4QUsoe9d+Z9r6MblDQmpfGYZ5PHVe8TtAiz37IPhtDXBBwBBT84IY6Q+LbwPIe7LUGg3V0FMWTMqy5lagV7yVVJaeidPiMINhHmp74C3uaqe53Q2XmSXuZR6AxnAaBRxvQkMhCwxV9YL5QPiYZ/VvqSE8dB7DyLTZ0F5dfix2xd124k4Lbr03qrriR0Y8ybIVijIfOxMv980n+1LCn26SgY42hAEKqkG8wt0/Cs7va5nTaa55yGj5nNAuOm211EFQMGXrCY9ovrARwO+vHLugqELp7ZntPRDGde+5d/HIPPznCYKqSskA8XNw2SqvCBFvg8OL0c1cG1Sk9JMClws1LPAdq+QHH397gI1TVMOQl3ZhvJV2w5YWX1VZyTxHtIEZ+vr2GK1P0dEyecYCgYwUYrJ4H4Oo5P/N1jDDjzqnw8UMURUaOuWDDAfjDAA2XppBYOpFsoww8Oa1hDqqA="
+  #      + for jonpspri/incubator-openwhisk-apigateway
+    - secure: "iwOEWUxpmY8HWORjOgyx4SSS/Fgd25fSKHay00EB1+K5JjrbdUmT4H2d1A3LnOtOJq4/fKcW6gggaMANros8ULlSlU7BWGn6/oSO8nV+inysR93onCVlptwT9bAWKnv+HuklNS6IXsWLAcDjcPrq1/JbDVrSP9x/PJd7t6++z8NSXHsJ3/KFlCC+qlOb8qHEu2iqbJ2nKYKUOr+v3QemahnllNWm/QkaARt0BbjGYV83VGlb+3g3I2EJRZTH4IpENGVgzKf6GlpG986jn5sxxD8cK+aSkjh1u/NLxvliEghdnw54UN4AFFPf8e7MtTDthIxKDLfivcw6yvlXd5hvjJ2PTv7BmofiUp6AwqNJB1qZTOw5BFYdVBuGw4iqhbcdKjC4xBzsp6qfiVnwOUHdGokQtstjoQg5fIkKl+OzzOOaFnPKOxm9bOy0PK42k7dh0LtrSNcVMy9siNwkpdmy2rdOoCTpl5nk+JqtuwM6ieaODRM1SdTgNCB4Q4PohXfbKLuYgHWRicZeNrLK3pV6V+zu1j6IFYolwf5EZ/60Dmn75lltz67Fv+u1gQOvBifb4CurnwiapB1eVljfWTArjSefoqof0Y4yoKHDufx9gipCKSHTluCpu4pXPHjJ5T3GVmiaOtb4H2e5pMKy6cTMIfYFJb4nc1kVUobpVgUrVr0="
+  #  ---
