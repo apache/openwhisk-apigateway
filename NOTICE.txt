@@ -1,0 +1,14 @@
+Apache OpenWhisk API Gateway
+Copyright 2016-2018 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+========================================================================
+MIT License
+========================================================================
+
+The following components are provided under the MIT License. See project link for details.
+
+     (MIT License) fakengx (bsm/fakengx - https://github.com/bsm/fakengx)
+     (MIT License) fakeredis (catwell/fakeredis - https://github.com/catwell/fakeredis)
