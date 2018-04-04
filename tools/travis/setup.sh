@@ -36,7 +36,7 @@ pip install --user jsonschema
 pip install --user couchdb
 
 # Ansible
-pip install --user ansible==2.3.0.0
+pip install --user ansible==2.4.2.0
 
 # jshint support
 sudo apt-get -y install nodejs npm
