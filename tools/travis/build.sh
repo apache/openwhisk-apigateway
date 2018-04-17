@@ -24,10 +24,11 @@ SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
 ROOTDIR="$SCRIPTDIR/../.."
 HOMEDIR="$ROOTDIR/.."
 WHISKDIR="$ROOTDIR/../openwhisk"
+UTILDIR="$ROOTDIR/../incubator-openwhisk-utilities"
 
-# run the scancode util. against project source code starting at its root
-cd $HOMEDIR
-incubator-openwhisk-utilities/scancode/scanCode.py $ROOTDIR --config $ROOTDIR/tools/build/scanCode.cfg
+# run scancode util. against project source using the ASF strict configuration
+cd $UTILDIR
+scancode/scanCode.py --config scancode/ASF-Release.cfg $ROOTDIR
 
 # Install OpenWhisk
 cd $WHISKDIR/ansible
