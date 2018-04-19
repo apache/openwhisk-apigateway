@@ -53,6 +53,31 @@ docker run -p 80:80 -p <managedurl_port>:8080 -p 9000:9000 \
 - [v2 Management Interface](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/v2/management_interface_v2.md)
 - [v1 Management Interface](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/v1/management_interface_v1.md)
 
+## Syncing configuration from a remote source
+
+The Gateway can sync its configuration with a remote folder in the cloud such as Amazon S3, Google Cloud Storage, IBM Cloud Object Storage, Dropbox, and [many others](https://rclone.org/). The configuration is monitored for changes, and when a file is changed, the Gateway is reloaded automatically. This is very useful to gracefully update the Gateway on the fly, without impacting the active traffic; if the new configuration is invalid, the Gateway doesn't break, running with the last known valid configuration.
+
+This feature is enabled by configuring a few environment variables:
+* `REMOTE_CONFIG` - the location where the config should be synced from. I.e. `s3://api-gateway-config` . The remote location is synced into is `/etc/api-gateway`.
+* (optional) `REMOTE_CONFIG_SYNC_INTERVAL` - how often to check for changes in the remote location. The default value is `10s`
+* (optional) `REMOTE_CONFIG_RELOAD_CMD` - which command to execute in order to reload the Gateway. The default value is: `api-gateway -s reload`
+
+Syncing is done through [rclone sync](https://rclone.org/commands/rclone_sync/). `rclone` has a rich set of [options](https://rclone.org/commands/rclone_sync/) such as what to exclude when syncing, or what to include. An important configuration is `--config`, pointing to the config file in `/root/.config/rclone/rclone.conf`. The Gateway should be started with `/root/.config/rclone` folder mounted so that `rclone.conf` is present.  To generate a new `rclone` configuration simply execute:
+
+```
+docker run -ti --rm --entrypoint=rclone -v `pwd`/rclone/:/root/.config/rclone/ openwhisk/apigateway config
+```  
+
+This runs an interactive `rclone config` command and stores the resulted configuration in `./rclone/rclone.conf` file.  
+
+To test this locally, _simulate_ a remote folder using a local location, by mounting it in `/tmp` folder as follows:
+
+```bash
+docker run -ti --rm -p 80:80  \ 
+    -v `pwd`:/tmp/api-gateway-local -e REMOTE_CONFIG="/tmp/api-gateway-local" \
+    -e REDIS_HOST=redis_host -e REDIS_PORT=redis_port openwhisk/apigateway
+```
+Then make changes to any configuration file ( i.e. `api-gateway.conf` ), save it, then watch as the Gateway reloads the updated configuration automatically.
 
 ## Developer Guide
 

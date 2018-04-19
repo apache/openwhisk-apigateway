@@ -26,6 +26,7 @@ sleep_duration=${MARATHON_POLL_INTERVAL:-5}
 # i.e s3://api-gateway-config
 remote_config=${REMOTE_CONFIG}
 remote_config_sync_interval=${REMOTE_CONFIG_SYNC_INTERVAL:-10s}
+remote_config_reload_cmd=${REMOTE_CONFIG_RELOAD_CMD:-api-gateway -s reload}
 
 echo "Starting api-gateway ..."
 if [ "${debug_mode}" == "true" ]; then
@@ -36,6 +37,19 @@ fi
 
 /usr/local/sbin/api-gateway -V
 echo "------"
+
+sync_cmd="echo ''" # when left empty, the config supervisor would only watch /etc/api-gateway for changes
+if [[ -n "${remote_config}" ]]; then
+    echo "   ... using configuration from: ${remote_config}"
+    sync_cmd="rclone sync ${remote_config} /etc/api-gateway/"
+fi
+
+api-gateway-config-supervisor \
+    --reload-cmd="${remote_config_reload_cmd}" \
+    --sync-folder=/etc/api-gateway \
+    --sync-interval=${remote_config_sync_interval} \
+    --sync-cmd="${sync_cmd}" \
+    --http-addr=127.0.0.1:8888 &
 
 echo resolver $(awk 'BEGIN{ORS=" "} /nameserver/{print $2}' /etc/resolv.conf | sed "s/ $/;/g") > /etc/api-gateway/conf.d/includes/resolvers.conf
 echo "   ...  with dns $(cat /etc/api-gateway/conf.d/includes/resolvers.conf)"
@@ -53,5 +67,3 @@ if [[ -n "${redis_host}" && -n "${redis_port}" ]]; then
 else
     echo "REDIS_HOST and/or REDIS_PORT not defined"
 fi
-
-
