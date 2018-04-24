@@ -58,7 +58,8 @@ docker run -p 80:80 -p <managedurl_port>:8080 -p 9000:9000 \
 The Gateway can sync its configuration with a remote folder in the cloud such as Amazon S3, Google Cloud Storage, IBM Cloud Object Storage, Dropbox, and [many others](https://rclone.org/). The configuration is monitored for changes, and when a file is changed, the Gateway is reloaded automatically. This is very useful to gracefully update the Gateway on the fly, without impacting the active traffic; if the new configuration is invalid, the Gateway doesn't break, running with the last known valid configuration.
 
 This feature is enabled by configuring a few environment variables:
-* `REMOTE_CONFIG` - the location where the config should be synced from. I.e. `s3://api-gateway-config` . The remote location is synced into is `/etc/api-gateway`.
+* `REMOTE_CONFIG` - the location where the configuration should be synced from. I.e. `s3://api-gateway-config` . The remote location is synced into is `/etc/api-gateway`.
+The default configuration is found in this project's root folder.
 * (optional) `REMOTE_CONFIG_SYNC_INTERVAL` - how often to check for changes in the remote location. The default value is `10s`
 * (optional) `REMOTE_CONFIG_RELOAD_CMD` - which command to execute in order to reload the Gateway. The default value is: `api-gateway -s reload`
 
@@ -73,7 +74,7 @@ This runs an interactive `rclone config` command and stores the resulted configu
 To test this locally, _simulate_ a remote folder using a local location, by mounting it in `/tmp` folder as follows:
 
 ```bash
-docker run -ti --rm -p 80:80  \ 
+docker run -ti --rm -p 80:80 \
     -v `pwd`:/tmp/api-gateway-local -e REMOTE_CONFIG="/tmp/api-gateway-local" \
     -e REDIS_HOST=redis_host -e REDIS_PORT=redis_port openwhisk/apigateway
 ```
