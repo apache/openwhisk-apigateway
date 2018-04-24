@@ -1,3 +1,18 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more contributor
+# license agreements.  See the NOTICE file distributed with this work for additional
+# information regarding copyright ownership.  The ASF licenses this file to you
+# under the Apache License, Version 2.0 (the # "License"); you may not use this
+# file except in compliance with the License.  You may obtain a copy of the License
+# at:
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed
+# under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+# CONDITIONS OF ANY KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations under the License.
+#
 # apigateway
 #
 # VERSION               1.9.7.3
@@ -42,7 +57,7 @@ RUN  if [ x`uname -m` = xs390x ]; then \
 	 && tar -zxf luajit.tar.gz \
 	 && cd linux-on-ibm-z-LuaJIT-* \
 	 && make install \
-	 && cd /tmp \ 
+	 && cd /tmp \
 	 && rm -rf /tmp/luajit \
      ; fi
 
@@ -184,7 +199,7 @@ RUN echo " ... installing opm..." \
     && ln -s ${_prefix}/api-gateway/bin/resty /usr/bin/resty \
     && rm -rf /tmp/api-gateway
 
-    
+
 RUN echo " ... installing opm packages ... " \
     && opm get pintsized/lua-resty-http=${LUA_RESTY_HTTP_VERSION} \
                hamishforbes/lua-resty-iputils=${LUA_RESTY_IPUTILS_VERSION} \
@@ -192,7 +207,7 @@ RUN echo " ... installing opm packages ... " \
                openresty/lua-resty-lrucache=${LUA_RESTY_LRUCACHE_VERSION} \
                taylorking/lua-resty-cjose=${LUA_RESTY_CJOSE_VERSION} \
                taylorking/lua-resty-rate-limit
-    
+
 RUN echo " ... installing neturl.lua ... " \
     && mkdir -p /tmp/api-gateway \
     && curl -k -L https://github.com/golgote/neturl/archive/${NETURL_LUA_VERSION}.tar.gz -o /tmp/api-gateway/neturl.lua-${NETURL_LUA_VERSION}.tar.gz \
