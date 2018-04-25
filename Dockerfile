@@ -15,7 +15,7 @@
 #
 # apigateway
 #
-# VERSION               1.9.7.3
+# VERSION               1.13.6.1
 #
 # From https://hub.docker.com/_/alpine/
 #
@@ -226,6 +226,10 @@ RUN echo " ... installing cjose ... " \
     && sh configure \
     && make && make install \
     && rm -rf /tmp/api-gateway
+
+ENV CONFIG_SUPERVISOR_VERSION 1.0.1-RC1
+COPY build_config_supervisor.sh /tmp/build_config_supervisor.sh 
+RUN sh +x /tmp/build_config_supervisor.sh 
 
 COPY init.sh /etc/init-container.sh
 # add the default configuration for the Gateway
