@@ -23,7 +23,7 @@ The following defines the v1 interface for managing APIs and Tenants. These endp
 ## APIs
 
 ### PUT /v1/apis
-Create a new API. Note that you should first create a tenant and obtain its `tenantId`. 
+Create a new API. Note that you should first create a tenant and obtain its `tenantId`.
 
 _body_:
 ```
@@ -88,7 +88,7 @@ _body_:
   "tenantId": *(string),
   "resources": {
     "<path>": {
-      "cors": { 
+      "cors": {
         "origin": *(string),
         "methods": *(string)
       },

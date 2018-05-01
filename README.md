@@ -67,9 +67,9 @@ Syncing is done through [rclone sync](https://rclone.org/commands/rclone_sync/).
 
 ```
 docker run -ti --rm --entrypoint=rclone -v `pwd`/rclone/:/root/.config/rclone/ openwhisk/apigateway config
-```  
+```
 
-This runs an interactive `rclone config` command and stores the resulted configuration in `./rclone/rclone.conf` file.  
+This runs an interactive `rclone config` command and stores the resulted configuration in `./rclone/rclone.conf` file.
 
 To test this locally, _simulate_ a remote folder using a local location, by mounting it in `/tmp` folder as follows:
 

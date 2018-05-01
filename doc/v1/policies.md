@@ -18,7 +18,7 @@
 
 Policies
 ==============
-The following defines the different policies that can be used when creating an API. 
+The following defines the different policies that can be used when creating an API.
 
 ## Currently supported policies
 - `rateLimit`
@@ -27,12 +27,12 @@ The following defines the different policies that can be used when creating an A
 ## Rate Limiting (`rateLimit`)
 This policy allows for rate limiting calls based on the [leaky bucket](https://en.wikipedia.org/wiki/Leaky_bucket) algorithm.
 - **interval**: the time interval that the rate is applied to, in seconds.
-- **rate**: the number of calls allowed per interval of time.  
-- **scope**: `api`, `tenant`, `resource`.  
-- **subscription** (optional): `true`, `false`.  
-    - If subscription is `true`, the rate limit applies to each user with a vaild subscription.  
-    - If subscription is `false`, the rate limit applies the collective usage from all users.  
-    
+- **rate**: the number of calls allowed per interval of time.
+- **scope**: `api`, `tenant`, `resource`.
+- **subscription** (optional): `true`, `false`.
+    - If subscription is `true`, the rate limit applies to each user with a vaild subscription.
+    - If subscription is `false`, the rate limit applies the collective usage from all users.
+
 Example:
 ```
 {
@@ -111,7 +111,7 @@ Example:
    }
 }
 ```
-This will move the value of the `foo` query parameter from the incoming request to the `bar` field in the backend request body. 
+This will move the value of the `foo` query parameter from the incoming request to the `bar` field in the backend request body.
 
 You can also specify `*` as the `name` for the mapping to apply for all fields in that location.
 
@@ -129,12 +129,12 @@ Example:
    }
 }
 ```
-This will move all incoming `query` parameters into the `body` in the backend request.  
+This will move all incoming `query` parameters into the `body` in the backend request.
 
 #### Note on Path Parameter Mappings
 To define a path parameter, you will need to wrap curly brackets `{}` around the path parameter in the url.
 
-Example: 
+Example:
 
 Mapping an incoming path parameter to a backend path parameter
 

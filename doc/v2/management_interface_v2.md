@@ -19,7 +19,7 @@
 Management Interface v2
 ==============
 
-The following defines the v2 interface for managing APIs using the [OpenAPI 2.0 spec](http://swagger.io/specification/). 
+The following defines the v2 interface for managing APIs using the [OpenAPI 2.0 spec](http://swagger.io/specification/).
 
 ## API
 
@@ -206,7 +206,7 @@ _returns:_
  * `artifact_id`: the id associated with this API
  * `managed_url`: the base url to use to invoke this API
  * `open_api_doc`: the OpenAPI doc
- 
+
 ### GET /v2/{tenant_id}/apis/{artifact_id}
 Get a specific managed API for a tenant by its id.
 
@@ -225,7 +225,7 @@ _returns:_
  * `artifact_id`: the id associated with this API
  * `managed_url`: the base url to use to invoke this API
  * `open_api_doc`: the OpenAPI doc
- 
+
 ### DELETE /v2/{tenant_id}/apis/{artifact_id}
 Delete a specific managed API for a tenant by its id.
 
@@ -262,7 +262,7 @@ _body_:
 * `artifact_id`: the id associated with this API
 * `client_id`: the client id associated with this subscription for this API
 * `client_secret`: optional client secret associated with this subscription for this API. Note that once a client_secret has been created, there is no way to retrieve its value as it is stored as a hash inside the gateway.
-  
+
 _returns:_
 
 ```
@@ -308,7 +308,7 @@ See below for a list of policies that are supported in the gateway and how they 
 * <b>Target-url and Operation-switch</b>
 
   Set the target-url (ie. the backend for your API) for all paths using the `invoke` policy inside the `x-gateway-configuration` extension.
-  
+
   _Example:_
   ```
   "x-gateway-configuration": {
@@ -326,12 +326,12 @@ See below for a list of policies that are supported in the gateway and how they 
   }
   ```
   * `target-url`: the backend url
-    * _optional:_ to pass the path of your managed url down to the `target-url`, append `/${request.path}` to the end of `target-url`.  
+    * _optional:_ to pass the path of your managed url down to the `target-url`, append `/${request.path}` to the end of `target-url`.
     Eg. `"target-url": "https://openwhisk.ng.bluemix.net/api/some/action/path.http/${request.path}"`
   * `verb`: the method to use when invoking the target-url (use "keep" to use the keep the same verb as the API)
-  
+
   To set a different `target-url` for different paths, use the `operation-switch` policy inside `x-gateway-configuration`.
-  
+
   _Example:_
   ```
   "x-gateway-configuration": {
@@ -377,9 +377,9 @@ See below for a list of policies that are supported in the gateway and how they 
   * inside the `operations` array for each case, specify the `operationId` of the path to which you want the `target-url` to apply
 
 * <b>Client Id and Client Secret</b>
-  
+
   Secure your managed API with a client id and an optional client secret.
-  
+
   _Example:_
   ```
   "securityDefinitions": {
@@ -401,7 +401,7 @@ See below for a list of policies that are supported in the gateway and how they 
 * <b>Rate Limiting</b>
 
   Rate limit your managed API using the [Leaky Bucket](https://en.wikipedia.org/wiki/Leaky_bucket) algorithm.
-  
+
   _Example:_
   ```
   "x-gateway-rate-limit": [
@@ -419,9 +419,9 @@ See below for a list of policies that are supported in the gateway and how they 
 * <b>CORS</b>
 
   Enable or disable CORS (Cross-Origin Resource Sharing) using the `x-gateway-configuration` extension.
-  
+
   _Example:_
-  
+
   ```
   "x-gateway-configuration": {
     "cors": {
