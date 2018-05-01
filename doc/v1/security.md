@@ -46,16 +46,16 @@ Example:
 ]
 ```
 
-## Client Secret (`clientSecret`) 
+## Client Secret (`clientSecret`)
 
 Enforces Client ID / Client Secret pair authorization to secure api calls.
 - **type**: `clientSecret`
 - **scope**: `api`, `tenant`, `resource`
 - **idFieldName** (optional): custom name of the client id header (default is `x-client-id`)
-- **secretFieldName** (optional): custom name of the client secret header (default is `x-client-secret`) 
+- **secretFieldName** (optional): custom name of the client secret header (default is `x-client-secret`)
 - **location** (optional): location where the clientId and clientSecret are passed, either as a header ('header') or query string ('query') (default is `header`)
 
-Example: 
+Example:
 ```
 "security":[
   {
@@ -66,7 +66,7 @@ Example:
     "location": "header"
   }
 ]
-``` 
+```
 
 This will create two API keys for the API, which will need to be supplied in the `X-IBM-ClientId` and `X-IBM-ClientSecret` headers or query strings, respectively.
 
@@ -76,10 +76,10 @@ Perform token introspection for various social login providers and enforce token
 
 - **type**: `oauth2`
 - **scope**: `api`, `tenant`, `resource`
-- **provider**: which oauth token provider to use (facebook, google, github) 
+- **provider**: which oauth token provider to use (facebook, google, github)
 
 Example:
-``` 
+```
 "security":[
   {
     "type":"apiKey",
@@ -87,7 +87,7 @@ Example:
     "header":"test"
   },
   {
-    "type":"oauth2", 
+    "type":"oauth2",
     "scope":"api",
     "provider":"google"
   }
