@@ -31,7 +31,6 @@ RUN apk --update add \
 
 # openresty build
 ENV OPENRESTY_VERSION=1.13.6.1 \
-    NAXSI_VERSION=0.53-2 \
     PCRE_VERSION=8.37 \
     TEST_NGINX_VERSION=0.24 \
     OPM_VERSION=0.0.3 \
@@ -72,18 +71,16 @@ RUN  if [ x`uname -m` = xppc64le ]; then \
          && rm -rf /tmp/luajit \
      ; fi
 
-RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
+RUN  echo " ... adding Openresty, NGINX and PCRE" \
      && mkdir -p /tmp/api-gateway \
      && readonly NPROC=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1) \
      && echo "using up to $NPROC threads" \
 
      && cd /tmp/api-gateway/ \
-     && curl -k -L https://github.com/nbs-system/naxsi/archive/${NAXSI_VERSION}.tar.gz -o /tmp/api-gateway/naxsi-${NAXSI_VERSION}.tar.gz \
      && curl -k -L https://ftp.pcre.org/pub/pcre/pcre-${PCRE_VERSION}.tar.gz -o /tmp/api-gateway/pcre-${PCRE_VERSION}.tar.gz \
      && curl -k -L https://openresty.org/download/openresty-${OPENRESTY_VERSION}.tar.gz -o /tmp/api-gateway/openresty-${OPENRESTY_VERSION}.tar.gz \
      && tar -zxf ./openresty-${OPENRESTY_VERSION}.tar.gz \
      && tar -zxf ./pcre-${PCRE_VERSION}.tar.gz \
-     && tar -zxf ./naxsi-${NAXSI_VERSION}.tar.gz \
      && cd /tmp/api-gateway/openresty-${OPENRESTY_VERSION} \
 
      && if [ x`uname -m` = xs390x ]; then \
@@ -106,7 +103,6 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --http-log-path=${_localstatedir}/log/api-gateway/access.log \
             --pid-path=${_localstatedir}/run/api-gateway.pid \
             --lock-path=${_localstatedir}/run/api-gateway.lock \
-            --add-module=../naxsi-${NAXSI_VERSION}/naxsi_src/ \
             --with-pcre=../pcre-${PCRE_VERSION}/ ${pcrejit} \
             --with-stream \
             --with-stream_ssl_module \
@@ -144,7 +140,6 @@ RUN  echo " ... adding Openresty, NGINX, NAXSI and PCRE" \
             --http-log-path=${_localstatedir}/log/api-gateway/access.log \
             --pid-path=${_localstatedir}/run/api-gateway.pid \
             --lock-path=${_localstatedir}/run/api-gateway.lock \
-            --add-module=../naxsi-${NAXSI_VERSION}/naxsi_src/ \
             --with-pcre=../pcre-${PCRE_VERSION}/ ${pcrejit} \
             --with-stream \
             --with-stream_ssl_module \
