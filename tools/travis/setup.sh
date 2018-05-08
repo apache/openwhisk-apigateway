@@ -17,7 +17,7 @@
 #
 
 SCRIPTDIR=$(cd $(dirname "$0") && pwd)
-HOMEDIR="$SCRIPTDIR/../../../"
+HOMEDIR="$SCRIPTDIR/../../.."
 
 sudo gpasswd -a travis docker
 sudo -E bash -c 'echo '\''DOCKER_OPTS="-H tcp://0.0.0.0:4243 -H unix:///var/run/docker.sock --storage-driver=overlay --userns-remap=default"'\'' > /etc/default/docker'
@@ -31,20 +31,15 @@ docker version
 echo "Docker Info:"
 docker info
 
-# Python
-pip install --user jsonschema
-pip install --user couchdb
-
-# Ansible
-pip install --user ansible==2.5.0
-
 # jshint support
 sudo apt-get -y install nodejs npm
 sudo npm install -g jshint
 
-# clone OpenWhisk main repo.
+# clone OpenWhisk utilities repo. in order to run scanCode
 cd $HOMEDIR
-git clone --depth=1 https://github.com/apache/incubator-openwhisk.git openwhisk
-
-# clone the openwhisk utilities repo.
 git clone https://github.com/apache/incubator-openwhisk-utilities.git
+
+# clone main openwhisk repo. for testing purposes
+git clone --depth=1 https://github.com/apache/incubator-openwhisk.git openwhisk
+cd openwhisk
+./tools/travis/setup.sh
