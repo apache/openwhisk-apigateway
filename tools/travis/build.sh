@@ -16,22 +16,23 @@
 # limitations under the License.
 #
 
-set -e
-set -x
+set -ex
 
 # Build script for Travis-CI.
 SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
 ROOTDIR="$SCRIPTDIR/../.."
 HOMEDIR="$ROOTDIR/.."
-WHISKDIR="$ROOTDIR/../openwhisk"
-UTILDIR="$ROOTDIR/../incubator-openwhisk-utilities"
+WHISKDIR="$HOMEDIR/openwhisk"
+UTILDIR="$HOMEDIR/incubator-openwhisk-utilities"
+# Set Environment
+export OPENWHISK_HOME=$WHISKDIR
 
 # run scancode util. against project source using the ASF strict configuration
 cd $UTILDIR
 scancode/scanCode.py --config scancode/ASF-Release.cfg $ROOTDIR
 
 # Install OpenWhisk
-cd $WHISKDIR/ansible
+cd $OPENWHISK_HOME/ansible
 
 ANSIBLE_CMD="ansible-playbook -i environments/local  -e docker_image_prefix=openwhisk"
 
@@ -56,11 +57,10 @@ $ANSIBLE_CMD apigateway.yml -e apigateway_local_build=true
 $ANSIBLE_CMD wipe.yml
 $ANSIBLE_CMD openwhisk.yml -e cli_installation_mode=remote -e controllerProtocolForSetup=http
 
-# Set Environment
-export OPENWHISK_HOME=$WHISKDIR
+
 
 # Tests
-cd $WHISKDIR
+cd $OPENWHISK_HOME
 cat whisk.properties
 
 WSK_TESTS_DEPS_EXCLUDE="-x :actionRuntimes:pythonAction:distDocker -x :actionRuntimes:javaAction:distDocker -x :actionRuntimes:nodejs6Action:distDocker -x :actionRuntimes:nodejs8Action:distDocker -x :actionRuntimes:actionProxy:distDocker -x :sdk:docker:distDocker -x :actionRuntimes:python2Action:distDocker -x :tests:dat:blackbox:badaction:distDocker -x :tests:dat:blackbox:badproxy:distDocker"
