@@ -97,4 +97,3 @@ GET /nginx_status
 ["Active connections: 1"]
 --- no_error_log
 [error]
-
