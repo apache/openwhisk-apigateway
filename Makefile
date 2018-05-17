@@ -58,6 +58,7 @@ docker-run:
 	docker run --rm --name="apigateway" -p 80:80 -p ${PUBLIC_MANAGEDURL_PORT}:8080 -p 9000:9000 \
 		-e PUBLIC_MANAGEDURL_HOST=${PUBLIC_MANAGEDURL_HOST} -e PUBLIC_MANAGEDURL_PORT=${PUBLIC_MANAGEDURL_PORT} \
 		-e REDIS_HOST=${REDIS_HOST} -e REDIS_PORT=${REDIS_PORT} -e REDIS_PASS=${REDIS_PASS} \
+		-e DECRYPT_REDIS_PASS=${DECRYPT_REDIS_PASS} -e ENCRYPTION_KEY=${ENCRYPTION_KEY} -e ENCRYPTION_IV=${ENCRYPTION_IV} \
 		-e TOKEN_GOOGLE_URL=https://www.googleapis.com/oauth2/v3/tokeninfo \
 	 	-e TOKEN_FACEBOOK_URL=https://graph.facebook.com/debug_token \
 		-e TOKEN_GITHUB_URL=https://api.github.com/user \

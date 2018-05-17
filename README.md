@@ -50,6 +50,11 @@ docker run -p 80:80 -p <managedurl_port>:8080 -p 9000:9000 \
             openwhisk/apigateway:latest
 ```
 
+(Optional) The redis password can be passed in encrypted using the `aes-256-cbc` encryption algorithm. To do so, pass in the following environment variables, in addition to the encrypted password:
+- `DECRYPT_REDIS_PASS=true`
+- `ENCRYPTION_KEY=<32 Byte hex string that was used for encryption>`
+- `ENCRYPTION_IV=<16 Byte hex string that was used for encryption>`
+
 ## API
 - [v2 Management Interface](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/v2/management_interface_v2.md)
 - [v1 Management Interface](https://github.com/openwhisk/openwhisk-apigateway/blob/master/doc/v1/management_interface_v1.md)

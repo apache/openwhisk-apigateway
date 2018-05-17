@@ -21,6 +21,10 @@ log_level=${LOG_LEVEL:-warn}
 marathon_host=${MARATHON_HOST}
 redis_host=${REDIS_HOST}
 redis_port=${REDIS_PORT}
+if [ "${DECRYPT_REDIS_PASS}" == "true" ]; then
+    export REDIS_PASS=$(printf "${REDIS_PASS}\n" | openssl enc -d -K ${ENCRYPTION_KEY} -iv ${ENCRYPTION_IV} -aes-256-cbc -base64)
+fi
+
 sleep_duration=${MARATHON_POLL_INTERVAL:-5}
 # location for a remote /etc/api-gateway folder.
 # i.e s3://api-gateway-config
