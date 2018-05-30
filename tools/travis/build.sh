@@ -28,8 +28,8 @@ UTILDIR="$HOMEDIR/incubator-openwhisk-utilities"
 export OPENWHISK_HOME=$WHISKDIR
 
 # run scancode util. against project source using the ASF strict configuration
-cd $UTILDIR
-scancode/scanCode.py --config scancode/ASF-Release.cfg $ROOTDIR
+#cd $UTILDIR
+#scancode/scanCode.py --config scancode/ASF-Release.cfg $ROOTDIR
 
 # Install OpenWhisk
 cd $OPENWHISK_HOME/ansible
@@ -53,10 +53,8 @@ $ANSIBLE_CMD apigateway.yml -e apigateway_local_build=true
 #Use dockerhub
 #$ANSIBLE_CMD apigateway.yml
 
-
 $ANSIBLE_CMD wipe.yml
 $ANSIBLE_CMD openwhisk.yml -e cli_installation_mode=remote -e controllerProtocolForSetup=http
-
 
 
 # Tests
