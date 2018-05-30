@@ -18,6 +18,7 @@
 
 SCRIPTDIR=$(cd $(dirname "$0") && pwd)
 HOMEDIR="$SCRIPTDIR/../../.."
+UTILDIR="$HOMEDIR/incubator-openwhisk-utilities"
 
 sudo gpasswd -a travis docker
 sudo -E bash -c 'echo '\''DOCKER_OPTS="-H tcp://0.0.0.0:4243 -H unix:///var/run/docker.sock --storage-driver=overlay --userns-remap=default"'\'' > /etc/default/docker'
@@ -39,7 +40,12 @@ sudo npm install -g jshint
 cd $HOMEDIR
 git clone https://github.com/apache/incubator-openwhisk-utilities.git
 
+# run scancode util. against project source using the ASF strict configuration
+cd $UTILDIR
+scancode/scanCode.py --config scancode/ASF-Release.cfg $ROOTDIR
+
 # clone main openwhisk repo. for testing purposes
+cd $HOMEDIR
 git clone --depth=1 https://github.com/apache/incubator-openwhisk.git openwhisk
 cd openwhisk
 ./tools/travis/setup.sh
