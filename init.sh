@@ -55,7 +55,7 @@ api-gateway-config-supervisor \
     --sync-cmd="${sync_cmd}" \
     --http-addr=127.0.0.1:8888 &
 
-echo resolver $(awk 'BEGIN{ORS=" "} /nameserver/{print $2}' /etc/resolv.conf | sed "s/ $/;/g") > /etc/api-gateway/conf.d/includes/resolvers.conf
+echo resolver $(awk 'BEGIN{ORS=" "} /^nameserver/{print $2}' /etc/resolv.conf | sed "s/ $/;/g") > /etc/api-gateway/conf.d/includes/resolvers.conf
 echo "   ...  with dns $(cat /etc/api-gateway/conf.d/includes/resolvers.conf)"
 
 echo "   ... testing configuration "
