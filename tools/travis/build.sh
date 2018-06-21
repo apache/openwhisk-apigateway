@@ -47,17 +47,14 @@ pwd
 docker build . -t "openwhisk/apigateway"
 popd
 
+$ANSIBLE_CMD wipe.yml
+$ANSIBLE_CMD openwhisk.yml -e cli_installation_mode=remote -e controllerProtocolForSetup=http
+
 #Use local
 $ANSIBLE_CMD apigateway.yml -e apigateway_local_build=true
 
 #Use dockerhub
 #$ANSIBLE_CMD apigateway.yml
-
-
-$ANSIBLE_CMD wipe.yml
-$ANSIBLE_CMD openwhisk.yml -e cli_installation_mode=remote -e controllerProtocolForSetup=http
-
-
 
 # Tests
 cd $OPENWHISK_HOME
