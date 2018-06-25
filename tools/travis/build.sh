@@ -60,7 +60,7 @@ $ANSIBLE_CMD apigateway.yml -e apigateway_local_build=true
 cd $OPENWHISK_HOME
 cat whisk.properties
 
-WSK_TESTS_DEPS_EXCLUDE="-x :actionRuntimes:pythonAction:distDocker -x :actionRuntimes:javaAction:distDocker -x :actionRuntimes:nodejs6Action:distDocker -x :actionRuntimes:nodejs8Action:distDocker -x :actionRuntimes:actionProxy:distDocker -x :sdk:docker:distDocker -x :actionRuntimes:python2Action:distDocker -x :tests:dat:blackbox:badaction:distDocker -x :tests:dat:blackbox:badproxy:distDocker"
+WSK_TESTS_DEPS_EXCLUDE=""
 
 TERM=dumb ./gradlew tests:test --tests apigw.healthtests.* ${WSK_TESTS_DEPS_EXCLUDE}
 sleep 60
