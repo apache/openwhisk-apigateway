@@ -47,23 +47,20 @@ pwd
 docker build . -t "openwhisk/apigateway"
 popd
 
+$ANSIBLE_CMD wipe.yml
+$ANSIBLE_CMD openwhisk.yml -e cli_installation_mode=remote -e controllerProtocolForSetup=http
+
 #Use local
 $ANSIBLE_CMD apigateway.yml -e apigateway_local_build=true
 
 #Use dockerhub
 #$ANSIBLE_CMD apigateway.yml
 
-
-$ANSIBLE_CMD wipe.yml
-$ANSIBLE_CMD openwhisk.yml -e cli_installation_mode=remote -e controllerProtocolForSetup=http
-
-
-
 # Tests
 cd $OPENWHISK_HOME
 cat whisk.properties
 
-WSK_TESTS_DEPS_EXCLUDE="-x :actionRuntimes:pythonAction:distDocker -x :actionRuntimes:javaAction:distDocker -x :actionRuntimes:nodejs6Action:distDocker -x :actionRuntimes:nodejs8Action:distDocker -x :actionRuntimes:actionProxy:distDocker -x :sdk:docker:distDocker -x :actionRuntimes:python2Action:distDocker -x :tests:dat:blackbox:badaction:distDocker -x :tests:dat:blackbox:badproxy:distDocker"
+WSK_TESTS_DEPS_EXCLUDE=""
 
 TERM=dumb ./gradlew tests:test --tests apigw.healthtests.* ${WSK_TESTS_DEPS_EXCLUDE}
 sleep 60
