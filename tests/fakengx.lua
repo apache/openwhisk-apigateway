@@ -310,6 +310,7 @@ function fakengx.new()
   ngx.thread    = {}
   ngx.location  = {}
   ngx.shared    = {}
+  ngx.header    = {}
 
   -- Create shared dict API
   setmetatable(ngx.shared, {
@@ -474,7 +475,11 @@ function fakengx.new()
   end
 
   function ngx.req.get_headers()
-    return {}
+    return ngx.header
+  end
+
+  function ngx.req.get_method()
+    return
   end
 
   -- http://wiki.nginx.org/HttpLuaModule#ngx.socket.tcp
