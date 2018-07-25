@@ -44,6 +44,8 @@ function _M.replaceHeaders()
       ngx.header['Access-Control-Allow-Methods'] = nil
       ngx.header['Access-Control-Allow-Headers'] = nil
       ngx.header['Access-Control-Allow-Credentials'] = nil
+      ngx.header['Access-Control-Expose-Headers'] = nil
+      ngx.header['Access-Control-Max-Age'] = nil
     else
       ngx.header['Access-Control-Allow-Origin'] = ngx.var.cors_origins == 'true' and (ngx.var.http_origin or '*') or ngx.var.cors_origins
       ngx.header['Access-Control-Allow-Methods'] = ngx.var.cors_methods or 'GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS'
