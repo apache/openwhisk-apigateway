@@ -22,6 +22,7 @@ local cjson = require "cjson"
 local utils = require "lib/utils"
 local logger = require "lib/logger"
 local request = require "lib/request"
+local redis = require "resty.redis"
 local lrucache
 local CACHE_SIZE
 local CACHE_TTL
@@ -62,7 +63,6 @@ function _M.init()
   local host = REDIS_HOST
   local password = REDIS_PASS
   local port = REDIS_PORT
-  local redis = require "resty.redis"
   local red = redis:new()
   red:set_timeout(REDIS_TIMEOUT)
   -- Connect to Redis server
@@ -94,8 +94,8 @@ end
 --- Add current redis connection in the ngx_lua cosocket connection pool
 -- @param red Redis client instance
 function _M.close(red)
-  -- put it into the connection pool of size 100, with 10 seconds max idle time
-  local ok, err = red:set_keepalive(10000, 100)
+  -- release connection into the pool
+  local ok, err = red:set_keepalive()
   if not ok then
     request.err(500, utils.concatStrings({"Failed to set keepalive: ", err}))
   end
