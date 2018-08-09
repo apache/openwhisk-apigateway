@@ -25,7 +25,7 @@ FROM alpine:latest
 
 # install dependencies
 RUN apk --update add \
-    gcc tar libtool zlib jemalloc jemalloc-dev perl \
+    gcc tar libtool zlib jemalloc jemalloc-dev perl tzdata \
     ca-certificates wget make musl-dev openssl-dev openssl pcre-dev g++ zlib-dev curl python \
     perl-test-longstring perl-list-moreutils perl-http-message geoip-dev dumb-init jq \
     && update-ca-certificates \
