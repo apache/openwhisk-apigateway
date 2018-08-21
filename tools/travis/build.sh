@@ -56,6 +56,7 @@ $ANSIBLE_CMD apigateway.yml -e apigateway_local_build=true
 #Use dockerhub
 #$ANSIBLE_CMD apigateway.yml
 
+$ANSIBLE_CMD properties.yml
 $ANSIBLE_CMD routemgmt.yml
 
 # Tests
