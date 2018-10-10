@@ -19,6 +19,9 @@
 -- Used to dynamically handle nginx routing based on an object containing implementation details
 
 local cjson = require "cjson"
+if (cjson.decode_array_with_array_mt ~= nil) then
+  cjson.decode_array_with_array_mt(true)
+end
 local url = require "url"
 local utils = require "lib/utils"
 local request = require "lib/request"
