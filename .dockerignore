@@ -3,6 +3,5 @@ doc
 .travis.yml
 CONTRIBUTING.md
 Dockerfile
-LICENSE.txt
 Makefile
 README.md
