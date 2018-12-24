@@ -23,6 +23,9 @@
 #
 FROM alpine:latest
 
+# Busybox's ash shell supports pipefail, which is useful for tarballs
+SHELL [ "/bin/ash", "-o", "pipefail", "-c"]
+
 # install dependencies
 RUN apk --update add \
     gcc tar libtool zlib jemalloc jemalloc-dev perl tzdata \
@@ -84,18 +87,33 @@ RUN  echo " ... adding Openresty, NGINX and PCRE" \
      && tar -zxf ./openresty-${OPENRESTY_VERSION}.tar.gz \
      && tar -zxf ./pcre-${PCRE_VERSION}.tar.gz \
      && cd /tmp/api-gateway/openresty-${OPENRESTY_VERSION} \
-
-     && if [ x`uname -m` = xs390x ]; then \
+     && case "$(uname -m)" in \
+        aarch64) \
+          luajitdir="" \
+          pcrejit="--with-pcre-jit" \
+          ; echo " ... Patching ngx_lua and LuaJIT modules for ARM64 ... " \
+          && rm -rf ./bundle/ngx_lua-* \
+          && curl -k -L https://github.com/openresty/lua-nginx-module/archive/v0.10.14rc3.tar.gz \
+            | tar -zxf - -C ./bundle \
+          && mv ./bundle/lua-nginx-module-0.10.14rc3 ./bundle/ngx_lua-0.10.14rc3 \
+          && rm -rf ./bundle/LuaJIT-* \
+          && curl -k -L https://github.com/openresty/luajit2/archive/v2.1-20181029.tar.gz \
+            | tar -zxf - -C ./bundle \
+          && mv ./bundle/luajit2-2.1-20181029 ./bundle/LuaJIT-2.2.1-20181029 \
+          ;; \
+        s390x) \
           luajitdir="=/usr/local/" \
-	  pcrejit="" \
-        ; elif [ x`uname -m` = xppc64le ]; then \
+          pcrejit="" \
+          ;; \
+        ppc64le) \
           luajitdir="=/usr/local/" \
           pcrejit="--with-pcre-jit" \
-        ; else \
-	  luajitdir="" \
-	  pcrejit="--with-pcre-jit" \
-	; fi \
-
+          ;; \
+        *) \
+          luajitdir="" \
+          pcrejit="--with-pcre-jit" \
+          ;; \
+      esac \
      && echo "        - building debugging version of the api-gateway ... " \
      && ./configure \
             --prefix=${_exec_prefix}/api-gateway \
