@@ -114,7 +114,25 @@ function _M.getTenantAPIs(dataStore, id, queryParams)
       end
     end
   end
-  return apiList
+  -- Check for existence of paging parameters
+  if (queryParams['skip']  == nil and queryParams['limit'] == nil) then
+    return apiList
+  end
+  -- Apply paging
+  local skip  = queryParams['skip']  == nil and 1 or queryParams['skip'] + 1
+  local limit = queryParams['limit'] == nil and table.getn(apiList) or queryParams['limit']
+  if ((skip + limit - 1) > table.getn(apiList)) then
+    limit = table.getn(apiList)
+  else
+    limit = skip + limit - 1
+  end
+  local apis  = {}
+  local idx   = 0
+  for i = skip, limit do
+    apis[idx] = apiList[i]
+    idx = idx + 1
+  end
+  return apis
 end
 
 --- Filter apis based on query paramters
