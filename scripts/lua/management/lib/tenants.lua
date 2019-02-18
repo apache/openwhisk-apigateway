@@ -114,13 +114,27 @@ function _M.getTenantAPIs(dataStore, id, queryParams)
       end
     end
   end
-  -- Check for existence of paging parameters
-  if (queryParams['skip']  == nil and queryParams['limit'] == nil) then
+  if ((queryParams['skip']  == nil and queryParams['limit'] == nil) or table.getn(apiList) == 0) then
     return apiList
+  else
+    return applyPagingToAPIs(apiList, queryParams)
   end
-  -- Apply paging
-  local skip  = queryParams['skip']  == nil and 1 or queryParams['skip'] + 1
+end
+
+-- Apply paging on apis
+-- @param apis the list of apis
+-- @param queryparams object containing optional query parameters
+function applyPagingToAPIs(apiList, queryParams)
+  local skip  = queryParams['skip']  == nil and 1 or queryParams['skip']
   local limit = queryParams['limit'] == nil and table.getn(apiList) or queryParams['limit']
+  if (tonumber(limit) < 1) then
+    return {}
+  end
+  if (tonumber(skip) <= 0) then
+    skip = 1
+  else
+    skip = skip + 1
+  end
   if ((skip + limit - 1) > table.getn(apiList)) then
     limit = table.getn(apiList)
   else
