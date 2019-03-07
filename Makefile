@@ -15,15 +15,24 @@
 # limitations under the License.
 #
 
-DOCKER_TAG ?= snapshot-`date +'%Y%m%d-%H%M'`
-DOCKER_REGISTRY ?= ''
+#
+#  TODO:  Use 'latest'; override with "latest-$(uname -m)" for multiarch
+#
+#DOCKER_TAG ?= snapshot-`date +'%Y%m%d-%H%M'`
+
+OPENWHISK_TARGET_REGISTRY ?= docker.io
+OPENWHISK_TARGET_PREFIX ?= openwhisk
+OPENWHISK_TARGET_TAG ?= latest
+
+RUNTIME := ${OPENWHISK_TARGET_REGISTRY}/${OPENWHISK_TARGET_PREFIX}/apigateway:${OPENWHISK_TARGET_TAG}
+PROFILING := ${OPENWHISK_TARGET_REGISTRY}/${OPENWHISK_TARGET_PREFIX}/apigateway-profiling:${OPENWHISK_TARGET_TAG}
 
 docker:
-	docker build -t openwhisk/apigateway .
+	docker build -t ${RUNTIME} .
 
 .PHONY: docker-ssh
 docker-ssh:
-	docker run -ti --entrypoint='bash' openwhisk/apigateway:latest
+	docker run -ti --entrypoint='bash' ${RUNTIME}
 
 .PHONY: test-build
 test-build:
@@ -32,7 +41,7 @@ test-build:
 .PHONY: profile-build
 profile-build:
 	./build_profiling.sh
-	docker build -t openwhisk/apigateway-profiling -f Dockerfile.profiling .
+	docker build -t ${PROFILING} -f Dockerfile.profiling .
 
 .PHONY: profile-run
 profile-run: profile-build
@@ -47,7 +56,7 @@ profile-run: profile-build
 		-e CACHE_SIZE=2048 \
 		-e CACHE_TTL=180 \
 		-e OPTIMIZE=1 \
-		-d openwhisk/apigateway-profiling:latest
+		-d ${PROFILING}
 
 .PHONY: test-run
 test-run:
@@ -64,7 +73,7 @@ docker-run:
 		-e TOKEN_GITHUB_URL=https://api.github.com/user \
 		-e APPID_PKURL=https://appid-oauth.ng.bluemix.net/oauth/v3/ \
 		-e LD_LIBRARY_PATH=/usr/local/lib \
-		openwhisk/apigateway:latest
+		${TARGET}
 
 .PHONY: docker-debug
 docker-debug:
@@ -76,7 +85,7 @@ docker-debug:
 			-p 80:80 -p 5000:5000 \
 			-e "LOG_LEVEL=info" -e "DEBUG=true" \
 			-v ${HOME}/tmp/apiplatform/apigateway/:/etc/api-gateway \
-			openwhisk/apigateway:latest ${DOCKER_ARGS}
+			${TARGET}
 
 .PHONY: docker-reload
 docker-reload:
