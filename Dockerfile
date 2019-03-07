@@ -21,11 +21,13 @@
 #
 # From https://hub.docker.com/_/alpine/
 #
-FROM alpine:latest
+
+FROM alpine:3.9
 
 # install dependencies
-RUN apk --update add \
-    gcc tar libtool zlib jemalloc jemalloc-dev perl tzdata \
+RUN apk update && \
+    apk add \
+    gcc tar libtool zlib perl tzdata \
     ca-certificates wget make musl-dev openssl-dev openssl pcre-dev g++ zlib-dev curl python \
     perl-test-longstring perl-list-moreutils perl-http-message geoip-dev dumb-init jq \
     && update-ca-certificates \
@@ -215,7 +217,7 @@ RUN echo " ... installing neturl.lua ... " \
     && rm -rf /tmp/api-gateway
 
 RUN echo " ... installing cjose ... " \
-    && apk update && apk add automake autoconf git gcc make jansson jansson-dev \
+    && apk add automake autoconf git gcc make jansson jansson-dev \
     && mkdir -p /tmp/api-gateway \
     && curl -L -k https://github.com/cisco/cjose/archive/${CJOSE_VERSION}.tar.gz -o /tmp/api-gateway/cjose-${CJOSE_VERSION}.tar.gz \
     && tar -xf /tmp/api-gateway/cjose-${CJOSE_VERSION}.tar.gz -C /tmp/api-gateway/ \
