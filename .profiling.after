@@ -1,6 +1,6 @@
 COPY ./api-gateway.conf.profiling /etc/api-gateway/api-gateway.conf
 RUN apt-get install -y git && mkdir -p /profiling && git clone https://github.com/openresty/stapxx.git && cd stapxx && git clone https://github.com/brendangregg/FlameGraph.git && apt-get remove -y git
-RUN apt-get install -y linux-headers-`uname -r` kbuild gcc 
+RUN apt-get install -y linux-headers-$(uname -r) kbuild gcc 
 ENV LD_LIBRARY_PATH /usr/local/lib 
 WORKDIR /tmp/stapxx
 ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
