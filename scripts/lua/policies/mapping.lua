@@ -20,7 +20,7 @@
 
 local logger = require "lib/logger"
 local utils = require "lib/utils"
-local cjson = require "cjson"
+local cjson = require "cjson.safe"
 
 local _M = {}
 
@@ -53,7 +53,15 @@ end
 function getRequestParams()
   ngx.req.read_body()
   body = ngx.req.get_body_data()
-  body = (body and cjson.decode(body)) or {}
+  if body ~= nil then
+    -- decode body if json
+    decoded, err = cjson.decode(body)
+    if err == nil then
+      body = decoded
+    end
+  else
+    body = {}
+  end
   headers = ngx.req.get_headers()
   path = ngx.var.uri
   query = parseUrl(ngx.var.backendUrl)
@@ -184,7 +192,7 @@ function transformAllParams(s, d)
 end
 
 function finalize()
-  if next(body) ~= nil then
+  if type(body) == 'table' and next(body) ~= nil then
     local bodyJson = cjson.encode(body)
     ngx.req.set_body_data(bodyJson)
   end
