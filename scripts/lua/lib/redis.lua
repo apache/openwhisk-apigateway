@@ -48,7 +48,8 @@ if CACHING_ENABLED then
 end
 
 
-local REDIS_RETRY_COUNT = os.getenv('REDIS_RETRY_COUNT') or 4
+local REDIS_RETRY_COUNT = os.getenv('REDIS_RETRY_COUNT')
+REDIS_RETRY_COUNT = REDIS_RETRY_COUNT == nil and 3 or tonumber(REDIS_RETRY_COUNT)
 local REDIS_FIELD = "resources"
 
 local _M = {}
@@ -656,7 +657,7 @@ function exists(red, key, snapshotId)
     if red == nil then
       red = _M.init()
     end
-    return red:exists(key), red
+    return call(red.exists, {red, key}), red
   end
 end
 
@@ -677,7 +678,7 @@ function get(red, key)
     if red == nil then
       red = _M.init()
     end
-    return red:get(key)
+    return call(red.get, {red, key})
   end
 end
 
@@ -711,12 +712,12 @@ function hget(red, key, id)
     if red == nil then
       red = _M.init()
     end
-    return red:hget(key, id), red
+    return call(red.hget, {red, key, id}), red
   end
 end
 
 function hgetall(red, key)
-  return red:hgetall(key)
+  return call(red.hgetall, {red, key})
 end
 
 function hset(red, key, id, value)
@@ -732,7 +733,7 @@ function hset(red, key, id, value)
       c:set(key, val, CACHE_TTL)
     end
   end
-  return red:hset(key, id, value)
+  return call(red.hset, {red, key, id, value})
 end
 
 function expire(red, key, ttl)
@@ -744,14 +745,14 @@ function expire(red, key, ttl)
     end
     c:set(key, value, ttl)
   end
-  return red:expire(key, ttl)
+  return call(red.expire, {red, ttl})
 end
 
 function del(red, key)
   if CACHING_ENABLED then
     c:delete(key)
   end
-  return red:del(key)
+  return call(red.del, {red, key})
 end
 
 function hdel(red, key, id)
@@ -762,25 +763,37 @@ function hdel(red, key, id)
       c:set(key, cachecontents, CACHE_TTL)
     end
   end
-  return red:hdel(key, id)
+  return call(red.hdel, {red, key, id})
 end
 
 function set(red, key, value)
-  return red:set(key, value)
+  return call(red.set, {red, key, value})
 end
 
 function smembers(red, key)
-  return red:smembers(key)
+  return call(red.smembers, {red, key})
 end
 
 function srem(red, key, id)
-  return red:srem(key, id)
+  return call(red.srem, {red, key, id})
 end
 
 function sadd(red, key, id)
-  return red:sadd(key, id)
+  return call(red.sadd, {red, key, id})
 end
 
+--- Call function with retry logic
+-- @param func function to call
+-- @param args arguments to pass in to function
+function call(func, args)
+  local res, err = func(unpack(args))
+  local retryCount = REDIS_RETRY_COUNT
+  while not res and retryCount > 0 do
+    res, err = func(unpack(args))
+    retryCount = retryCount - 1
+  end
+  return res, err
+end
 
 _M.get = get
 _M.set = set
