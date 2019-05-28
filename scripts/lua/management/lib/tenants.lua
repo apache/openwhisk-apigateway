@@ -114,7 +114,7 @@ function _M.getTenantAPIs(dataStore, id, queryParams)
       end
     end
   end
-  if ((queryParams['skip']  == nil and queryParams['limit'] == nil) or table.getn(apiList) == 0) then
+  if (((queryParams['skip'] == nil or queryParams['skip'] == 'undefined') and (queryParams['limit'] == nil or queryParams['limit'] == 'undefined')) or table.getn(apiList) == 0) then
     return apiList
   else
     return applyPagingToAPIs(apiList, queryParams)
@@ -127,10 +127,14 @@ end
 function applyPagingToAPIs(apiList, queryParams)
   local skip  = queryParams['skip']  == nil and 1 or queryParams['skip']
   local limit = queryParams['limit'] == nil and table.getn(apiList) or queryParams['limit']
-  if (tonumber(limit) < 1) then
+
+  skip = tonumber(skip)
+  limit = tonumber(limit)
+
+  if (limit == nil or limit < 1) then
     return {}
   end
-  if (tonumber(skip) <= 0) then
+  if (skip == nil or skip <= 0) then
     skip = 1
   else
     skip = skip + 1
