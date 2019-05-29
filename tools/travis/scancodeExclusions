@@ -1,0 +1,3 @@
+# bundled files under MIT license; exclude from scan
+tests/fakengx.lua
+tests/fakeredis.lua

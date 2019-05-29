@@ -200,3 +200,13 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+========================================================================
+MIT License
+========================================================================
+
+This project bundles the file fakengx.lua which is distributed
+under the MIT license. For details, see tests/fakengx.lua.
+
+This project bundles the file fakeredis.lua which is distributed
+under the MIT license. For details, see tests/fakeredis.lua.
