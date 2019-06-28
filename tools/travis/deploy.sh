@@ -30,8 +30,8 @@ docker build . --tag ${dockerhub_image}
 
 echo docker push ${dockerhub_image}
 docker push ${dockerhub_image}
-# if doing latest also push a tag with the hash commit
-if [ ${dockerhub_image_tag} == "latest" ]; then
+# if doing nightly also push a tag with the hash commit
+if [ ${dockerhub_image_tag} == "nightly" ]; then
 SHORT_COMMIT=`git rev-parse --short HEAD`
 docker tag ${dockerhub_image} ${dockerhub_image_prefix}/${dockerhub_image_name}:${SHORT_COMMIT}
 docker push ${dockerhub_image_prefix}/${dockerhub_image_name}:${SHORT_COMMIT}

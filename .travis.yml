@@ -55,9 +55,9 @@ script:
   - ./tools/travis/build.sh
 
 deploy:
-  # deploy latest
+  # deploy nightly
   - provider: script
-    script: ./tools/travis/deploy.sh openwhisk apigateway latest
+    script: ./tools/travis/deploy.sh openwhisk apigateway nightly
     on:
       branch: master
   # deploy tag
