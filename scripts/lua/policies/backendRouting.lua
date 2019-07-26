@@ -22,6 +22,7 @@ local url = require "url"
 local utils = require "lib/utils"
 local request = require "lib/request"
 local logger = require "lib/logger"
+local backendOverride = os.getenv("BACKEND_HOST")
 
 local _M = {}
 
@@ -39,6 +40,11 @@ function _M.setRoute(backendUrl, gatewayPath)
     ngx.req.set_uri(getUriPath(u.path))
   end
   ngx.var.backendUrl = backendUrl
+  if backendOverride ~= nil then
+    local ub = url.parse(backendOverride)
+    u.scheme = ub.scheme
+    u:setAuthority(ub.authority)
+  end
   setUpstream(u)
 end
 
