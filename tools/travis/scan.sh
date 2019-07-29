@@ -23,45 +23,11 @@ SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
 ROOTDIR="$SCRIPTDIR/../.."
 HOMEDIR="$ROOTDIR/.."
 WHISKDIR="$HOMEDIR/openwhisk"
+UTILDIR="$HOMEDIR/incubator-openwhisk-utilities"
 # Set Environment
 export OPENWHISK_HOME=$WHISKDIR
 
-# Install OpenWhisk
-cd $OPENWHISK_HOME/ansible
-
-ANSIBLE_CMD="ansible-playbook -i environments/local  -e docker_image_prefix=openwhisk"
-
-$ANSIBLE_CMD setup.yml
-$ANSIBLE_CMD prereq.yml
-$ANSIBLE_CMD couchdb.yml
-$ANSIBLE_CMD initdb.yml
-
-# build docker image locally
-pushd $ROOTDIR
-pwd
-docker build . -t "openwhisk/apigateway"
-popd
-
-$ANSIBLE_CMD wipe.yml
-$ANSIBLE_CMD openwhisk.yml -e cli_installation_mode=remote -e controllerProtocolForSetup=http
-
-#Use local
-$ANSIBLE_CMD apigateway.yml -e apigateway_local_build=true
-
-#Use dockerhub
-#$ANSIBLE_CMD apigateway.yml
-
-$ANSIBLE_CMD properties.yml
-$ANSIBLE_CMD routemgmt.yml
-
-# Tests
-cd $OPENWHISK_HOME
-cat whisk.properties
-
-WSK_TESTS_DEPS_EXCLUDE=""
-
-TERM=dumb ./gradlew tests:test --tests apigw.healthtests.* ${WSK_TESTS_DEPS_EXCLUDE}
-sleep 60
-TERM=dumb ./gradlew tests:test --tests org.apache.openwhisk.core.apigw.* ${WSK_TESTS_DEPS_EXCLUDE}
-sleep 60
-TERM=dumb ./gradlew tests:test --tests org.apache.openwhisk.core.cli.test.ApiGwRestTests ${WSK_TESTS_DEPS_EXCLUDE}
+# run scancode util. against project source using the ASF strict configuration
+# exclude two bundled files from other open source projects that are MIT licensed
+cd "$UTILDIR"
+scancode/scanCode.py --config scancode/ASF-Release.cfg --gitignore "$SCRIPTDIR/scancodeExclusions" "$ROOTDIR"

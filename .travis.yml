@@ -45,11 +45,11 @@ before_install:
   - hererocks lua_install -r^ --$LUA
   - export PATH=$PATH:$PWD/lua_install/bin # Add directory with all installed binaries to PATH
 
-install:
+script:
+  - ./tools/travis/scan.sh
   - cd tests
   - ./install-deps.sh
-
-script:
+  - cd ..
   - busted --output=TAP --helper=set_paths --pattern=.lua scripts
   - cd ..
   - ./tools/travis/build.sh
