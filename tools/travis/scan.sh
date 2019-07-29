@@ -16,26 +16,19 @@
 # limitations under the License.
 #
 
-SCRIPTDIR=$(cd $(dirname "$0") && pwd)
-HOMEDIR="$SCRIPTDIR/../../.."
+set -ex
 
-sudo gpasswd -a travis docker
-sudo -E bash -c 'echo '\''DOCKER_OPTS="-H tcp://0.0.0.0:4243 -H unix:///var/run/docker.sock --storage-driver=overlay --userns-remap=default"'\'' > /etc/default/docker'
+# Build script for Travis-CI.
+SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
+ROOTDIR="$SCRIPTDIR/../.."
+HOMEDIR="$ROOTDIR/.."
+UTILDIR="$HOMEDIR/incubator-openwhisk-utilities"
 
-# Docker
-sudo apt-get -y update -qq
-sudo apt-get -o Dpkg::Options::="--force-confold" --force-yes -y install docker-engine=1.12.0-0~trusty
-sudo service docker restart
-echo "Docker Version:"
-docker version
-echo "Docker Info:"
-docker info
-
-# jshint support
-sudo apt-get -y install nodejs npm
-sudo npm install -g jshint
+# clone OpenWhisk utilities repo. in order to run scanCode
 cd $HOMEDIR
-# clone main openwhisk repo. for testing purposes
-git clone --depth=1 https://github.com/apache/incubator-openwhisk.git openwhisk
-cd openwhisk
-./tools/travis/setup.sh
+git clone https://github.com/apache/incubator-openwhisk-utilities.git
+
+# run scancode util. against project source using the ASF strict configuration
+# exclude few bundled files from other open source projects that are MIT licensed
+cd "$UTILDIR"
+scancode/scanCode.py --config scancode/ASF-Release.cfg --gitignore "$SCRIPTDIR/scancodeExclusions" "$ROOTDIR"

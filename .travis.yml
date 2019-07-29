@@ -40,6 +40,7 @@ env:
     - secure: "dM0paMW2d4U4U7OwbnrTjdOqDnvo+nce9r7h+qTbYfbuJe0fpRkHCrxcB//8ESkMrPTr0EDExCxvaywY8pqeVVJbykNswdyze1SWYk6lbUvXTpSrKqp0J0a/FtVjfamc1aMv4c6KIDKh4vIcgK4xrjXj68COCS6uIcFhETNUy5bxH8T2BOJzyf/iWOF7oduXUV/VGNcWnhkPdoPh8xtpmBJ6ZTWQ01MriZ/28hvzgyh1OjJFWCJZ+OZoIDQVPb/jnfPXU4Wk/G/LEPJcBgvN4qSMr2lm3Iq29V0Ltrsx8rrYADO7trCm6qyEQK9TLKfywaYIcm/D9FJ8F4WBHtIeJ3PLY3518L3iZ+Ngd6QTnd0FI6hrG7rpoD/0dz4e//9d3tSsjbh/1BiQwXXTnPyaUjN3C92k4GyITYJTVL5f6evzsTneT6Plj1vWC0E52d1oqVOZDgrWMYZEHdYvpUJTQqclMNhu5SMIYAPqVvibqupcmAh5B+UDr6UvYT/hUAC/d3hyjfHgouRoluJ1mutND88QjDw6UWmXXjHqRSCI6OI5NDZczl/aqz7nPFyTaIe9EibTdZa5LC8fN+Am9MTRxJAv8HXt0zKe5FqHijSvFcVxYlhwlIZg7ShbPh+X2Hnh/JMjx0z/7ujkBRYfmAQW53SBy8Tv/Zv69nCz8eOFOUk="
 
 before_install:
+  - ./tools/travis/scan.sh
   - ./tools/travis/setup.sh
   - pip install hererocks --user
   - hererocks lua_install -r^ --$LUA
