@@ -28,6 +28,6 @@ UTILDIR="$HOMEDIR/incubator-openwhisk-utilities"
 export OPENWHISK_HOME=$WHISKDIR
 
 # run scancode util. against project source using the ASF strict configuration
-# exclude two bundled files from other open source projects that are MIT licensed
+# exclude few bundled files from other open source projects that are MIT licensed
 cd "$UTILDIR"
 scancode/scanCode.py --config scancode/ASF-Release.cfg --gitignore "$SCRIPTDIR/scancodeExclusions" "$ROOTDIR"
