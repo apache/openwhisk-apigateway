@@ -46,10 +46,10 @@ before_install:
   - export PATH=$PATH:$PWD/lua_install/bin # Add directory with all installed binaries to PATH
 
 script:
-  - ./tools/travis/scan.sh
+  - ./tools/travis/scan.sh || travis_terminate 1
   - cd tests
   - ./install-deps.sh
-  - busted --output=TAP --helper=set_paths --pattern=.lua scripts
+  - busted --output=TAP --helper=set_paths --pattern=.lua scripts || travis_terminate 1
   - cd ..
   - ./tools/travis/build.sh
 
