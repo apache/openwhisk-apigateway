@@ -49,7 +49,6 @@ script:
   - ./tools/travis/scan.sh
   - cd tests
   - ./install-deps.sh
-  - cd ..
   - busted --output=TAP --helper=set_paths --pattern=.lua scripts
   - cd ..
   - ./tools/travis/build.sh
