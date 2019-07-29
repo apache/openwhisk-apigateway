@@ -34,11 +34,7 @@ docker info
 # jshint support
 sudo apt-get -y install nodejs npm
 sudo npm install -g jshint
-
-# clone OpenWhisk utilities repo. in order to run scanCode
 cd $HOMEDIR
-git clone https://github.com/apache/incubator-openwhisk-utilities.git
-
 # clone main openwhisk repo. for testing purposes
 git clone --depth=1 https://github.com/apache/incubator-openwhisk.git openwhisk
 cd openwhisk
