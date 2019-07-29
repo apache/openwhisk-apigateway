@@ -40,10 +40,18 @@ function _M.setRoute(backendUrl, gatewayPath)
     ngx.req.set_uri(getUriPath(u.path))
   end
   ngx.var.backendUrl = backendUrl
+
+  -- if there is a backend override then use that instead of actual backend from swagger
   if backendOverride ~= nil then
-    local ub = url.parse(backendOverride)
-    u.scheme = ub.scheme
-    u:setAuthority(ub.authority)
+    local bou = url.parse(backendOverride)
+    u.scheme = bou.scheme
+    u:setAuthority(bou.authority)
+
+    -- update the copy in ngx var also to match upstream
+    local bu = url.parse(backendUrl)
+    bu.scheme = bou.scheme
+    bu:setAuthority(bou.authority)
+    ngx.var.backendUrl = bu:build()
   end
   setUpstream(u)
 end
