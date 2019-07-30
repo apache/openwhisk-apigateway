@@ -28,6 +28,10 @@ local _M = {}
 
 --- Set upstream based on the backendUrl
 function _M.setRoute(backendUrl, gatewayPath)
+  _M.setRouteWithOverride(backendUrl, gatewayPath, backendOverride)
+end
+
+function _M.setRouteWithOverride(backendUrl, gatewayPath, override)
   local u = url.parse(backendUrl)
   if u.scheme == nil then
     u = url.parse(utils.concatStrings({'http://', backendUrl}))
@@ -42,8 +46,8 @@ function _M.setRoute(backendUrl, gatewayPath)
   ngx.var.backendUrl = backendUrl
 
   -- if there is a backend override then use that instead of actual backend from swagger
-  if backendOverride ~= nil then
-    local bou = url.parse(backendOverride)
+  if override ~= nil then
+    local bou = url.parse(override)
     u.scheme = bou.scheme
     u:setAuthority(bou.authority)
 
