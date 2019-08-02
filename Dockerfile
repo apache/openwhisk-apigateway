@@ -22,7 +22,7 @@
 # From https://hub.docker.com/_/alpine/
 #
 
-FROM alpine:3.9
+FROM alpine:3.9 as base
 
 # Busybox's ash shell supports pipefail, which is useful for tarballs
 SHELL [ "/bin/ash", "-o", "pipefail", "-c"]
@@ -82,7 +82,6 @@ RUN  echo " ... adding Openresty, NGINX and PCRE" \
      && mkdir -p /tmp/api-gateway \
      && readonly NPROC=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1) \
      && echo "using up to $NPROC threads" \
-
      && cd /tmp/api-gateway/ \
      && curl -k -L https://ftp.pcre.org/pub/pcre/pcre-${PCRE_VERSION}.tar.gz -o /tmp/api-gateway/pcre-${PCRE_VERSION}.tar.gz \
      && curl -k -L https://openresty.org/download/openresty-${OPENRESTY_VERSION}.tar.gz -o /tmp/api-gateway/openresty-${OPENRESTY_VERSION}.tar.gz \
@@ -152,7 +151,9 @@ RUN  echo " ... adding Openresty, NGINX and PCRE" \
             -j${NPROC} \
     && make -j${NPROC} \
     && make install \
-
+    #
+    # Build regular version of the API Gateway #
+    #
     && echo "        - building regular version of the api-gateway ... " \
     && ./configure \
             --prefix=${_exec_prefix}/api-gateway \
@@ -188,14 +189,18 @@ RUN  echo " ... adding Openresty, NGINX and PCRE" \
             -j${NPROC} \
     && make -j${NPROC} \
     && make install \
-
+    #
+    # Add nginx test support #
+    #
     && echo "        - adding Nginx Test support" \
     && curl -k -L https://github.com/openresty/test-nginx/archive/v${TEST_NGINX_VERSION}.tar.gz -o ${_prefix}/test-nginx-${TEST_NGINX_VERSION}.tar.gz \
     && cd ${_prefix} \
     && tar -xf ${_prefix}/test-nginx-${TEST_NGINX_VERSION}.tar.gz \
     && rm ${_prefix}/test-nginx-${TEST_NGINX_VERSION}.tar.gz \
     && cp -r ${_prefix}/test-nginx-0.24/inc/* /usr/local/share/perl5/site_perl/ \
-
+    #
+    # CLEANUP #
+    #
     && ln -s ${_sbindir}/api-gateway-debug ${_sbindir}/nginx \
     && cp /tmp/api-gateway/openresty-${OPENRESTY_VERSION}/build/install ${_prefix}/api-gateway/bin/resty-install \
     && apk del g++ gcc make \
@@ -215,7 +220,6 @@ RUN echo " ... installing opm..." \
     && ln -s ${_prefix}/api-gateway/bin/opm /usr/bin/opm \
     && ln -s ${_prefix}/api-gateway/bin/resty /usr/bin/resty \
     && rm -rf /tmp/api-gateway
-
 
 RUN echo " ... installing opm packages ... " \
     && opm get pintsized/lua-resty-http=${LUA_RESTY_HTTP_VERSION} \
@@ -247,6 +251,9 @@ RUN echo " ... installing cjose ... " \
 ENV CONFIG_SUPERVISOR_VERSION 1.0.1-RC1
 COPY build_config_supervisor.sh /tmp/build_config_supervisor.sh
 RUN sh +x /tmp/build_config_supervisor.sh
+
+# Add standard gateway configuration
+FROM base as apigateway
 
 COPY init.sh /etc/init-container.sh
 # add the default configuration for the Gateway

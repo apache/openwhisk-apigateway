@@ -58,9 +58,10 @@ profile-run: profile-build
 		-e OPTIMIZE=1 \
 		-d ${PROFILING}
 
-.PHONY: test-run
-test-run:
-	cd tests; ./run-tests.sh
+.PHONY: test
+test:
+	docker build -f Dockerfile.test.unit -t gw-tests .
+	docker run gw-tests:latest
 
 .PHONY: docker-run
 docker-run:
