@@ -36,6 +36,6 @@ sudo apt-get -y install nodejs npm
 sudo npm install -g jshint
 cd $HOMEDIR
 # clone main openwhisk repo. for testing purposes
-git clone --depth=1 https://github.com/apache/incubator-openwhisk.git openwhisk
+git clone --depth=1 https://github.com/apache/openwhisk.git openwhisk
 cd openwhisk
 ./tools/travis/setup.sh
