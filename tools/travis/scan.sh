@@ -22,11 +22,11 @@ set -ex
 SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
 ROOTDIR="$SCRIPTDIR/../.."
 HOMEDIR="$ROOTDIR/.."
-UTILDIR="$HOMEDIR/incubator-openwhisk-utilities"
+UTILDIR="$HOMEDIR/openwhisk-utilities"
 
 # clone OpenWhisk utilities repo. in order to run scanCode
 cd $HOMEDIR
-git clone https://github.com/apache/incubator-openwhisk-utilities.git
+git clone https://github.com/apache/openwhisk-utilities.git
 
 # run scancode util. against project source using the ASF strict configuration
 # exclude few bundled files from other open source projects that are MIT licensed
