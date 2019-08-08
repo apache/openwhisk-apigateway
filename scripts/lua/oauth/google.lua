@@ -50,7 +50,7 @@ function _M.process (dataStore, token)
 -- convert response
   if not res then
     ngx.log(ngx.WARN, utils.concatStrings({"Could not invoke Google API. Error=", err}))
-    request.err(500, 'OAuth provider error.')
+    request.err(500, 'Connection to the OAuth provider failed.')
     return nil
   end
   local json_resp = cjson.decode(res.body)

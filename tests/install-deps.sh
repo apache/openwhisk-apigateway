@@ -28,3 +28,5 @@ luarocks install --tree=lua_modules sha1
 luarocks install --tree=lua_modules md5
 luarocks install --tree=lua_modules net-url
 luarocks install --tree=lua_modules luafilesystem
+luarocks install --tree=lua_modules lua-resty-http 0.10
+luarocks install --tree=lua_modules https://github.com/mhamann/lua-resty-cjose/raw/master/lua-resty-cjose-0.5-0.rockspec

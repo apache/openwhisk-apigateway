@@ -66,7 +66,7 @@ function exchange(dataStore, token, provider, securityObj)
     local loaded, impl = pcall(require, utils.concatStrings({'oauth/', provider}))
     if not loaded then
       request.err(500, 'Error loading OAuth provider authentication module')
-      print("error loading provider.")
+      print("error loading provider:", impl)
       return nil
     end
 
