@@ -56,7 +56,7 @@ function exchangeOAuthToken(dataStore, token, facebookAppToken)
 -- convert response
   if not res then
     ngx.log(ngx.WARN, 'Could not invoke Facebook API. Error=', err)
-    request.err(500, 'OAuth provider error.')
+    request.err(500, 'Connection to the OAuth provider failed.')
     return
   end
   local json_resp = cjson.decode(res.body)
