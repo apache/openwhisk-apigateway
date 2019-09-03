@@ -104,7 +104,11 @@ function _M.processCall(dataStore)
       if prefix ~= nil and prefix ~= "" then
         requestUrl = utils.concatStrings({requestUrl, prefix})
       end
-      ngx.req.set_header("X-Forwarded-Url", utils.concatStrings({requestUrl, ngx.var.request_uri}))
+      local requestUri = ngx.req.get_headers()["X-Forwarded-Uri"]
+      if requestUri == nil or requestUri == "" then
+        requestUri = ngx.var.request_uri
+      end
+      ngx.req.set_header("X-Forwarded-Url", utils.concatStrings({requestUrl, requestUri}))
       -- Parse policies
       if opFields.policies ~= nil then
         parsePolicies(dataStore, opFields.policies, key)
