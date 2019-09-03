@@ -95,7 +95,11 @@ function _M.processCall(dataStore)
       if requestScheme == nil or requestScheme == "" then
         requestScheme = ngx.var.scheme
       end
-      local requestUrl = utils.concatStrings({requestScheme, "://", ngx.var.host})
+      local requestHost = ngx.req.get_headers()["X-Forwarded-Host"]
+      if requestHost == nil or requestHost == "" then
+        requestHost = ngx.var.host
+      end
+      local requestUrl = utils.concatStrings({requestScheme, "://", requestHost})
       local prefix = ngx.req.get_headers()["X-Forwarded-Prefix"]
       if prefix ~= nil and prefix ~= "" then
         requestUrl = utils.concatStrings({requestUrl, prefix})
