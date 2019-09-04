@@ -46,6 +46,8 @@ local _M = {}
 
 --- Main function that handles parsing of invocation details and carries out implementation
 function _M.processCall(dataStore)
+  -- Get request headers
+  local requestHeaders = ngx.req.get_headers()
   -- Get resource object from redis
   local tenantId = ngx.var.tenant
 
@@ -91,22 +93,30 @@ function _M.processCall(dataStore)
       -- Set backend upstream and uri
       backendRouting.setRoute(opFields.backendUrl, gatewayPath)
       -- Set gateway url as request header
-      local requestScheme = ngx.req.get_headers()["X-Forwarded-Proto"]
+      local requestScheme = requestHeaders["X-Forwarded-Proto"]
       if requestScheme == nil or requestScheme == "" then
         requestScheme = ngx.var.scheme
       end
-      local requestUrl = utils.concatStrings({requestScheme, "://", ngx.var.host})
-      local prefix = ngx.req.get_headers()["X-Forwarded-Prefix"]
+      local requestHost = requestHeaders["X-Forwarded-Host"]
+      if requestHost == nil or requestHost == "" then
+        requestHost = ngx.var.host
+      end
+      local requestUrl = utils.concatStrings({requestScheme, "://", requestHost})
+      local prefix = requestHeaders["X-Forwarded-Prefix"]
       if prefix ~= nil and prefix ~= "" then
         requestUrl = utils.concatStrings({requestUrl, prefix})
       end
-      ngx.req.set_header("X-Forwarded-Url", utils.concatStrings({requestUrl, ngx.var.request_uri}))
+      local requestUri = requestHeaders["X-Forwarded-Uri"]
+      if requestUri == nil or requestUri == "" then
+        requestUri = ngx.var.request_uri
+      end
+      ngx.req.set_header("X-Forwarded-Url", utils.concatStrings({requestUrl, requestUri}))
       -- Parse policies
       if opFields.policies ~= nil then
         parsePolicies(dataStore, opFields.policies, key)
       end
       -- Log updated request headers/body info to access logs
-      if ngx.req.get_headers()["x-debug-mode"] == "true" then
+      if requestHeaders["x-debug-mode"] == "true" then
         setRequestLogs()
       end
       dataStore:close()
