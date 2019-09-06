@@ -34,10 +34,6 @@ docker:
 docker-ssh:
 	docker run -ti --entrypoint='bash' ${RUNTIME}
 
-.PHONY: test-build
-test-build:
-	cd tests; ./install-deps.sh
-
 .PHONY: profile-build
 profile-build:
 	./build_profiling.sh

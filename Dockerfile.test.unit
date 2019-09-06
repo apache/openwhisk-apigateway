@@ -25,11 +25,12 @@
 FROM alpine:3.9
 
 ENV CJOSE_VERSION=0.5.1
+ENV STEP_VERSION=0.11.0
 
 RUN apk update && \
     apk add \
-    gcc tar zlib wget make musl-dev g++ curl \
-    libtool readline luajit luajit-dev unzip \
+    gcc tar zlib zlib-dev wget make musl-dev g++ curl \
+    libtool readline luajit luajit-dev unzip coreutils \
     openssl openssl-dev git jansson jansson-dev
 
 WORKDIR /tmp
@@ -49,9 +50,35 @@ RUN echo " ... installing cjose ... " \
     && make && make install \
     && rm -rf /tmp/api-gateway
 
-COPY . /etc/api-gateway
+RUN echo " ... installing step cli ... " \
+    && mkdir -p /tmp/step \
+    && curl -L https://github.com/smallstep/cli/releases/download/v${STEP_VERSION}/step_${STEP_VERSION}_linux_amd64.tar.gz -o /tmp/step/step_${STEP_VERSION}.tar.gz \
+    && tar -xf /tmp/step/step_${STEP_VERSION}.tar.gz -C /tmp/step \
+    && cd /tmp/step/step_${STEP_VERSION} \
+    && mv ./bin/step /usr/bin/step
 
+RUN echo " ... generating JWK/JWT ... " \
+    && step crypto jwk create /tmp/pub.jwk.json /tmp/prv.jwk.json -f --insecure --no-password --kty RSA --kid test-jwk \
+    && cat /tmp/pub.jwk.json | step crypto jwk keyset add /tmp/jwk.json \
+    && export JWT_EXPIRY=$(date -d "+10 days" +%s) \
+    && echo '{"email":"testuser@openwhisk.apache.org"}' | step crypto jwt sign --iss https://openwhisk.apache.org/apigateway --sub "test user" --exp $JWT_EXPIRY --aud tests --key /tmp/prv.jwk.json > /tmp/token.jwt
+
+RUN mkdir -p /etc/api-gateway/tests
 WORKDIR /etc/api-gateway/tests
-RUN ./install-deps.sh
+
+# Install Lua dependencies
+RUN luarocks install busted \
+    && luarocks install luacov \
+    && mkdir -p lua_modules \
+    && luarocks install --tree=lua_modules lua-cjson \
+    && luarocks install --tree=lua_modules luasocket \
+    && luarocks install --tree=lua_modules sha1 \
+    && luarocks install --tree=lua_modules md5 \
+    && luarocks install --tree=lua_modules net-url \
+    && luarocks install --tree=lua_modules luafilesystem \
+    && luarocks install --tree=lua_modules lua-resty-http 0.10 \
+    && luarocks install --tree=lua_modules https://github.com/mhamann/lua-resty-cjose/raw/master/lua-resty-cjose-0.5-0.rockspec
+
+COPY . /etc/api-gateway
 
 CMD sh run-tests.sh

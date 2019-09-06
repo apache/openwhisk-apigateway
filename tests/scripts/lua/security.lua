@@ -269,6 +269,48 @@ describe('OAuth security module', function()
     local result = oauth.process(dataStore, cjson.decode(securityObj))
     assert.truthy(result)
   end)
+
+  it('Successfully fetches App ID JWK keys and validates token', function()
+    local red = fakeredis.new()
+    -- Mock red.expire w/ a no-op to avoid a seg fault
+    red.expire = function(arg)
+      return {}, nil
+    end
+    local ds = require "lib/dataStore"
+    local dataStore = ds.initWithDriver(red)
+    local token = os.getenv("OAUTH_TEST_JWT")
+    local appid = "app"
+    local ngxattrs = [[
+      {
+        "http_Authorization":"]] .. token .. [[",
+        "tenant":"1234",
+        "gatewayPath":"v1/test"
+      }
+    ]]
+    local ngx = fakengx.new()
+    ngx.config = { ngx_lua_version = 'test' }
+    ngx.var = cjson.decode(ngxattrs)
+    _G.ngx = ngx
+    -- Mock http lib request to return the "right" values
+    local http = require 'resty.http'
+    http.request_uri = function (url, params)
+      local res = {}
+      res.status = 200
+      res.body = os.getenv("OAUTH_TEST_JWK")
+      return res, nil
+    end
+
+    local securityObj = [[
+      {
+        "type":"oauth2",
+        "provider":"app-id",
+        "tenantId": "tenant1",
+        "scope":"api"
+      }
+    ]]
+    local result = oauth.process(dataStore, cjson.decode(securityObj))
+    assert.truthy(result)
+  end)
 end)
 describe('Client Secret Module', function()
   local clientSecret = require 'policies/security/clientSecret'

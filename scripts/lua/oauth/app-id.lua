@@ -14,7 +14,6 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 --
-
 local request = require 'lib/request'
 local cjson = require 'cjson'
 local utils = require 'lib/utils'
@@ -29,6 +28,7 @@ local function inject_req_headers(token_obj)
 end
 
 local function fetchJWKs(tenantId)
+  local httpc = http.new()
   local keyUrl = utils.concatStrings({APPID_PKURL, tenantId, '/publickeys'})
   local request_options = {
     headers = {
@@ -42,7 +42,6 @@ end
 function _M.process(dataStore, token, securityObj)
   local cache_key = 'appid_' .. securityObj.tenantId
   local result = dataStore:getOAuthToken(cache_key, token)
-  local httpc = http.new()
   local token_obj
 
   -- Was the token in the cache?
@@ -53,9 +52,10 @@ function _M.process(dataStore, token, securityObj)
   end
 
   -- Cache miss. Proceed to validate the token
-  local res, err = fetchJWKs
-  if err or res.status ~= 200 then
+  local res, err = fetchJWKs(securityObj.tenantId)
+  if err ~= nil or not res or res.status ~= 200 then
     request.err(500, 'An error occurred while fetching the App ID JWK configuration: ' .. err or res.body)
+    return nil
   end
 
   local key
@@ -81,7 +81,8 @@ function _M.process(dataStore, token, securityObj)
 
   -- keep token in cache until it expires
   local ttl = expireTime - os.time()
-  dataStore:saveOAuthToken(cache_key, token, cjson.encode(token_obj), ttl)
+  local encodedToken = cjson.encode(token_obj)
+  dataStore:saveOAuthToken(cache_key, token, encodedToken, ttl)
   return token_obj
 end
 
