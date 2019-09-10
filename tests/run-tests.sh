@@ -16,5 +16,9 @@
 # limitations under the License.
 #
 
+# Grab pre-generated JWT for use in tests
+export OAUTH_TEST_JWT=$(cat /tmp/token.jwt)
+export OAUTH_TEST_JWK=$(cat /tmp/jwk.json)
+
 # Run unit tests
 busted --output=TAP --helper=set_paths --pattern=.lua scripts
