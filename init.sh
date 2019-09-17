@@ -59,10 +59,10 @@ echo resolver $(awk 'BEGIN{ORS=" "} /^nameserver/{print $2}' /etc/resolv.conf | 
 echo "   ...  with dns $(cat /etc/api-gateway/conf.d/includes/resolvers.conf)"
 
 echo "   ... testing configuration "
-api-gateway -t -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway.conf
+api-gateway -t -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway-conf/api-gateway-conf
 
 echo "   ... using log level: '${log_level}'. Override it with -e 'LOG_LEVEL=<level>' "
-api-gateway -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway.conf -g "daemon off; error_log /dev/stderr ${log_level};" &
+api-gateway -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway-conf/api-gateway-conf -g "daemon off; error_log /dev/stderr ${log_level};" &
 
 if [[ -n "${redis_host}" && -n "${redis_port}" ]]; then
     sleep 1  # sleep until api-gateway is set up

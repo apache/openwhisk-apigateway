@@ -261,7 +261,7 @@ COPY . /etc/api-gateway
 RUN adduser -S nginx-api-gateway \
     && addgroup -S nginx-api-gateway
 
-EXPOSE 80 8080 8423 9000
+EXPOSE 80 443 8080 8423 9000
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/etc/init-container.sh"]
