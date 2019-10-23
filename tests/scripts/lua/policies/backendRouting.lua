@@ -28,17 +28,29 @@ describe('Testing backend routing module', function()
   end)
 
   it('should work without override', function()
-    ngx.var.request_uri = "/api/23bc46b1-71f6-4ed5-8c54-816aa4f8c502/hello/world"
-    backendRouting.setRoute("https://localhost:3233/api/v1/web/guest/default/hello2.json", "hello/world")
+    ngx.var.gatewayPath = 'hello/world'
+    ngx.var.tenant = '23bc46b1-71f6-4ed5-8c54-816aa4f8c502'
+    ngx.var.request_uri = '/api/' .. ngx.var.tenant .. '/' .. ngx.var.gatewayPath
+    backendRouting.setRoute("https://localhost:3233/api/v1/web/guest/default/hello2.json", ngx.var.gatewayPath)
     assert.are.same(ngx.var.upstream, 'https://localhost:3233')
     assert.are.same(ngx.var.backendUrl, 'https://localhost:3233/api/v1/web/guest/default/hello2.json')
   end)
 
   it('should work with override', function()
-      ngx.var.request_uri = "/api/23bc46b1-71f6-4ed5-8c54-816aa4f8c502/hello/world"
-      backendRouting.setRouteWithOverride("https://localhost:3233/api/v1/web/guest/default/hello2.json", "hello/world",
-         "http://172.0.0.1:3456")
-      assert.are.same(ngx.var.upstream, 'http://172.0.0.1:3456')
-      assert.are.same(ngx.var.backendUrl, 'http://172.0.0.1:3456/api/v1/web/guest/default/hello2.json')
-    end)
+    ngx.var.gatewayPath = 'hello/world'
+    ngx.var.tenant = '23bc46b1-71f6-4ed5-8c54-816aa4f8c502'
+    ngx.var.request_uri = '/api/' .. ngx.var.tenant .. '/' .. ngx.var.gatewayPath
+    backendRouting.setRouteWithOverride("https://localhost:3233/api/v1/web/guest/default/hello2.json", ngx.var.gatewayPath,
+       "http://172.0.0.1:3456")
+    assert.are.same(ngx.var.upstream, 'http://172.0.0.1:3456')
+    assert.are.same(ngx.var.backendUrl, 'http://172.0.0.1:3456/api/v1/web/guest/default/hello2.json')
+  end)
+
+  it('should match URI properly, ignoring API tenant base path', function()
+    ngx.var.gatewayPath = 'api'
+    ngx.var.tenant = '23bc46b1-71f6-4ed5-8c54-816aa4f8c502'
+    ngx.var.request_uri = '/api/' .. ngx.var.tenant .. '/' .. ngx.var.gatewayPath
+    actual = backendRouting.getUriPath('/api')
+    assert.are.same(actual, '/api')
+  end)
 end)

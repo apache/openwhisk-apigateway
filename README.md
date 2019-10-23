@@ -104,11 +104,7 @@ Then make changes to any configuration file ( i.e. `api-gateway.conf` ), save it
 
 ### Testing
 
- First install the necessary dependencies:
+ To build the test image and run unit tests
  ```
-  make test-build
- ```
- Then, run the unit tests:
- ```
-  make test-run
+  make test
  ```

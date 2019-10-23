@@ -41,7 +41,7 @@ function _M.setRouteWithOverride(backendUrl, gatewayPath, override)
     u.path = utils.concatStrings({u.path:sub(1, -16), u.path:sub(-16, -16) == '/' and '' or '/', gatewayPath})
     ngx.req.set_uri(u.path)
   else
-    ngx.req.set_uri(getUriPath(u.path))
+    ngx.req.set_uri(_M.getUriPath(u.path))
   end
   ngx.var.backendUrl = backendUrl
 
@@ -74,7 +74,7 @@ function _M.setDynamicRoute(obj)
       u = url.parse(utils.concatStrings({'http://', dynamicBackend}))
     end
     if utils.tableContains(whitelist, u.host) then
-      ngx.req.set_uri(getUriPath(u.path))
+      ngx.req.set_uri(_M.getUriPath(u.path))
       -- Split the dynamicBackend url to get the query parameters in the exact order that it was passed in.
       -- Don't use u.query here because it returns the parameters in an unordered lua table.
       local split = {string.match(dynamicBackend, '([^?]*)?(.*)')}
@@ -91,10 +91,12 @@ function _M.setDynamicRoute(obj)
   end
 end
 
-function getUriPath(backendPath)
+function _M.getUriPath(backendPath)
   local gatewayPath = ngx.unescape_uri(ngx.var.gatewayPath)
   gatewayPath = gatewayPath:gsub('-', '%%-')
+  local tenant = ngx.var.tenant:gsub('-', '%%-')
   local uri = string.gsub(ngx.var.request_uri, '?.*', '')
+  uri = uri:gsub('/api/' .. tenant, '')
   local _, j = uri:find(gatewayPath)
   local incomingPath = ((j and uri:sub(j + 1)) or nil)
   -- Check for backendUrl path
