@@ -18,11 +18,9 @@
 # A Travis CI configuration file.
 
 sudo: required
-
-language: scala
-scala:
-   - 2.12.7
-
+dist: xenial
+jdk: openjdk8
+language: java
 services:
   - docker
 
