@@ -21,6 +21,7 @@
 local logger = require "lib/logger"
 local utils = require "lib/utils"
 local cjson = require "cjson.safe"
+cjson.decode_array_with_array_mt(true)
 
 local _M = {}
 
