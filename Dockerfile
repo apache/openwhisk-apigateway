@@ -22,7 +22,7 @@
 # From https://hub.docker.com/_/alpine/
 #
 
-FROM alpine:3.9 as base
+FROM alpine:3.11 as base
 
 # Busybox's ash shell supports pipefail, which is useful for tarballs
 SHELL [ "/bin/ash", "-o", "pipefail", "-c"]
@@ -38,16 +38,16 @@ RUN apk update && \
 
 # openresty build
 ENV OPENRESTY_VERSION=1.15.8.3 \
-    PCRE_VERSION=8.37 \
-    TEST_NGINX_VERSION=0.24 \
+    PCRE_VERSION=8.44 \
+    TEST_NGINX_VERSION=0.26 \
     OPM_VERSION=0.0.5 \
     LUA_RESTY_HTTP_VERSION=0.10 \
     LUA_RESTY_IPUTILS_VERSION=0.2.1 \
-    LUA_RESTY_STRING_VERSION=0.09 \
-    LUA_RESTY_LRUCACHE_VERSION=0.06 \
+    LUA_RESTY_STRING_VERSION=0.11 \
+    LUA_RESTY_LRUCACHE_VERSION=0.08 \
     LUA_RESTY_CJOSE_VERSION=0.4 \
     NETURL_LUA_VERSION=0.9-1 \
-    CJOSE_VERSION=0.5.1 \
+    CJOSE_VERSION=0.6.1 \
     LD_LIBRARY_PATH=/usr/local/lib \
     _prefix=/usr/local \
     _exec_prefix=/usr/local \
@@ -197,7 +197,7 @@ RUN  echo " ... adding Openresty, NGINX and PCRE" \
     && cd ${_prefix} \
     && tar -xf ${_prefix}/test-nginx-${TEST_NGINX_VERSION}.tar.gz \
     && rm ${_prefix}/test-nginx-${TEST_NGINX_VERSION}.tar.gz \
-    && cp -r ${_prefix}/test-nginx-0.24/inc/* /usr/local/share/perl5/site_perl/ \
+    && cp -r ${_prefix}/test-nginx-${TEST_NGINX_VERSION}/inc/* /usr/local/share/perl5/site_perl/ \
     #
     # CLEANUP #
     #
