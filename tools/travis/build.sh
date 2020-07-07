@@ -39,7 +39,7 @@ $ANSIBLE_CMD initdb.yml
 # build docker image locally
 pushd $ROOTDIR
 pwd
-docker build . -t "openwhisk/apigateway"
+docker build . -t "openwhisk/apigateway:nightly"
 popd
 
 $ANSIBLE_CMD wipe.yml
