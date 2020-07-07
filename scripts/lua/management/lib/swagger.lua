@@ -25,7 +25,7 @@ local utils = require "lib/utils"
 -- @param swagger swagger file to parse
 function _M.parseSwagger(swagger)
   local backends = parseBackends(swagger)
-  local policies = parsePolicies(swagger)
+  local policies = parseSwaggerPolicies(swagger)
   local security = parseSecurity(swagger)
   local corsObj = parseCors(swagger)
   local decoded = {
@@ -115,7 +115,7 @@ end
 
 --- Parse policies in swagger
 -- @param swagger swagger file to parse
-function parsePolicies(swagger)
+function parseSwaggerPolicies(swagger)
   local policies = {}
   -- parse rate limit
   local rlObj = swagger["x-gateway-rate-limit"]
