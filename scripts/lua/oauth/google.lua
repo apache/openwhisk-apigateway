@@ -20,7 +20,6 @@ local cjson = require "cjson"
 local http = require "resty.http"
 local request = require "lib/request"
 local utils = require "lib/utils"
-local redis = require "lib/redis"
 
 local _M = {}
 function _M.process (dataStore, token)

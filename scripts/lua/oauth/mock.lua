@@ -19,7 +19,6 @@
 local cjson = require "cjson"
 local _M = {}
 function _M.process (red, token)
-  local result
   if token == "test" then
     local goodResult = [[
       {

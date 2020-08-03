@@ -63,7 +63,7 @@ function _M.process(dataStore, token, securityObj)
   for _, v in ipairs(keys) do
     key = v
   end
-  local result = cjose.validateJWS(token, cjson.encode(key))
+  result = cjose.validateJWS(token, cjson.encode(key))
   if not result then
     request.err(401, 'The token signature did not match any known JWK.')
     return nil

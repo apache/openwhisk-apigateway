@@ -62,7 +62,7 @@ local function checkOperations(operations)
     end
     -- Check required fields
     local requiredFields = {"backendMethod", "backendUrl"}
-    for k, v in pairs(requiredFields) do
+    for _, v in pairs(requiredFields) do
       if verbObj[v] == nil then
         return false, { statusCode = 400, message = utils.concatStrings({"Missing field '", v, "' for '", verb, "' operation."}) }
       end

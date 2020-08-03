@@ -23,7 +23,6 @@ local _M = {}
 
 local function exchangeOAuthToken(dataStore, token, facebookAppToken)
   local http = require 'resty.http'
-  local request = require "lib/request"
   local httpc = http.new()
 
   local request_options = {

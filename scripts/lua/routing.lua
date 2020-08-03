@@ -45,7 +45,7 @@ local _M = {}
 
 local function setRequestLogs()
   local requestHeaders = ngx.req.get_headers()
-  for k, v in pairs(requestHeaders) do
+  for k in pairs(requestHeaders) do
     if k == 'authorization' or k == ngx.ctx.clientSecretName then
       requestHeaders[k] = '[redacted]'
     end
@@ -60,7 +60,7 @@ end
 -- @param obj List of policies containing a type and value field. This function reads the type field and routes it appropriately.
 -- @param apiKey optional subscription api key
 local function parsePolicies(dataStore, obj, apiKey)
-  for k, v in pairs (obj) do
+  for _, v in pairs (obj) do
     if v.type == 'reqMapping' then
       mapping.processMap(v.value)
     elseif v.type == 'rateLimit' then
@@ -94,7 +94,7 @@ function _M.processCall(dataStore)
     dataStore:setSnapshotId(tenantId)
   end
   local gatewayPath = ngx.var.gatewayPath
-  local i, j = ngx.var.request_uri:find("/api/([^/]+)")
+  local _ , j = ngx.var.request_uri:find("/api/([^/]+)")
   ngx.var.analyticsUri = ngx.var.request_uri:sub(j+1)
   if ngx.req.get_headers()["x-debug-mode"] == "true" then
     setRequestLogs()
@@ -222,7 +222,7 @@ function _M.slowLookup(resourceKeys, tenant, path, redisKey, cfRedisKey)
   end
   -- Construct a table of redisKeys based on number of slashes in the path
   local keyTable = {}
-  for i, key in pairs(resourceKeys) do
+  for _, key in pairs(resourceKeys) do
     local _, count = string.gsub(key, "/", "")
     -- handle cases where resource path is "/"
     if count == 1 and string.sub(key, -1) == "/" then

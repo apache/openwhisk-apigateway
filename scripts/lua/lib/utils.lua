@@ -26,7 +26,7 @@ local _Utils = {}
 -- @return concatenated string
 function _Utils.concatStrings(list)
   local t = {}
-  for k,v in ipairs(list) do
+  for _, v in ipairs(list) do
     t[#t+1] = tostring(v)
   end
   return table.concat(t)
@@ -84,7 +84,7 @@ end
 -- @param table table to check
 -- @param element element to check in table
 function _Utils.tableContains(table, element)
-  for i, value in pairs(table) do
+  for _, value in pairs(table) do
     if value == element then
       return true
     end
@@ -96,7 +96,7 @@ end
 -- @param table table to check
 -- @param requiredFields list of required fields
 function _Utils.tableContainsAll(table, requiredFields)
-  for i, field in ipairs(requiredFields) do
+  for _, field in ipairs(requiredFields) do
     if not table[field] then
       return false, { statusCode = 400, message = _Utils.concatStrings({"\"", field, "\" missing from request body."}) }
     end

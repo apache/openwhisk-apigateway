@@ -19,17 +19,12 @@
 -- Management interface for apis for the gateway
 
 local cjson = require "cjson"
-local dataStore = require "lib/dataStore"
 local utils = require "lib/utils"
 local request = require "lib/request"
 local apis = require "management/lib/apis"
 local tenants = require "management/lib/tenants"
 local swagger = require "management/lib/swagger"
 local validation = require "management/lib/validation"
-
-local REDIS_HOST = os.getenv("REDIS_HOST")
-local REDIS_PORT = os.getenv("REDIS_PORT")
-local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 

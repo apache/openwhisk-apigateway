@@ -19,14 +19,9 @@
 -- Management interface for subscriptions for the gateway
 
 local cjson = require "cjson"
-local redis = require "lib/redis"
 local utils = require "lib/utils"
 local request = require "lib/request"
 local subscriptions = require "management/lib/subscriptions"
-
-local REDIS_HOST = os.getenv("REDIS_HOST")
-local REDIS_PORT = os.getenv("REDIS_PORT")
-local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 

@@ -25,7 +25,7 @@ local request = require "lib/request"
 local lrucache
 local CACHE_SIZE
 local CACHE_TTL
-local c, err
+local c
 
 local REDIS_HOST = os.getenv("REDIS_HOST")
 local REDIS_PORT = os.getenv("REDIS_PORT")
@@ -41,9 +41,10 @@ if CACHING_ENABLED then
   lrucache = require "resty.lrucache"
   CACHE_SIZE = tonumber(os.getenv('CACHE_SIZE'))
   CACHE_TTL = tonumber(os.getenv('CACHE_TTL'))
-  c, err = lrucache.new(CACHE_SIZE)
+  local err_c
+  c, err_c = lrucache.new(CACHE_SIZE)
   if not c then
-    return error("Failed to initialize LRU cache" .. (err or "unknown"))
+    return error("Failed to initialize LRU cache" .. (err_c or "unknown"))
   end
 end
 
@@ -84,9 +85,10 @@ function _M.init()
   end
   -- Authenticate with Redis
   if password ~= nil and password ~= "" and red:get_reused_times() < 1 then
-    local res, err = red:auth(password)
+    local res, err_auth = red:auth(password)
     if not res then
-      request.err(500, utils.concatStrings({"Failed to authenticate: ", err}))
+      ngx.log(ngx.ERR, utils.concatStrings({"[redis] failed to authenticate: ", err_auth}))
+      request.err(500, "Internal server error")
     end
   end
   return red
@@ -98,7 +100,8 @@ function _M.close(red)
   -- put it into the connection pool of size 100, with 10 seconds max idle time
   local ok, err = red:set_keepalive(10000, 100)
   if not ok then
-    request.err(500, utils.concatStrings({"Failed to set keepalive: ", err}))
+    ngx.log(ngx.ERR, utils.concatStrings({"Failed to set keepalive: ", err}))
+    request.err(500, "Internal server error")
   end
 end
 
@@ -146,7 +149,7 @@ end
 
 local function get(red, key)
   if CACHING_ENABLED then
-    local cached, stale = c:get(key)
+    local cached = c:get(key)
     if cached ~= nil then
       return cached
     else
@@ -167,7 +170,7 @@ end
 
 local function hget(red, key, id)
   if CACHING_ENABLED then
-    local cachedmap, stale = c:get(key)
+    local cachedmap = c:get(key)
     if cachedmap ~= nil then
       local cached = cachedmap:get(id)
       if cached ~= nil then
@@ -290,7 +293,7 @@ function _M.addAPI(red, id, apiObj, existingAPI)
     local snapshotId = _M.getSnapshotId(red, apiObj.tenantId)
     -- Delete all resources for the existingAPI
     local basePath = existingAPI.basePath:sub(2)
-    for path, v in pairs(existingAPI.resources) do
+    for path in pairs(existingAPI.resources) do
       local gatewayPath = ngx.unescape_uri(utils.concatStrings({basePath, ngx.escape_uri(path)}))
       gatewayPath = gatewayPath:sub(1,1) == "/" and gatewayPath:sub(2) or gatewayPath
       local redisKey = utils.concatStrings({"resources:", existingAPI.tenantId, ":", gatewayPath})
@@ -346,10 +349,12 @@ function _M.resourceToApi(red, resource, snapshotId)
   if snapshotId ~= nil then
     resource = utils.concatStrings({'snapshots:', snapshotId, ':', resource})
   end
-  local resource = hget(red, resource, "resources")
+
+  resource = hget(red, resource, "resources")
   if resource == ngx.null then
     return nil
   end
+
   resource = cjson.decode(resource)
   return resource.apiId
 end
@@ -485,17 +490,17 @@ function _M.deleteResource(red, key, field, snapshotId)
   if snapshotId ~= nil then
     key = utils.concatStrings({'snapshots:', snapshotId, ':', key})
   end
-  local resourceObj, err = hget(red, key, field)
+  local resourceObj, err_hget = hget(red, key, field)
   if not resourceObj then
-    request.err(500, utils.concatStrings({"Failed to delete the resource: ", err}))
+    request.err(500, utils.concatStrings({"Failed to delete the resource: ", err_hget}))
   end
   if resourceObj == ngx.null then
     request.err(404, "Resource doesn't exist.")
   end
   -- Delete redis resource
-  local ok, err = del(red, key)
+  local ok, err_del = del(red, key)
   if not ok then
-    request.err(500, utils.concatStrings({"Failed to delete the resource: ", err}))
+    request.err(500, utils.concatStrings({"Failed to delete the resource: ", err_del}))
   else
     return ok
   end
@@ -596,16 +601,16 @@ function _M.deleteSubscription(red, key, snapshotId)
   if snapshotId ~= nil then
     key = utils.concatStrings({'snapshots:', snapshotId, ':', key})
   end
-  local subscription, err = get(red, key)
+  local subscription, err_get = get(red, key)
   if not subscription then
-    request.err(500, utils.concatStrings({"Failed to delete the subscription key: ", err}))
+    request.err(500, utils.concatStrings({"Failed to delete the subscription key: ", err_get}))
   end
   if subscription == ngx.null then
     request.err(404, "Subscription doesn't exist.")
   end
-  local ok, err = del(red, key)
+  local ok, err_del = del(red, key)
   if not ok then
-    request.err(500, utils.concatStrings({"Failed to delete the subscription key: ", err}))
+    request.err(500, utils.concatStrings({"Failed to delete the subscription key: ", err_del}))
   end
 end
 

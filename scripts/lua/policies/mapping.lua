@@ -144,7 +144,7 @@ end
 -- @param d The destination object that we will move all found parameters to.
 local function transformAllParams(s, d)
   if s == 'query' then
-    for k, v in pairs(query) do
+    for k in pairs(query) do
       local t = {}
       t.from = {}
       t.from.name = k
@@ -156,7 +156,7 @@ local function transformAllParams(s, d)
       removeParam(t)
     end
   elseif s == 'header' then
-    for k, v in pairs(headers) do
+    for k in pairs(headers) do
       local t = {}
       t.from = {}
       t.from.name = k
@@ -168,7 +168,7 @@ local function transformAllParams(s, d)
       removeParam(t)
     end
   elseif s == 'body' then
-    for k, v in pairs(body) do
+    for k in pairs(body) do
       local t = {}
       t.from = {}
       t.from.name = k
@@ -180,7 +180,7 @@ local function transformAllParams(s, d)
       removeParam(t)
     end
   elseif s == 'path' then
-    for k, v in pairs(path) do
+    for k in pairs(path) do
       local t = {}
       t.from = {}
       t.from.name = k
@@ -229,7 +229,7 @@ end
 -- @param map The mapping object that contains details about request tranformations
 local function processMap(map)
   getRequestParams()
-  for k, v in pairs(map) do
+  for _, v in pairs(map) do
     if v.action == "insert" then
       insertParam(v)
     elseif v.action == "remove" then

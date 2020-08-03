@@ -115,18 +115,18 @@ local function applyPagingToAPIs(apiList, queryParams)
   else
     limit = skip + limit - 1
   end
-  local apis  = {}
+  local apis_obj  = {}
   local idx   = 0
   for i = skip, limit do
-    apis[idx] = apiList[i]
+    apis_obj[idx] = apiList[i]
     idx = idx + 1
   end
-  return apis
+  return apis_obj
 end
 
 --- Filter apis based on query paramters
 -- @param queryParams query parameters to filter apis
-local function filterTenantAPIs(id, apis, queryParams)
+local function filterTenantAPIs(id, apis_obj, queryParams)
   local basePath = queryParams['filter[where][basePath]']
   basePath = basePath == nil and queryParams['basePath'] or basePath
   local name = queryParams['filter[where][name]']
@@ -137,7 +137,7 @@ local function filterTenantAPIs(id, apis, queryParams)
   end
   -- filter apis
   local apiList = {}
-  for k, v in pairs(apis) do
+  for k, v in pairs(apis_obj) do
     if k%2 == 0 then
       local api = cjson.decode(v)
       if api.tenantId == id and
@@ -156,14 +156,14 @@ end
 -- @param id tenant id
 -- @param queryParams object containing optional query parameters
 function _M.getTenantAPIs(dataStore, id, queryParams)
-  local apis = dataStore:getAllAPIs()
+  local apis_obj = dataStore:getAllAPIs()
   local apiList
   if next(queryParams) ~= nil then
-    apiList = filterTenantAPIs(id, apis, queryParams);
+    apiList = filterTenantAPIs(id, apis_obj, queryParams);
   end
   if apiList == nil then
     apiList = {}
-    for k, v in pairs(apis) do
+    for k, v in pairs(apis_obj) do
       if k%2 == 0 then
         local decoded = cjson.decode(v)
         if decoded.tenantId == id then

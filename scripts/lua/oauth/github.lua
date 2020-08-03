@@ -16,7 +16,6 @@
 --
 
 -- A Proxy for Github OAuth API
-local cjson = require "cjson"
 local http = require "resty.http"
 local request = require "lib/request"
 local cjson = require "cjson"
