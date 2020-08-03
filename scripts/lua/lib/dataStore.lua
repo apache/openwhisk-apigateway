@@ -34,7 +34,7 @@ end
 
 function DataStore:setSnapshotId(tenant)
   self.snapshotId = self.impl.getSnapshotId(self.ds, tenant)
-  self:lockSnapshot(snapshotId)
+  self:lockSnapshot(self.snapshotId)
   if self.snapshotId == ngx.null then
     self.snapshotId = nil
   end
@@ -159,7 +159,7 @@ end
 
 function DataStore:getSubscriptions(artifactId, tenantId)
   self:singleInit()
-  return self.impl.deleteSubscription(self.ds, key, self.snapshotId)
+  return self.impl.getSubscriptions(self.ds, artifactId, tenantId, self.snapshotId)
 end
 
 function DataStore:healthCheck()

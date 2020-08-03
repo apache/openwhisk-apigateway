@@ -29,22 +29,23 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {};
 
---- Request handler for routing tenant calls appropriately
-function _M.requestHandler(dataStore)
-  local requestMethod = ngx.req.get_method()
-  ngx.header.content_type = "application/json; charset=utf-8"
-  if requestMethod == "GET" then
-    getTenants(dataStore)
-  elseif requestMethod == "PUT" or requestMethod == "POST" then
-    addTenant(dataStore)
-  elseif requestMethod == "DELETE" then
-    deleteTenant(dataStore)
-  else
-    request.err(400, "Invalid verb.")
+--- Check for tenant id from uri and use existing tenant if it already exists in redis
+-- @param red Redis client instance
+local function checkForExistingTenant(dataStore)
+  local id = ngx.var.tenant_id
+  local existing
+  -- Get object from redis
+  if id ~= nil and id ~= '' then
+    existing = dataStore:getTenant(id)
+    if existing == nil then
+      dataStore:close()
+      request.err(404, utils.concatStrings({"Unknown Tenant id ", id}))
+    end
   end
+  return existing
 end
 
-function addTenant(dataStore)
+local function addTenant(dataStore)
   -- Open connection to redis or use one from connection pool
   -- Check for tenant id and use existingTenant if it already exists in redis
   local existingTenant = checkForExistingTenant(dataStore)
@@ -76,25 +77,9 @@ function addTenant(dataStore)
   request.success(200, tenantObj)
 end
 
---- Check for tenant id from uri and use existing tenant if it already exists in redis
--- @param red Redis client instance
-function checkForExistingTenant(dataStore)
-  local id = ngx.var.tenant_id
-  local existing
-  -- Get object from redis
-  if id ~= nil and id ~= '' then
-    existing = dataStore:getTenant(id)
-    if existing == nil then
-      dataStore:close()
-      request.err(404, utils.concatStrings({"Unknown Tenant id ", id}))
-    end
-  end
-  return existing
-end
-
 --- Get one or all tenants from the gateway
 -- GET /v1/tenants
-function getTenants(dataStore)
+local function getTenants(dataStore)
   local queryParams = ngx.req.get_uri_args()
   local id = ngx.var.tenant_id
   if id == '' then
@@ -125,7 +110,7 @@ end
 
 --- Delete tenant from gateway
 -- DELETE /v1/tenants/<id>
-function deleteTenant(dataStore)
+local function deleteTenant(dataStore)
   local id = ngx.var.tenant_id
   if id == nil or id == '' then
     request.err(400, "No id specified.")
@@ -137,6 +122,21 @@ function deleteTenant(dataStore)
   end
   tenants.deleteTenant(dataStore, id)
   request.success(200, cjson.encode({}))
+end
+
+--- Request handler for routing tenant calls appropriately
+function _M.requestHandler(dataStore)
+  local requestMethod = ngx.req.get_method()
+  ngx.header.content_type = "application/json; charset=utf-8"
+  if requestMethod == "GET" then
+    getTenants(dataStore)
+  elseif requestMethod == "PUT" or requestMethod == "POST" then
+    addTenant(dataStore)
+  elseif requestMethod == "DELETE" then
+    deleteTenant(dataStore)
+  else
+    request.err(400, "Invalid verb.")
+  end
 end
 
 return _M

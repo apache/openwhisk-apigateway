@@ -17,7 +17,7 @@
 
 # apigateway
 #
-# VERSION               1.15.8.3
+# VERSION               1.17.8.2
 #
 # From https://hub.docker.com/_/alpine/
 #
@@ -37,7 +37,7 @@ RUN apk update && \
     && rm -rf /var/cache/apk/*
 
 # openresty build
-ENV OPENRESTY_VERSION=1.15.8.3 \
+ENV OPENRESTY_VERSION=1.17.8.2 \
     PCRE_VERSION=8.37 \
     TEST_NGINX_VERSION=0.24 \
     OPM_VERSION=0.0.5 \

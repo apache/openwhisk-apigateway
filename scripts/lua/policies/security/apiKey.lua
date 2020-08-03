@@ -18,13 +18,9 @@
 --- @module apiKey
 -- Check a subscription with an API Key
 
-local dataStore = require "lib/dataStore"
 local utils = require "lib/utils"
 local request = require "lib/request"
-
-local REDIS_HOST = os.getenv("REDIS_HOST")
-local REDIS_PORT = os.getenv("REDIS_PORT")
-local REDIS_PASS = os.getenv("REDIS_PASS")
+local logger = require "lib/logger"
 
 local _M = {}
 
@@ -36,7 +32,7 @@ local _M = {}
 -- @param scope scope of the subscription
 -- @param apiKey the subscription api key
 -- @param return boolean value indicating if the subscription exists in redis
-function validate(dataStore, tenant, gatewayPath, apiId, scope, apiKey)
+local function validate(dataStore, tenant, gatewayPath, apiId, scope, apiKey)
   -- Open connection to redis or use one from connection pool
   local k
   if scope == 'tenant' then
@@ -54,26 +50,23 @@ function validate(dataStore, tenant, gatewayPath, apiId, scope, apiKey)
   end
 end
 
-function process(dataStore, securityObj)
-  return processWithHashFunction(dataStore, securityObj, sha256)
-end
-
 --- Process the security object
 -- @param dataStore the datastore object
 -- @param securityObj security object from nginx conf file
 -- @param hashFunction a function that will be called to hash the string
 -- @return apiKey api key for the subscription
-function processWithHashFunction(dataStore, securityObj, hashFunction)
+local function processWithHashFunction(dataStore, securityObj, hashFunction)
   local tenant = ngx.var.tenant
   local gatewayPath = ngx.var.gatewayPath
   local apiId = dataStore:resourceToApi(utils.concatStrings({'resources:', tenant, ':', gatewayPath}))
   local scope = securityObj.scope
-  local name = (securityObj.name == nil) and ((securityObj.header == nil) and 'x-api-key' or securityObj.header) or securityObj.name
   local queryString = ngx.req.get_uri_args()
   local location = (securityObj.location == nil) and 'header' or securityObj.location
 -- backwards compatible with "header" argument for name value. "name" argument takes precedent if both provided
   local name = (securityObj.name == nil and securityObj.header == nil) and 'x-api-key' or (securityObj.name or securityObj.header)
   local apiKey = nil
+
+  ngx.log(ngx.DEBUG, "Processing API_KEY security policy")
 
   if location == "header" then
     apiKey = ngx.var[utils.concatStrings({'http_', name}):gsub("-", "_")]
@@ -97,17 +90,10 @@ function processWithHashFunction(dataStore, securityObj, hashFunction)
   return apiKey
 end
 
---- Calculate the sha256 hash of a string
--- @param str the string you want to hash
--- @return a hashed version of the string
-function sha256(str)
-  local resty_sha256 = require "resty.sha256"
-  local resty_str = require "resty.string"
-  local sha = resty_sha256:new()
-  sha:update(str)
-  local digest = sha:final()
-  return resty_str.to_hex(digest)
+local function process(dataStore, securityObj)
+  return processWithHashFunction(dataStore, securityObj, utils.sha256)
 end
+
 _M.processWithHashFunction = processWithHashFunction
 _M.process = process
 

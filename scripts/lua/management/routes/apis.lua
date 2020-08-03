@@ -33,22 +33,22 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
---- Request handler for routing API calls appropriately
-function _M.requestHandler(dataStore)
-  local requestMethod = ngx.req.get_method()
-  ngx.header.content_type = "application/json; charset=utf-8"
-  if requestMethod == "GET" then
-    getAPIs(dataStore)
-  elseif requestMethod == 'POST' or requestMethod == 'PUT' then
-    addAPI(dataStore)
-  elseif requestMethod == "DELETE" then
-    deleteAPI(dataStore)
-  else
-    request.err(400, "Invalid verb.")
+--- Check for api id from uri and use existing API if it already exists in redis
+-- @param red Redis client instance
+-- @param id API id to check
+local function checkForExistingAPI(dataStore, id)
+  local existing
+  if id ~= nil and id ~= '' then
+    existing = dataStore:getAPI(id)
+    if existing == nil then
+      dataStore:close()
+      request.err(404, utils.concatStrings({"Unknown API id ", id}))
+    end
   end
+  return existing
 end
 
-function getAPIs(dataStore)
+local function getAPIs(dataStore)
   local queryParams = ngx.req.get_uri_args()
   local id = ngx.var.api_id
   local version = ngx.var.version
@@ -103,7 +103,7 @@ function getAPIs(dataStore)
   end
 end
 
-function addAPI(dataStore)
+local function addAPI(dataStore)
   local id = ngx.var.api_id
   local existingAPI = checkForExistingAPI(dataStore, id)
   ngx.req.read_body()
@@ -159,7 +159,7 @@ function addAPI(dataStore)
   end
 end
 
-function deleteAPI(dataStore)
+local function deleteAPI(dataStore)
   local id = ngx.var.api_id
   if id == nil or id == '' then
     dataStore:close()
@@ -177,19 +177,19 @@ function deleteAPI(dataStore)
   end
 end
 
---- Check for api id from uri and use existing API if it already exists in redis
--- @param red Redis client instance
--- @param id API id to check
-function checkForExistingAPI(dataStore, id)
-  local existing
-  if id ~= nil and id ~= '' then
-    existing = dataStore:getAPI(id)
-    if existing == nil then
-      dataStore:close()
-      request.err(404, utils.concatStrings({"Unknown API id ", id}))
-    end
+--- Request handler for routing API calls appropriately
+function _M.requestHandler(dataStore)
+  local requestMethod = ngx.req.get_method()
+  ngx.header.content_type = "application/json; charset=utf-8"
+  if requestMethod == "GET" then
+    getAPIs(dataStore)
+  elseif requestMethod == 'POST' or requestMethod == 'PUT' then
+    addAPI(dataStore)
+  elseif requestMethod == "DELETE" then
+    deleteAPI(dataStore)
+  else
+    request.err(400, "Invalid verb.")
   end
-  return existing
 end
 
 return _M;

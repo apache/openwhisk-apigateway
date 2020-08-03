@@ -18,14 +18,201 @@
 --- @module swagger
 -- Module for parsing swagger file
 
-local _M = {}
 local utils = require "lib/utils"
+
+local _M = {}
+
+--- Parse request mapping
+local function parseRequestMapping(configObj)
+  local valueList = {}
+  if configObj ~= nil then
+    for _, obj in pairs(configObj.execute) do
+      for policy, v in pairs(obj) do
+        if policy == "set-variable" then
+          for _, actionObj in pairs(v.actions) do
+            local fromValue = actionObj.value
+            local toParsedArray = {string.match(actionObj.set, "([^.]+).([^.]+).([^.]+)") }
+            local toName = toParsedArray[3]
+            local toLocation = toParsedArray[2]
+            toLocation = toLocation == "headers" and "header" or toLocation
+            valueList[#valueList+1] = {
+              action = "insert",
+              from = {
+                value = fromValue
+              },
+              to = {
+                name = toName,
+                location = toLocation
+              }
+            }
+          end
+        end
+      end
+    end
+  end
+  if next(valueList) ~= nil then
+    return {
+      type = "reqMapping",
+      value = valueList
+    }
+  else
+    return nil
+  end
+end
+
+--- Parse backendUrl and backendMethod
+-- @param swagger swagger file to parse
+local function parseBackends(swagger)
+  local configObj = swagger["x-gateway-configuration"]
+  configObj = (configObj == nil) and swagger["x-ibm-configuration"] or configObj
+  if configObj ~= nil then
+    for _, obj in pairs(configObj.assembly.execute) do
+      for policy, v in pairs(obj) do
+        local res = {}
+        if policy == "operation-switch" then
+          local caseObj = v.case
+          for _, case in pairs(caseObj) do
+            for _, op in pairs(case.operations) do
+              res[op] = {}
+              for _, opPolicy in pairs(case.execute) do
+                if opPolicy.invoke ~= nil then
+                  res[op].backendUrl = opPolicy.invoke["target-url"]
+                  res[op].backendMethod = opPolicy.invoke.verb
+                elseif opPolicy["set-variable"] ~= nil then
+                  local reqMappingPolicy = parseRequestMapping(case)
+                  if reqMappingPolicy ~= nil then
+                    res[op].policy = reqMappingPolicy
+                  end
+                end
+              end
+            end
+          end
+          return res
+        end
+        if policy == "invoke" then
+          res["all"] = {
+            backendUrl = v["target-url"],
+            backendMethod = v.verb
+          }
+          return res
+        end
+      end
+    end
+  end
+end
+
+--- Parse rate limit
+local function parseRateLimit(rlObj)
+  if rlObj ~= nil and rlObj[1] ~= nil then
+    local unit
+    rlObj = rlObj[1]
+    if rlObj.unit == "second" then
+      unit = 1
+    elseif rlObj.unit == "minute" then
+      unit = 60
+    elseif rlObj.unit == "hour" then
+      unit = 3600
+    elseif rlObj.unit == "day" then
+      unit = 86400
+    else
+      unit = 60   -- default to minute
+    end
+    return {
+      type = "rateLimit",
+      value = {
+        interval = unit * rlObj.units,
+        rate = rlObj.rate,
+        scope = "api",
+        subscription = true
+      }
+    }
+  end
+  return nil
+end
+
+--- Parse policies in swagger
+-- @param swagger swagger file to parse
+local function parsePolicies(swagger)
+  local policies = {}
+  -- parse rate limit
+  local rlObj = swagger["x-gateway-rate-limit"]
+  rlObj = (rlObj == nil) and swagger["x-ibm-rate-limit"] or rlObj
+  local rateLimitPolicy = parseRateLimit(rlObj)
+  if rateLimitPolicy ~= nil then
+    policies[#policies+1] = rateLimitPolicy
+  end
+  -- parse set-variable
+  local configObj = swagger["x-gateway-configuration"]
+  configObj = (configObj == nil) and swagger["x-ibm-configuration"] or configObj
+  if configObj ~= nil then
+    local reqMappingPolicy = parseRequestMapping(configObj.assembly)
+    if reqMappingPolicy ~= nil then
+      policies[#policies+1] = reqMappingPolicy
+    end
+  end
+  return policies
+end
+
+--- Parse security in swagger
+-- @param swagger swagger file to parse
+local function parseSecurity(swagger)
+  local security = {}
+  if swagger["securityDefinitions"] ~= nil then
+    local secObject = swagger["securityDefinitions"]
+    if utils.tableLength(secObject) == 2 then
+      local secObj = {
+        type = 'clientSecret',
+        scope = 'api'
+      }
+      for key, sec in pairs(secObject) do
+        if key == 'client_id' then
+          secObj.idFieldName = sec.name
+        elseif key == 'client_secret' then
+          secObj.secretFieldName = sec.name
+        end
+      end
+      security[#security+1] = secObj
+    else
+      for key, sec in pairs(secObject) do
+        if sec.type == 'apiKey' then
+          security[#security+1] = {
+            type = sec.type,
+            scope = "api",
+            header = sec.name
+          }
+        elseif sec.type == 'oauth2' then
+          security[#security+1] = {
+            type = sec.type,
+            scope = "api",
+            provider = key
+          }
+        end
+      end
+    end
+  end
+  return security
+end
+
+local function parseCors(swagger)
+  local cors = { origin = nil, methods = nil }
+  local configObj = swagger["x-gateway-configuration"]
+  configObj = (configObj == nil) and swagger["x-ibm-configuration"] or configObj
+  if configObj.cors ~= nil then
+    if configObj.cors.enabled == true then
+      cors.origin = "true"
+    elseif configObj.cors.enabled == false then
+      cors.origin = "false"
+    end
+    return cors
+  end
+  return nil
+end
 
 -- Convert passed-in swagger body to valid lua table
 -- @param swagger swagger file to parse
 function _M.parseSwagger(swagger)
   local backends = parseBackends(swagger)
-  local policies = parseSwaggerPolicies(swagger)
+  local policies = parsePolicies(swagger)
   local security = parseSecurity(swagger)
   local corsObj = parseCors(swagger)
   local decoded = {
@@ -70,191 +257,6 @@ function _M.parseSwagger(swagger)
     end
   end
   return decoded
-end
-
---- Parse backendUrl and backendMethod
--- @param swagger swagger file to parse
-function parseBackends(swagger)
-  local configObj = swagger["x-gateway-configuration"]
-  configObj = (configObj == nil) and swagger["x-ibm-configuration"] or configObj
-  if configObj ~= nil then
-    for _, obj in pairs(configObj.assembly.execute) do
-      for policy, v in pairs(obj) do
-        local res = {}
-        if policy == "operation-switch" then
-          local caseObj = v.case
-          for _, case in pairs(caseObj) do
-            for _, op in pairs(case.operations) do
-              res[op] = {}
-              for _, opPolicy in pairs(case.execute) do
-                if opPolicy.invoke ~= nil then
-                  res[op].backendUrl = opPolicy.invoke["target-url"]
-                  res[op].backendMethod = opPolicy.invoke.verb
-                elseif opPolicy["set-variable"] ~= nil then
-                  local reqMappingPolicy = parseRequestMapping(case)
-                  if reqMappingPolicy ~= nil then
-                    res[op].policy = reqMappingPolicy
-                  end
-                end
-              end
-            end
-          end
-          return res
-        end
-        if policy == "invoke" then
-          res["all"] = {
-            backendUrl = v["target-url"],
-            backendMethod = v.verb
-          }
-          return res
-        end
-      end
-    end
-  end
-end
-
---- Parse policies in swagger
--- @param swagger swagger file to parse
-function parseSwaggerPolicies(swagger)
-  local policies = {}
-  -- parse rate limit
-  local rlObj = swagger["x-gateway-rate-limit"]
-  rlObj = (rlObj == nil) and swagger["x-ibm-rate-limit"] or rlObj
-  local rateLimitPolicy = parseRateLimit(rlObj)
-  if rateLimitPolicy ~= nil then
-    policies[#policies+1] = rateLimitPolicy
-  end
-  -- parse set-variable
-  local configObj = swagger["x-gateway-configuration"]
-  configObj = (configObj == nil) and swagger["x-ibm-configuration"] or configObj
-  if configObj ~= nil then
-    local reqMappingPolicy = parseRequestMapping(configObj.assembly)
-    if reqMappingPolicy ~= nil then
-      policies[#policies+1] = reqMappingPolicy
-    end
-  end
-  return policies
-end
-
---- Parse rate limit
-function parseRateLimit(rlObj)
-  if rlObj ~= nil and rlObj[1] ~= nil then
-    rlObj = rlObj[1]
-    if rlObj.unit == "second" then
-      unit = 1
-    elseif rlObj.unit == "minute" then
-      unit = 60
-    elseif rlObj.unit == "hour" then
-      unit = 3600
-    elseif rlObj.unit == "day" then
-      unit = 86400
-    else
-      unit = 60   -- default to minute
-    end
-    return {
-      type = "rateLimit",
-      value = {
-        interval = unit * rlObj.units,
-        rate = rlObj.rate,
-        scope = "api",
-        subscription = true
-      }
-    }
-  end
-  return nil
-end
-
---- Parse request mapping
-function parseRequestMapping(configObj)
-  local valueList = {}
-  if configObj ~= nil then
-    for _, obj in pairs(configObj.execute) do
-      for policy, v in pairs(obj) do
-        if policy == "set-variable" then
-          for _, actionObj in pairs(v.actions) do
-            local fromValue = actionObj.value
-            local toParsedArray = {string.match(actionObj.set, "([^.]+).([^.]+).([^.]+)") }
-            local toName = toParsedArray[3]
-            local toLocation = toParsedArray[2]
-            toLocation = toLocation == "headers" and "header" or toLocation
-            valueList[#valueList+1] = {
-              action = "insert",
-              from = {
-                value = fromValue
-              },
-              to = {
-                name = toName,
-                location = toLocation
-              }
-            }
-          end
-        end
-      end
-    end
-  end
-  if next(valueList) ~= nil then
-    return {
-      type = "reqMapping",
-      value = valueList
-    }
-  else
-    return nil
-  end
-end
-
---- Parse security in swagger
--- @param swagger swagger file to parse
-function parseSecurity(swagger)
-  local security = {}
-  if swagger["securityDefinitions"] ~= nil then
-    local secObject = swagger["securityDefinitions"]
-    if utils.tableLength(secObject) == 2 then
-      secObj = {
-        type = 'clientSecret',
-        scope = 'api'
-      }
-      for key, sec in pairs(secObject) do
-        if key == 'client_id' then
-          secObj.idFieldName = sec.name
-        elseif key == 'client_secret' then
-          secObj.secretFieldName = sec.name
-        end
-      end
-      security[#security+1] = secObj
-    else
-      for key, sec in pairs(secObject) do
-        if sec.type == 'apiKey' then
-          security[#security+1] = {
-            type = sec.type,
-            scope = "api",
-            header = sec.name
-          }
-        elseif sec.type == 'oauth2' then
-          security[#security+1] = {
-            type = sec.type,
-            scope = "api",
-            provider = key
-          }
-        end
-      end
-    end
-  end
-  return security
-end
-
-function parseCors(swagger)
-  local cors = { origin = nil, methods = nil }
-  local configObj = swagger["x-gateway-configuration"]
-  configObj = (configObj == nil) and swagger["x-ibm-configuration"] or configObj
-  if configObj.cors ~= nil then
-    if configObj.cors.enabled == true then
-      cors.origin = "true"
-    elseif configObj.cors.enabled == false then
-      cors.origin = "false"
-    end
-    return cors
-  end
-  return nil
 end
 
 return _M

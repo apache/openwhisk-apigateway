@@ -23,76 +23,35 @@ local utils = require "lib/utils"
 
 local _M = {}
 
-function _M.validate(dataStore, decoded)
-  local fields = {"name", "basePath", "tenantId", "resources"}
-  for _, v in pairs(fields) do
-    local res, err = isValid(dataStore, v, decoded[v])
-    if res == false then
-      return err
+--- Error checking for policies and security
+-- @param policies policies object
+-- @param security security object
+local function checkOptionalPolicies(policies, security)
+  if policies then
+    for _, v in pairs(policies) do
+      local validTypes = {"reqMapping", "rateLimit", "backendRouting"}
+      if (v.type == nil or v.value == nil) then
+        return false, { statusCode = 400, message = "Missing field in policy object. Need \"type\" and \"value\"." }
+      elseif utils.tableContains(validTypes, v.type) == false then
+        return false, { statusCode = 400, message = "Invalid type in policy object. Valid: " .. cjson.encode(validTypes) }
+      end
     end
   end
-  return nil
-end
-
---- Check JSON body fields for errors
--- @param ds edis client instance
--- @param field name of field
--- @param object field object
-function isValid(dataStore, field, object)
-  -- Check that field exists in body
-  if not object then
-    return false, { statusCode = 400, message = utils.concatStrings({"Missing field '", field, "' in request body."}) }
-  end
-  -- Additional check for basePath
-  if field == "basePath" then
-    local basePath = object
-    if string.match(basePath, "'") then
-      return false, { statusCode = 400, message = "basePath contains illegal character \"'\"." }
-    end
-  end
-  -- Additional check for tenantId
-  if field == "tenantId" then
-    local tenant = dataStore:getTenant(object)
-    if tenant == nil then
-      return false, { statusCode = 404, message = utils.concatStrings({"Unknown tenant id ", object }) }
-    end
-  end
-  if field == "resources" then
-    local res, err = checkResources(object)
-    if res ~= nil and res == false then
-      return res, err
-    end
-  end
-  -- All error checks passed
-  return true
-end
-
---- Error checking for resources
--- @param resources resources object
-function checkResources(resources)
-  if next(resources) == nil then
-    return false, { statusCode = 400, message = "Empty resources object." }
-  end
-  for path, resource in pairs(resources) do
-    -- Check resource path for illegal characters
-    if string.match(path, "'") then
-      return false, { statusCode = 400, message = "resource path contains illegal character \"'\"." }
-    end
-    -- Check that resource path begins with slash
-    if path:sub(1,1) ~= '/' then
-      return false, { statusCode = 400, message = "Resource path must begin with '/'." }
-    end
-    -- Check operations object
-    local res, err = checkOperations(resource.operations)
-    if res ~= nil and res == false then
-      return res, err
+  if security then
+    for _, sec in ipairs(security) do
+      local validScopes = {"tenant", "api", "resource"}
+      if (sec.type == nil or sec.scope == nil) then
+        return false, { statusCode = 400, message = "Missing field in security object. Need \"type\" and \"scope\"." }
+      elseif utils.tableContains(validScopes, sec.scope) == false then
+        return false, { statusCode = 400, message = "Invalid scope in security object. Valid: " .. cjson.encode(validScopes) }
+      end
     end
   end
 end
 
 --- Error checking for operations
 -- @param operations operations object
-function checkOperations(operations)
+local function checkOperations(operations)
   if not operations or next(operations) == nil then
     return false, { statusCode = 400, message = "Missing or empty field 'operations' or in resource path object." }
   end
@@ -122,30 +81,71 @@ function checkOperations(operations)
   end
 end
 
---- Error checking for policies and security
--- @param policies policies object
--- @param security security object
-function checkOptionalPolicies(policies, security)
-  if policies then
-    for _, v in pairs(policies) do
-      local validTypes = {"reqMapping", "rateLimit", "backendRouting"}
-      if (v.type == nil or v.value == nil) then
-        return false, { statusCode = 400, message = "Missing field in policy object. Need \"type\" and \"value\"." }
-      elseif utils.tableContains(validTypes, v.type) == false then
-        return false, { statusCode = 400, message = "Invalid type in policy object. Valid: " .. cjson.encode(validTypes) }
-      end
+--- Error checking for resources
+-- @param resources resources object
+local function checkResources(resources)
+  if next(resources) == nil then
+    return false, { statusCode = 400, message = "Empty resources object." }
+  end
+  for path, resource in pairs(resources) do
+    -- Check resource path for illegal characters
+    if string.match(path, "'") then
+      return false, { statusCode = 400, message = "resource path contains illegal character \"'\"." }
+    end
+    -- Check that resource path begins with slash
+    if path:sub(1,1) ~= '/' then
+      return false, { statusCode = 400, message = "Resource path must begin with '/'." }
+    end
+    -- Check operations object
+    local res, err = checkOperations(resource.operations)
+    if res ~= nil and res == false then
+      return res, err
     end
   end
-  if security then
-    for _, sec in ipairs(security) do
-      local validScopes = {"tenant", "api", "resource"}
-      if (sec.type == nil or sec.scope == nil) then
-        return false, { statusCode = 400, message = "Missing field in security object. Need \"type\" and \"scope\"." }
-      elseif utils.tableContains(validScopes, sec.scope) == false then
-        return false, { statusCode = 400, message = "Invalid scope in security object. Valid: " .. cjson.encode(validScopes) }
-      end
+end
+
+--- Check JSON body fields for errors
+-- @param ds edis client instance
+-- @param field name of field
+-- @param object field object
+local function isValid(dataStore, field, object)
+  -- Check that field exists in body
+  if not object then
+    return false, { statusCode = 400, message = utils.concatStrings({"Missing field '", field, "' in request body."}) }
+  end
+  -- Additional check for basePath
+  if field == "basePath" then
+    local basePath = object
+    if string.match(basePath, "'") then
+      return false, { statusCode = 400, message = "basePath contains illegal character \"'\"." }
     end
   end
+  -- Additional check for tenantId
+  if field == "tenantId" then
+    local tenant = dataStore:getTenant(object)
+    if tenant == nil then
+      return false, { statusCode = 404, message = utils.concatStrings({"Unknown tenant id ", object }) }
+    end
+  end
+  if field == "resources" then
+    local res, err = checkResources(object)
+    if res ~= nil and res == false then
+      return res, err
+    end
+  end
+  -- All error checks passed
+  return true
+end
+
+function _M.validate(dataStore, decoded)
+  local fields = {"name", "basePath", "tenantId", "resources"}
+  for _, v in pairs(fields) do
+    local res, err = isValid(dataStore, v, decoded[v])
+    if res == false then
+      return err
+    end
+  end
+  return nil
 end
 
 return _M
