@@ -24,18 +24,20 @@ local _M = {}
 --- Loads a lua gracefully. If the module doesn't exist the exception is caught, logged and the execution continues
 -- @param module path to the module to be loaded
 --
-local function loadrequire(module)
-    ngx.log(ngx.DEBUG, "Loading module [" .. tostring(module) .. "]")
+local function loadrequire(mod)
+    ngx.log(ngx.DEBUG, "Loading module [" .. tostring(mod) .. "]")
     local function requiref(module)
         require(module)
     end
 
-    local res = pcall(requiref, module)
+    local res = pcall(requiref, mod)
     if not (res) then
-        ngx.log(ngx.WARN, "Could not load module [", module, "].")
+        ngx.log(ngx.WARN, "Could not load module [", mod, "].")
         return nil
     end
-    return require(module)
+    return require(mod)
 end
+
+_M.loadrequire = loadrequire
 
 ngx.apiGateway = _M

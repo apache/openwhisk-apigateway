@@ -18,7 +18,6 @@
 --- @module subscriptions
 -- Management interface for subscriptions for the gateway
 
-local redis = require "lib/redis"
 local utils = require "lib/utils"
 
 local _M = {}

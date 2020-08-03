@@ -19,7 +19,6 @@
 -- Management interface for resources for the gateway
 
 local utils = require "lib/utils"
-local cjson = require "cjson"
 local REDIS_FIELD = "resources"
 local _M = {}
 
