@@ -21,7 +21,6 @@ local _M = {}
 
 local utils = require "lib/utils"
 local request = require "lib/request"
-local logger = require "lib/logger"
 
 --- Validate that the subscription exists in the dataStore
 -- @param dataStore the datastore object

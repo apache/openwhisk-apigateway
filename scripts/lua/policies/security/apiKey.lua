@@ -20,7 +20,6 @@
 
 local utils = require "lib/utils"
 local request = require "lib/request"
-local logger = require "lib/logger"
 
 local _M = {}
 
