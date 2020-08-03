@@ -27,7 +27,7 @@ local _Request = {}
 --- Error function to call when request is malformed
 -- @param code error code
 -- @param msg error message
-function err(code, msg)
+local function err(code, msg)
   ngx.header.content_type = "application/json; charset=utf-8"
   ngx.status = code
   local errObj = cjson.encode({
@@ -41,7 +41,7 @@ end
 --- Function to call when request is successful
 -- @param code status code
 -- @param obj JSON encoded object to return
-function success(code, obj)
+local function success(code, obj)
   ngx.status = code
   if obj ~= nil then
     ngx.say(obj)

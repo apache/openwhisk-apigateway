@@ -26,7 +26,7 @@ local _M = {}
 -- @param dataStore the datastore object
 -- @param obj rateLimit object containing interval, rate, scope, subscription fields
 -- @param apiKey optional api key to use if subscription is set to true
-function limit(dataStore, obj, apiKey)
+local function limit(dataStore, obj, apiKey)
   local rate = obj.interval / obj.rate
   local tenantId = ngx.var.tenant
   local gatewayPath = ngx.var.gatewayPath

@@ -44,6 +44,46 @@ local SNAPSHOTTING = os.getenv('SNAPSHOTTING')
 
 local _M = {}
 
+local function setRequestLogs()
+  local requestHeaders = ngx.req.get_headers()
+  for k, v in pairs(requestHeaders) do
+    if k == 'authorization' or k == ngx.ctx.clientSecretName then
+      requestHeaders[k] = '[redacted]'
+    end
+  end
+  ngx.var.requestHeaders = cjson.encode(requestHeaders)
+  ngx.req.read_body()
+  ngx.var.requestBody = ngx.req.get_body_data()
+end
+
+--- Function to read the list of policies and send implementation to the correct backend
+-- @param red redis client instance
+-- @param obj List of policies containing a type and value field. This function reads the type field and routes it appropriately.
+-- @param apiKey optional subscription api key
+local function parsePolicies(dataStore, obj, apiKey)
+  for k, v in pairs (obj) do
+    if v.type == 'reqMapping' then
+      mapping.processMap(v.value)
+    elseif v.type == 'rateLimit' then
+      rateLimit.limit(dataStore, v.value, apiKey)
+    elseif v.type == 'backendRouting' then
+      backendRouting.setDynamicRoute(v.value)
+    end
+  end
+end
+
+--- Given a verb, transforms the backend request to use that method
+-- @param v Verb to set on the backend request
+local function setVerb(v)
+  local allowedVerbs = {'GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'}
+  local verb = string.upper(v)
+  if utils.tableContains(allowedVerbs, verb) then
+    ngx.req.set_method(ngx[utils.concatStrings({"HTTP_", verb})])
+  else
+    ngx.req.set_method(ngx.HTTP_GET)
+  end
+end
+
 --- Main function that handles parsing of invocation details and carries out implementation
 function _M.processCall(dataStore)
   -- Get request headers
@@ -154,7 +194,7 @@ function _M.findResource(dataStore, tenant, path)
   end
 
   local resourceKeys = dataStore:getAllResources(tenant)
-  local result = _M.slowLookup(resourceKeys, tenant, path, redisKey, cfRedisKey)
+  result = _M.slowLookup(resourceKeys, tenant, path, redisKey, cfRedisKey)
 
   if OPTIMIZE > 0 and result ~= nil then
     dataStore:optimizeLookup(tenant, result, path)
@@ -177,6 +217,7 @@ function _M.slowLookup(resourceKeys, tenant, path, redisKey, cfRedisKey)
       return key
     end
   end
+  local cfUrl = ngx.req.get_headers()["x-cf-forwarded-url"]
   if cfUrl ~= nil and cfUrl ~= "" then
     return nil
   end
@@ -240,46 +281,6 @@ function _M.pathParamMatch(key, resourceKey)
     end
   end
   return false
-end
-
---- Function to read the list of policies and send implementation to the correct backend
--- @param red redis client instance
--- @param obj List of policies containing a type and value field. This function reads the type field and routes it appropriately.
--- @param apiKey optional subscription api key
-function parsePolicies(dataStore, obj, apiKey)
-  for k, v in pairs (obj) do
-    if v.type == 'reqMapping' then
-      mapping.processMap(v.value)
-    elseif v.type == 'rateLimit' then
-      rateLimit.limit(dataStore, v.value, apiKey)
-    elseif v.type == 'backendRouting' then
-      backendRouting.setDynamicRoute(v.value)
-    end
-  end
-end
-
---- Given a verb, transforms the backend request to use that method
--- @param v Verb to set on the backend request
-function setVerb(v)
-  local allowedVerbs = {'GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'}
-  local verb = string.upper(v)
-  if utils.tableContains(allowedVerbs, verb) then
-    ngx.req.set_method(ngx[utils.concatStrings({"HTTP_", verb})])
-  else
-    ngx.req.set_method(ngx.HTTP_GET)
-  end
-end
-
-function setRequestLogs()
-  local requestHeaders = ngx.req.get_headers()
-  for k, v in pairs(requestHeaders) do
-    if k == 'authorization' or k == _G.clientSecretName then
-      requestHeaders[k] = '[redacted]'
-    end
-  end
-  ngx.var.requestHeaders = cjson.encode(requestHeaders)
-  ngx.req.read_body()
-  ngx.var.requestBody = ngx.req.get_body_data()
 end
 
 function _M.setResponseLogs()

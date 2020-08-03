@@ -20,20 +20,37 @@
 
 local utils = require "lib/utils"
 local request = require "lib/request"
-local dataStore = require "lib/dataStore"
-local cjson = require "cjson"
-
-local REDIS_HOST = os.getenv("REDIS_HOST")
-local REDIS_PORT = os.getenv("REDIS_PORT")
-local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
+--- Exchange tokens with an oauth provider. Loads a provider based on configuration in the nginx.conf
+-- @param dataStore the datastore object
+-- @param token the accessToken passed in the authorization header of the routing request
+-- @param provider the name of the provider we will load from a file. Currently supported google/github/facebook
+-- @return the json object recieved from exchanging tokens with the provider
+local function exchange(dataStore, token, provider, securityObj)
+  -- exchange tokens with the provider
+  local loaded, impl = pcall(require, utils.concatStrings({'oauth/', provider}))
+  if not loaded then
+    request.err(500, 'Error loading OAuth provider authentication module')
+    print("error loading provider:", impl)
+    return nil
+  end
+
+  local result = impl.process(dataStore, token, securityObj)
+  if result == nil then
+    request.err('401', 'OAuth token didn\'t work or provider doesn\'t support OpenID connect')
+  end
+  -- cache the token
+  return result
+end
 
 -- Process the security object
 -- @param securityObj security object from nginx conf file
 -- @return oauthId oauth identification
-function process(dataStore, securityObj)
+local function process(dataStore, securityObj)
+  ngx.log(ngx.DEBUG, "Processing OAUTH2 security policy")
+
   local accessToken = ngx.var['http_Authorization']
   if accessToken == nil then
     request.err(401, "No Authorization header provided")
@@ -54,28 +71,6 @@ function process(dataStore, securityObj)
   end
 
   return token
-end
-
---- Exchange tokens with an oauth provider. Loads a provider based on configuration in the nginx.conf
--- @param dataStore the datastore object
--- @param token the accessToken passed in the authorization header of the routing request
--- @param provider the name of the provider we will load from a file. Currently supported google/github/facebook
--- @return the json object recieved from exchanging tokens with the provider
-function exchange(dataStore, token, provider, securityObj)
-    -- exchange tokens with the provider
-    local loaded, impl = pcall(require, utils.concatStrings({'oauth/', provider}))
-    if not loaded then
-      request.err(500, 'Error loading OAuth provider authentication module')
-      print("error loading provider:", impl)
-      return nil
-    end
-
-    local result = impl.process(dataStore, token, securityObj)
-    if result == nil then
-      request.err('401', 'OAuth token didn\'t work or provider doesn\'t support OpenID connect')
-    end
-    -- cache the token
-    return result
 end
 
 _M.process = process

@@ -26,6 +26,14 @@ local backendOverride = os.getenv("BACKEND_HOST")
 
 local _M = {}
 
+local function setUpstream(u)
+  local upstream = utils.concatStrings({u.scheme, '://', u.host})
+  if u.port ~= nil and u.port ~= '' then
+    upstream = utils.concatStrings({upstream, ':', u.port})
+  end
+  ngx.var.upstream = upstream
+end
+
 --- Set upstream based on the backendUrl
 function _M.setRoute(backendUrl, gatewayPath)
   _M.setRouteWithOverride(backendUrl, gatewayPath, backendOverride)
@@ -107,14 +115,6 @@ function _M.getUriPath(backendPath)
   else
     return utils.concatStrings({backendPath, incomingPath})
   end
-end
-
-function setUpstream(u)
-  local upstream = utils.concatStrings({u.scheme, '://', u.host})
-  if u.port ~= nil and u.port ~= '' then
-    upstream = utils.concatStrings({upstream, ':', u.port})
-  end
-  ngx.var.upstream = upstream
 end
 
 return _M

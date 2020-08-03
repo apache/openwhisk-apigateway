@@ -67,7 +67,7 @@ end
 -- @return concatenated string of (?<path_pathParam>(\\w+))
 function _Utils.convertTemplatedPathParam(m)
   local x = m:gsub("{", ""):gsub("}", "")
-  return concatStrings({"(?<path_" , x , ">([a-zA-Z0-9\\-\\s\\_\\%]*))"})
+  return _Utils.concatStrings({"(?<path_" , x , ">([a-zA-Z0-9\\-\\s\\_\\%]*))"})
 end
 
 --- Generate random uuid

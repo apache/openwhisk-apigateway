@@ -30,33 +30,58 @@ local query
 local headers
 local path
 
---- Implementation for the mapping policy.
--- @param map The mapping object that contains details about request tranformations
-function processMap(map)
-  getRequestParams()
-  for k, v in pairs(map) do
-    if v.action == "insert" then
-      insertParam(v)
-    elseif v.action == "remove" then
-      removeParam(v)
-    elseif v.action == "transform" then
-      transformParam(v)
-    elseif v.action == "default" then
-      checkDefault(v)
-    else
-      logger.err(utils.concatStrings({'Map action not recognized. Skipping... ', v.action}))
-    end
+local function insertHeader(k, v)
+  ngx.req.set_header(k, v)
+  headers[k] = v
+end
+
+local function insertQuery(k, v)
+  query[k] = v
+end
+
+local function insertBody(k, v)
+  body[k] = v
+end
+
+local function insertPath(k, v)
+  v = ngx.unescape_uri(v)
+  path = path:gsub(utils.concatStrings({"%{", k ,"%}"}), v)
+  ngx.req.set_uri(path)
+end
+
+local function removeHeader(k)
+  ngx.req.clear_header(k)
+end
+
+local function removeQuery(k)
+  query[k] = nil
+end
+
+local function removeBody(k)
+  body[k] = nil
+end
+
+local function decodeQuery(param)
+  local decoded = param:gsub('+', ' '):gsub('%%(%x%x)',
+    function(hex) return string.char(tonumber(hex, 16)) end)
+  return decoded
+end
+
+local function parseUrl(url)
+  local map = {}
+  for k,v in url:gmatch('([^&=?]+)=([^&=?]+)') do
+    map[ k ] = decodeQuery(v)
   end
-  finalize()
+  return map
 end
 
 --- Get request body, params, and headers from incoming requests
-function getRequestParams()
+local function getRequestParams()
   ngx.req.read_body()
   body = ngx.req.get_body_data()
   if body ~= nil then
     -- decode body if json
-    decoded, err = cjson.decode(body)
+    local decoded, err = cjson.decode(body)
     if err == nil then
       body = decoded
     end
@@ -74,7 +99,7 @@ end
 
 --- Insert parameter value to header, body, or query params into request
 -- @param m Parameter value to add to request
-function insertParam(m)
+local function insertParam(m)
   local v
   local k = m.to.name
   if m.from.value ~= nil then
@@ -102,7 +127,7 @@ end
 
 --- Remove parameter value to header, body, or query params from request
 -- @param m Parameter value to remove from request
-function removeParam(m)
+local function removeParam(m)
   if m.from.location == "header" then
     removeHeader(m.from.name)
   elseif m.from.location == "query" then
@@ -112,35 +137,12 @@ function removeParam(m)
   end
 end
 
---- Move parameter value from one location to another in the request
--- @param m Parameter value to move within request
-function transformParam(m)
-  if m.from.name == '*' then
-    transformAllParams(m.from.location, m.to.location)
-  else
-    insertParam(m)
-    removeParam(m)
-  end
-end
-
---- Checks if the header has been set, and sets the header to a value if found to be null.
--- @param m Header name and value to be set, if header is null.
-function checkDefault(m)
-  if m.to.location == "header" and headers[m.to.name] == nil then
-    insertHeader(m.to.name, m.from.value)
-  elseif m.to.location == "query" and query[m.to.name] == nil then
-    insertQuery(m.to.name, m.from.value)
-  elseif m.to.location == "body" and body[m.to.name] == nil then
-    insertBody(m.to.name, m.from.value)
-  end
-end
-
 --- Function to handle wildcarding in the transform process.
 -- If the value in the from object is '*', this function will pull all values from the incoming request
 -- and move them to the location provided in the to object
 -- @param s The source object from which we pull all parameters
 -- @param d The destination object that we will move all found parameters to.
-function transformAllParams(s, d)
+local function transformAllParams(s, d)
   if s == 'query' then
     for k, v in pairs(query) do
       local t = {}
@@ -192,7 +194,30 @@ function transformAllParams(s, d)
   end
 end
 
-function finalize()
+--- Move parameter value from one location to another in the request
+-- @param m Parameter value to move within request
+local function transformParam(m)
+  if m.from.name == '*' then
+    transformAllParams(m.from.location, m.to.location)
+  else
+    insertParam(m)
+    removeParam(m)
+  end
+end
+
+--- Checks if the header has been set, and sets the header to a value if found to be null.
+-- @param m Header name and value to be set, if header is null.
+local function checkDefault(m)
+  if m.to.location == "header" and headers[m.to.name] == nil then
+    insertHeader(m.to.name, m.from.value)
+  elseif m.to.location == "query" and query[m.to.name] == nil then
+    insertQuery(m.to.name, m.from.value)
+  elseif m.to.location == "body" and body[m.to.name] == nil then
+    insertBody(m.to.name, m.from.value)
+  end
+end
+
+local function finalize()
   if type(body) == 'table' and next(body) ~= nil then
     local bodyJson = cjson.encode(body)
     ngx.req.set_body_data(bodyJson)
@@ -200,49 +225,24 @@ function finalize()
   ngx.req.set_uri_args(query)
 end
 
-function insertHeader(k, v)
-  ngx.req.set_header(k, v)
-  headers[k] = v
-end
-
-function insertQuery(k, v)
-  query[k] = v
-end
-
-function insertBody(k, v)
-  body[k] = v
-end
-
-function insertPath(k, v)
-  v = ngx.unescape_uri(v)
-  path = path:gsub(utils.concatStrings({"%{", k ,"%}"}), v)
-  ngx.req.set_uri(path)
-end
-
-function removeHeader(k)
-  ngx.req.clear_header(k)
-end
-
-function removeQuery(k)
-  query[k] = nil
-end
-
-function removeBody(k)
-  body[k] = nil
-end
-
-function parseUrl(url)
-  local map = {}
-  for k,v in url:gmatch('([^&=?]+)=([^&=?]+)') do
-    map[ k ] = decodeQuery(v)
+--- Implementation for the mapping policy.
+-- @param map The mapping object that contains details about request tranformations
+local function processMap(map)
+  getRequestParams()
+  for k, v in pairs(map) do
+    if v.action == "insert" then
+      insertParam(v)
+    elseif v.action == "remove" then
+      removeParam(v)
+    elseif v.action == "transform" then
+      transformParam(v)
+    elseif v.action == "default" then
+      checkDefault(v)
+    else
+      logger.err(utils.concatStrings({'Map action not recognized. Skipping... ', v.action}))
+    end
   end
-  return map
-end
-
-function decodeQuery(param)
-  local decoded = param:gsub('+', ' '):gsub('%%(%x%x)',
-    function(hex) return string.char(tonumber(hex, 16)) end)
-  return decoded
+  finalize()
 end
 
 _M.processMap = processMap

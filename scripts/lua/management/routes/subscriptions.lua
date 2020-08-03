@@ -30,119 +30,7 @@ local REDIS_PASS = os.getenv("REDIS_PASS")
 
 local _M = {}
 
-function _M.requestHandler(dataStore)
-  local version = ngx.var.version
-  if version == "v2" then
-    v2(dataStore)
-  elseif version == "v1" then
-    v1(dataStore)
-  else
-    request.err(404, "404 Not found")
-  end
-end
-
-
--- v2 --
-
-function v2(dataStore)
-  local requestMethod = ngx.req.get_method()
-  if requestMethod == "POST" or requestMethod == "PUT" then
-    v2AddSubscription(dataStore)
-  elseif requestMethod == "GET" then
-    v2GetSubscriptions(dataStore)
-  elseif requestMethod == "DELETE" then
-    v2DeleteSubscription(dataStore)
-  else
-    dataStore:close()
-    request.err(400, "Invalid verb")
-  end
-end
-
-function v2AddSubscription(dataStore)
-  ngx.req.read_body()
-  local args = ngx.req.get_body_data()
-  if not args then
-    dataStore:close()
-    request.err(400, "Missing request body.")
-  end
-  local decoded = cjson.decode(args)
-  local res, err = utils.tableContainsAll(decoded, {"client_id", "artifact_id"})
-  if res == false then
-    request.err(err.statusCode, err.message)
-  end
-  local artifactId = decoded.artifact_id
-  local tenantId = ngx.var.tenant_id
-  local clientId = decoded.client_id
-  local clientSecret = decoded.client_secret
-  subscriptions.addSubscription(dataStore, artifactId, tenantId, clientId, clientSecret, utils.hash)
-  dataStore:close()
-  local result = {
-    message = utils.concatStrings({"Subscription '", clientId, "' created for API '", artifactId, "'"})
-  }
-  ngx.header.content_type = "application/json; charset=utf-8"
-  request.success(200, cjson.encode(result))
-end
-
-function v2GetSubscriptions(dataStore)
-  local tenantId = ngx.var.tenant_id
-  local artifactId = ngx.req.get_uri_args()["artifact_id"]
-  if artifactId == nil or artifactId == "" then
-    request.err(400, "Missing artifact_id")
-  end
-  local subscriptionList = subscriptions.getSubscriptions(dataStore, artifactId, tenantId)
-  redis.close(red)
-  ngx.header.content_type = "application/json; charset=utf-8"
-  request.success(200, cjson.encode(subscriptionList))
-end
-
-function v2DeleteSubscription(dataStore)
-  local clientId = ngx.var.client_id
-  local tenantId = ngx.var.tenant_id
-  local artifactId = ngx.req.get_uri_args()["artifact_id"]
-  if clientId == nil or clientId == "" then
-    request.err(400, "Missing client_id")
-  end
-  if artifactId == nil or artifactId == "" then
-    request.err(400, "Missing artifact_id")
-  end
-  local res = subscriptions.deleteSubscription(dataStore, artifactId, tenantId, clientId)
-  if res == false then
-    request.err(404, "Subscription doesn't exist")
-  end
-  redis.close(red)
-  request.success(204)
-end
-
-
--- v1 --
-
-function v1(dataStore)
-  local requestMethod = ngx.req.get_method()
-  if requestMethod == "POST" or requestMethod == "PUT" then
-    addSubscription(dataStore)
-  elseif requestMethod == "DELETE" then
-    deleteSubscription(dataStore)
-  else
-    dataStore:close()
-    request.err(400, "Invalid verb")
-  end
-end
-
-function addSubscription(dataStore)
-  local redisKey = validateSubscriptionBody(dataStore)
-  dataStore:createSubscription(redisKey)
-  dataStore:close()
-  request.success(200, "Subscription created.")
-end
-
-function deleteSubscription(dataStore)
-  local redisKey = validateSubscriptionBody(dataStore)
-  dataStore:deleteSubscription(redisKey)
-  dataStore:close()
-  request.success(200, "Subscription deleted.")
-end
-
-function validateSubscriptionBody(dataStore)
+local function validateSubscriptionBody(dataStore)
   -- Read in the PUT JSON Body
   ngx.req.read_body()
   local args = ngx.req.get_body_data()
@@ -186,6 +74,116 @@ function validateSubscriptionBody(dataStore)
   end
   redisKey = utils.concatStrings({redisKey, ":key:", decoded.key})
   return redisKey
+end
+
+local function addSubscription(dataStore)
+  local redisKey = validateSubscriptionBody(dataStore)
+  dataStore:createSubscription(redisKey)
+  dataStore:close()
+  request.success(200, "Subscription created.")
+end
+
+local function deleteSubscription(dataStore)
+  local redisKey = validateSubscriptionBody(dataStore)
+  dataStore:deleteSubscription(redisKey)
+  dataStore:close()
+  request.success(200, "Subscription deleted.")
+end
+
+-- v2 --
+
+local function v2AddSubscription(dataStore)
+  ngx.req.read_body()
+  local args = ngx.req.get_body_data()
+  if not args then
+    dataStore:close()
+    request.err(400, "Missing request body.")
+  end
+  local decoded = cjson.decode(args)
+  local res, err = utils.tableContainsAll(decoded, {"client_id", "artifact_id"})
+  if res == false then
+    request.err(err.statusCode, err.message)
+  end
+  local artifactId = decoded.artifact_id
+  local tenantId = ngx.var.tenant_id
+  local clientId = decoded.client_id
+  local clientSecret = decoded.client_secret
+  subscriptions.addSubscription(dataStore, artifactId, tenantId, clientId, clientSecret, utils.hash)
+  dataStore:close()
+  local result = {
+    message = utils.concatStrings({"Subscription '", clientId, "' created for API '", artifactId, "'"})
+  }
+  ngx.header.content_type = "application/json; charset=utf-8"
+  request.success(200, cjson.encode(result))
+end
+
+local function v2GetSubscriptions(dataStore)
+  local tenantId = ngx.var.tenant_id
+  local artifactId = ngx.req.get_uri_args()["artifact_id"]
+  if artifactId == nil or artifactId == "" then
+    request.err(400, "Missing artifact_id")
+  end
+  local subscriptionList = subscriptions.getSubscriptions(dataStore, artifactId, tenantId)
+  dataStore:close()
+  ngx.header.content_type = "application/json; charset=utf-8"
+  request.success(200, cjson.encode(subscriptionList))
+end
+
+local function v2DeleteSubscription(dataStore)
+  local clientId = ngx.var.client_id
+  local tenantId = ngx.var.tenant_id
+  local artifactId = ngx.req.get_uri_args()["artifact_id"]
+  if clientId == nil or clientId == "" then
+    request.err(400, "Missing client_id")
+  end
+  if artifactId == nil or artifactId == "" then
+    request.err(400, "Missing artifact_id")
+  end
+  local res = subscriptions.deleteSubscription(dataStore, artifactId, tenantId, clientId)
+  if res == false then
+    request.err(404, "Subscription doesn't exist")
+  end
+  dataStore:close()
+  request.success(204)
+end
+
+local function v2(dataStore)
+  local requestMethod = ngx.req.get_method()
+  if requestMethod == "POST" or requestMethod == "PUT" then
+    v2AddSubscription(dataStore)
+  elseif requestMethod == "GET" then
+    v2GetSubscriptions(dataStore)
+  elseif requestMethod == "DELETE" then
+    v2DeleteSubscription(dataStore)
+  else
+    dataStore:close()
+    request.err(400, "Invalid verb")
+  end
+end
+
+-- v1 --
+
+local function v1(dataStore)
+  local requestMethod = ngx.req.get_method()
+  if requestMethod == "POST" or requestMethod == "PUT" then
+    addSubscription(dataStore)
+  elseif requestMethod == "DELETE" then
+    deleteSubscription(dataStore)
+  else
+    dataStore:close()
+    request.err(400, "Invalid verb")
+  end
+end
+
+function _M.requestHandler(dataStore)
+  local version = ngx.var.version
+  if version == "v2" then
+    v2(dataStore)
+  elseif version == "v1" then
+    v1(dataStore)
+  else
+    request.err(404, "404 Not found")
+  end
 end
 
 return _M

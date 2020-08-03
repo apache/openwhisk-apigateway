@@ -20,25 +20,8 @@ local cjson = require 'cjson'
 local utils = require "lib/utils"
 
 local _M = {}
-function _M.process(dataStore, token)
 
-  local headerName = utils.concatStrings({'http_', 'x-facebook-app-token'}):gsub("-", "_")
-
-  local facebookAppToken = ngx.var[headerName]
-  if facebookAppToken == nil then
-    request.err(401, 'Facebook requires you provide an app token to validate user tokens. Provide a X-Facebook-App-Token header')
-    return nil
-  end
-
-  local result = dataStore:getOAuthToken('facebook', utils.concatStrings({token, facebookAppToken}))
-  if result ~= ngx.null then
-    return cjson.decode(result)
-  end
-
-   return exchangeOAuthToken(dataStore, token, facebookAppToken)
-end
-
-function exchangeOAuthToken(dataStore, token, facebookAppToken)
+local function exchangeOAuthToken(dataStore, token, facebookAppToken)
   local http = require 'resty.http'
   local request = require "lib/request"
   local httpc = http.new()
@@ -71,6 +54,24 @@ function exchangeOAuthToken(dataStore, token, facebookAppToken)
   local ttl = json_resp.data['expires_at'] - os.time()
   dataStore:saveOAuthToken('facebook', utils.concatStrings({token, facebookAppToken}), cjson.encode(json_resp), ttl)
   return json_resp
+end
+
+function _M.process(dataStore, token)
+
+  local headerName = utils.concatStrings({'http_', 'x-facebook-app-token'}):gsub("-", "_")
+
+  local facebookAppToken = ngx.var[headerName]
+  if facebookAppToken == nil then
+    request.err(401, 'Facebook requires you provide an app token to validate user tokens. Provide a X-Facebook-App-Token header')
+    return nil
+  end
+
+  local result = dataStore:getOAuthToken('facebook', utils.concatStrings({token, facebookAppToken}))
+  if result ~= ngx.null then
+    return cjson.decode(result)
+  end
+
+   return exchangeOAuthToken(dataStore, token, facebookAppToken)
 end
 
 return _M

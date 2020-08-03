@@ -32,6 +32,33 @@ GATEWAY_URL = (GATEWAY_URL ~= nil and GATEWAY_URL ~= '') and GATEWAY_URL or util
 
 local _M = {}
 
+--- Filter APIs based on query parameters
+-- @param apis list of apis
+-- @param queryParams query parameters to filter tenants
+local function filterAPIs(apis, queryParams)
+  local basePath = queryParams['filter[where][basePath]']
+  basePath = basePath == nil and queryParams['basePath'] or basePath
+  local name = queryParams['filter[where][name]']
+  name = name == nil and queryParams['title'] or name
+  -- missing or invalid query parameters
+  if (basePath == nil and name == nil) then
+    return nil
+  end
+  -- filter tenants
+  local apiList = {}
+  for k, v in pairs(apis) do
+    if k%2 == 0 then
+      local api = cjson.decode(v)
+      if (basePath ~= nil and name == nil and api.basePath == basePath) or
+          (name ~= nil and basePath == nil and api.name == name) or
+          (basePath ~= nil and name ~= nil and api.basePath == basePath and api.name == name) then
+        apiList[#apiList+1] = api
+      end
+    end
+  end
+  return apiList
+end
+
 --- Get all APIs in redis
 -- @param ds dataStore.client
 -- @param queryParams object containing optional query parameters
@@ -135,33 +162,6 @@ function _M.deleteAPI(dataStore, id)
     resources.deleteResource(dataStore, gatewayPath, api.tenantId)
   end
   return {}
-end
-
---- Filter APIs based on query parameters
--- @param apis list of apis
--- @param queryParams query parameters to filter tenants
-function filterAPIs(apis, queryParams)
-  local basePath = queryParams['filter[where][basePath]']
-  basePath = basePath == nil and queryParams['basePath'] or basePath
-  local name = queryParams['filter[where][name]']
-  name = name == nil and queryParams['title'] or name
-  -- missing or invalid query parameters
-  if (basePath == nil and name == nil) then
-    return nil
-  end
-  -- filter tenants
-  local apiList = {}
-  for k, v in pairs(apis) do
-    if k%2 == 0 then
-      local api = cjson.decode(v)
-      if (basePath ~= nil and name == nil and api.basePath == basePath) or
-          (name ~= nil and basePath == nil and api.name == name) or
-          (basePath ~= nil and name ~= nil and api.basePath == basePath and api.name == name) then
-        apiList[#apiList+1] = api
-      end
-    end
-  end
-  return apiList
 end
 
 return _M

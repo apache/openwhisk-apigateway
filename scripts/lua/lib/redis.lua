@@ -102,6 +102,169 @@ function _M.close(red)
   end
 end
 
+-- LRU Caching methods
+
+--- Call function with retry logic
+-- @param func function to call
+-- @param args arguments to pass in to function
+local function call(func, args)
+  local res, err = func(unpack(args))
+  local retryCount = REDIS_RETRY_COUNT
+  while not res and retryCount > 0 do
+    res, err = func(unpack(args))
+    retryCount = retryCount - 1
+  end
+  return res, err
+end
+
+local function exists(red, key, snapshotId)
+  if snapshotId ~= nil then
+    key = utils.concatStrings({'snapshots:', snapshotId, ':', key})
+  end
+  if CACHING_ENABLED then
+    local cached = c:get(key)
+    if cached ~= nil then
+      return 1
+    end
+  -- if it isn't in the cache, try and load it in there
+    if red == nil then
+      red = _M.init()
+    end
+    local result = red:get(key)
+    if result ~= ngx.null then
+      c:set(key, result, CACHE_TTL)
+      return 1, red
+    end
+    return 0
+  else
+    if red == nil then
+      red = _M.init()
+    end
+    return call(red.exists, {red, key}), red
+  end
+end
+
+local function get(red, key)
+  if CACHING_ENABLED then
+    local cached, stale = c:get(key)
+    if cached ~= nil then
+      return cached
+    else
+      if red == nil then
+        red = _M.init()
+      end
+      local result = red:get(key)
+      c:set(key, result, CACHE_TTL)
+      return result, red
+    end
+  else
+    if red == nil then
+      red = _M.init()
+    end
+    return call(red.get, {red, key})
+  end
+end
+
+local function hget(red, key, id)
+  if CACHING_ENABLED then
+    local cachedmap, stale = c:get(key)
+    if cachedmap ~= nil then
+      local cached = cachedmap:get(id)
+      if cached ~= nil then
+         return cached
+      else
+        if red == nil then
+          red = _M.init()
+        end
+        local result = red:hget(key, id)
+        cachedmap:set(id, result, CACHE_TTL)
+        c:set(key, cachedmap, CACHE_TTL)
+        return result, red
+      end
+    else
+      if red == nil then
+        red = _M.init()
+      end
+      local result = red:hget(key, id)
+      local newcache = lrucache.new(CACHE_SIZE)
+      newcache:set(id, result, CACHE_TTL)
+      c:set(key, newcache, CACHE_TTL)
+      return result, red
+    end
+  else
+    if red == nil then
+      red = _M.init()
+    end
+    return call(red.hget, {red, key, id}), red
+  end
+end
+
+local function hgetall(red, key)
+  return call(red.hgetall, {red, key})
+end
+
+local function hset(red, key, id, value)
+  if CACHING_ENABLED then
+    local cachedmap = c:get(key)
+    if cachedmap ~= nil then
+      cachedmap:set(id, value, CACHE_TTL)
+      c:set(key, cachedmap, CACHE_TTL)
+      return red:hset(key, id, value)
+    else
+      local val = lrucache.new(CACHE_SIZE)
+      val:set(id, value, CACHE_TTL)
+      c:set(key, val, CACHE_TTL)
+    end
+  end
+  return call(red.hset, {red, key, id, value})
+end
+
+local function expire(red, key, ttl)
+  if CACHING_ENABLED then
+    local cached = c:get(key)
+    local value = ''
+    if cached ~= nil then -- just put it back in the cache with a ttl
+      value = cached
+    end
+    c:set(key, value, ttl)
+  end
+  return call(red.expire, {red, ttl})
+end
+
+local function del(red, key)
+  if CACHING_ENABLED then
+    c:delete(key)
+  end
+  return call(red.del, {red, key})
+end
+
+local function hdel(red, key, id)
+  if CACHING_ENABLED then
+    local cachecontents = c:get(key)
+    if cachecontents ~= nil then
+      cachecontents:del(id)
+      c:set(key, cachecontents, CACHE_TTL)
+    end
+  end
+  return call(red.hdel, {red, key, id})
+end
+
+local function set(red, key, value)
+  return call(red.set, {red, key, value})
+end
+
+local function smembers(red, key)
+  return call(red.smembers, {red, key})
+end
+
+local function srem(red, key, id)
+  return call(red.srem, {red, key, id})
+end
+
+local function sadd(red, key, id)
+  return call(red.sadd, {red, key, id})
+end
+
 ---------------------------
 ----------- APIs ----------
 ---------------------------
@@ -597,8 +760,8 @@ function _M.optimizeLookup(red, tenant, resourceKey, pathStr)
   if get(red, startingString) == nil then
     set(red, startingString, '')
   end
-  path = {}
-  key = {}
+  local path = {}
+  local key = {}
   for p in string.gmatch(pathStr, '[^/]*') do
     if p ~= '' then
       table.insert(path, p)
@@ -630,169 +793,6 @@ end
 function _M.lockSnapshot(red, snapshotId)
   red:set(utils.concatStrings({'lock:snapshots:', snapshotId}), 'true')
   red:expire(utils.concatStrings({'lock:snapshots:', snapshotId}), 60)
-end
-
--- LRU Caching methods
-
-function exists(red, key, snapshotId)
-  if snapshotId ~= nil then
-    key = utils.concatStrings({'snapshots:', snapshotId, ':', key})
-  end
-  if CACHING_ENABLED then
-    local cached = c:get(key)
-    if cached ~= nil then
-      return 1
-    end
-  -- if it isn't in the cache, try and load it in there
-    if red == nil then
-      red = _M.init()
-    end
-    local result = red:get(key)
-    if result ~= ngx.null then
-      c:set(key, result, CACHE_TTL)
-      return 1, red
-    end
-    return 0
-  else
-    if red == nil then
-      red = _M.init()
-    end
-    return call(red.exists, {red, key}), red
-  end
-end
-
-function get(red, key)
-  if CACHING_ENABLED then
-    local cached, stale = c:get(key)
-    if cached ~= nil then
-      return cached
-    else
-      if red == nil then
-        red = _M.init()
-      end
-      local result = red:get(key)
-      c:set(key, result, CACHE_TTL)
-      return result, red
-    end
-  else
-    if red == nil then
-      red = _M.init()
-    end
-    return call(red.get, {red, key})
-  end
-end
-
-function hget(red, key, id)
-  if CACHING_ENABLED then
-    local cachedmap, stale = c:get(key)
-    if cachedmap ~= nil then
-      local cached = cachedmap:get(id)
-      if cached ~= nil then
-         return cached
-      else
-        if red == nil then
-          red = _M.init()
-        end
-        local result = red:hget(key, id)
-        cachedmap:set(id, result, CACHE_TTL)
-        c:set(key, cachedmap, CACHE_TTL)
-        return result, red
-      end
-    else
-      if red == nil then
-        red = _M.init()
-      end
-      local result = red:hget(key, id)
-      local newcache = lrucache.new(CACHE_SIZE)
-      newcache:set(id, result, CACHE_TTL)
-      c:set(key, newcache, CACHE_TTL)
-      return result, red
-    end
-  else
-    if red == nil then
-      red = _M.init()
-    end
-    return call(red.hget, {red, key, id}), red
-  end
-end
-
-function hgetall(red, key)
-  return call(red.hgetall, {red, key})
-end
-
-function hset(red, key, id, value)
-  if CACHING_ENABLED then
-    local cachedmap = c:get(key)
-    if cachedmap ~= nil then
-      cachedmap:set(id, value, CACHE_TTL)
-      c:set(key, cachedmap, CACHE_TTL)
-      return red:hset(key, id, value)
-    else
-      local val = lrucache.new(CACHE_SIZE)
-      val:set(id, value, CACHE_TTL)
-      c:set(key, val, CACHE_TTL)
-    end
-  end
-  return call(red.hset, {red, key, id, value})
-end
-
-function expire(red, key, ttl)
-  if CACHING_ENABLED then
-    local cached = c:get(key)
-    local value = ''
-    if cached ~= nil then -- just put it back in the cache with a ttl
-      value = cached
-    end
-    c:set(key, value, ttl)
-  end
-  return call(red.expire, {red, ttl})
-end
-
-function del(red, key)
-  if CACHING_ENABLED then
-    c:delete(key)
-  end
-  return call(red.del, {red, key})
-end
-
-function hdel(red, key, id)
-  if CACHING_ENABLED then
-    local cachecontents = c:get(key)
-    if cachecontents ~= nil then
-      cachecontents:del(id)
-      c:set(key, cachecontents, CACHE_TTL)
-    end
-  end
-  return call(red.hdel, {red, key, id})
-end
-
-function set(red, key, value)
-  return call(red.set, {red, key, value})
-end
-
-function smembers(red, key)
-  return call(red.smembers, {red, key})
-end
-
-function srem(red, key, id)
-  return call(red.srem, {red, key, id})
-end
-
-function sadd(red, key, id)
-  return call(red.sadd, {red, key, id})
-end
-
---- Call function with retry logic
--- @param func function to call
--- @param args arguments to pass in to function
-function call(func, args)
-  local res, err = func(unpack(args))
-  local retryCount = REDIS_RETRY_COUNT
-  while not res and retryCount > 0 do
-    res, err = func(unpack(args))
-    retryCount = retryCount - 1
-  end
-  return res, err
 end
 
 _M.get = get
