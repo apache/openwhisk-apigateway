@@ -25,7 +25,6 @@ end
 local url = require "url"
 local utils = require "lib/utils"
 local request = require "lib/request"
-local logger = require "lib/logger"
 -- load policies
 local security = require "policies/security"
 local mapping = require "policies/mapping"
