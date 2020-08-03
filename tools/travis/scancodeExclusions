@@ -1,3 +1,6 @@
 # bundled files under MIT license; exclude from scan
 tests/fakengx.lua
 tests/fakeredis.lua
+tools/travis/platform.sh
+tools/travis/setup_lua.sh
+tools/travis/setenv_lua.sh
