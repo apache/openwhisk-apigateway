@@ -41,6 +41,7 @@ before_install:
   - ./tools/travis/setup.sh
 
 script:
+  - ./tools/lua-releng -L -e scripts/lua/**/*.lua
   - make test
   - ./tools/travis/build.sh
 
