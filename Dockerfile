@@ -250,7 +250,7 @@ RUN echo " ... installing cjose ... " \
 
 ENV CONFIG_SUPERVISOR_VERSION 1.0.1-RC1
 COPY build_config_supervisor.sh /tmp/build_config_supervisor.sh
-RUN sh +x /tmp/build_config_supervisor.sh
+RUN sh +x -e /tmp/build_config_supervisor.sh
 
 # Add standard gateway configuration
 FROM base as apigateway
