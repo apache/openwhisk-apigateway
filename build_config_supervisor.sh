@@ -39,8 +39,12 @@ GOPATH=/tmp/go/vendor:/tmp/go-src CGO_ENABLED=0 GOOS=linux /usr/lib/go/bin/godep
 mv /tmp/go/api-gateway-config-supervisor /usr/local/sbin/
 
 echo "installing rclone sync ... "
-go get github.com/ncw/rclone
-mv /usr/lib/go/bin/rclone /usr/local/sbin/
+mkdir -p /tmp/rclone
+cd /tmp/rclone
+curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip
+unzip rclone-current-linux-amd64.zip
+cd rclone-*-linux-amd64
+mv ./rclone /usr/local/sbin/
 mkdir -p /root/.config/rclone/
 cat <<EOF > /root/.config/rclone/rclone.conf
 [local]
@@ -50,6 +54,7 @@ EOF
 
 echo " cleaning up ... "
 rm -rf /usr/lib/go/bin/src
+rm -rf /tmp/rclone
 rm -rf /tmp/go
 rm -rf /tmp/go-src
 rm -rf /usr/lib/go/bin/pkg/
