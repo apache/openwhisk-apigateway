@@ -16,6 +16,8 @@
 # limitations under the License.
 #
 -->
+## Next Release
+
 ## 1.0.0
   - Fix array handling during mapping operations (#359)
   - Fix getUriPath logic to ignore API tenant base path (#363)
