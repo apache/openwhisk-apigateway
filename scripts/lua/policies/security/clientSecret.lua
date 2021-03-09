@@ -49,7 +49,7 @@ local function validate(dataStore, tenant, gatewayPath, apiId, scope, clientId, 
   end
 end
 
---- In order to properly test this functionallity, I use this function to do all of the business logic with injected dependencies
+--- In order to properly test this functionality, I use this function to do all of the business logic with injected dependencies
 -- Takes 2 headers and decides if the request should be allowed based on a hashed secret key
 -- @param dataStore the datastore object
 -- @param securityObj the security configuration for the tenant/resource/api we are verifying

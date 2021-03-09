@@ -241,7 +241,7 @@ function SharedDict:incr(key, value)
 end
 
 -- NGX Prototype
-local protoype = {
+local prototype = {
 
   -- Log constants
   STDERR = 0,
@@ -303,10 +303,10 @@ local fakengx = {}
 -- Constructor
 function fakengx.new()
   local ngx = {}
-  for k, v in pairs(protoype) do
+  for k, v in pairs(prototype) do
     ngx[k] = v
   end
-  setmetatable(ngx, getmetatable(protoype))
+  setmetatable(ngx, getmetatable(prototype))
 
   -- Create namespaces
   ngx.req       = {}

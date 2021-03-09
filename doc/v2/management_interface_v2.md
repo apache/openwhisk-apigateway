@@ -168,7 +168,7 @@ Update an existing managed API.
 
 * `tenant_id`: *(string) the tenant associated with this API
 * `artifact_id`: *(string) the id associated with this API
-* The body is a JSON object that represents this API's [OpenAPI 2.0 spec](http://swagger.io/specification/), as decribed above
+* The body is a JSON object that represents this API's [OpenAPI 2.0 spec](http://swagger.io/specification/), as described above
 
 _returns:_
 

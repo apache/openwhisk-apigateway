@@ -165,7 +165,7 @@ describe('Testing Redis module', function()
     assert.are.same(expected, generated)
   end)
 
-  it('shoud create an API Key subscription', function()
+  it('should create an API Key subscription', function()
     local key = 'subscriptions:test:apikey'
     local ds = require "lib/dataStore"
     local dataStore = ds.initWithDriver(red)

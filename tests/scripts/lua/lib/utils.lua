@@ -34,14 +34,14 @@ describe('Testing utils module', function()
       test = true
     }
     local serialized = utils.serializeTable(expected)
-    loadstring('generated = ' .. serialized)() -- convert serialzed string to lua table
+    loadstring('generated = ' .. serialized)() -- convert serialized string to lua table
     assert.are.same(expected, generated)
   end)
 
   it('should serialize an empty table', function()
     local expected = {}
     local serialized = utils.serializeTable(expected)
-    loadstring('generated = ' .. serialized)() -- convert serialzed string to lua table
+    loadstring('generated = ' .. serialized)() -- convert serialized string to lua table
     assert.are.same(expected, generated)
   end)
 
@@ -53,7 +53,7 @@ describe('Testing utils module', function()
       test2 = true
     }
     local serialized = utils.serializeTable(expected)
-    loadstring('generated = ' .. serialized)() -- convert serialzed string to lua table
+    loadstring('generated = ' .. serialized)() -- convert serialized string to lua table
     assert.are.same(expected, generated)
   end)
 end)
