@@ -27,7 +27,7 @@ local utils = require "lib/utils"
 local function process(dataStore, securityObj)
   local ok, result = pcall(require, utils.concatStrings({'policies/security/', securityObj.type}))
   if not ok then
-    ngx.log(ngx.ERR, 'An unexpected error ocurred while processing the security policy: ' .. securityObj.type)
+    ngx.log(ngx.ERR, 'An unexpected error occurred while processing the security policy: ' .. securityObj.type)
     request.err(500, 'Gateway error.')
   end
   return result.process(dataStore, securityObj)

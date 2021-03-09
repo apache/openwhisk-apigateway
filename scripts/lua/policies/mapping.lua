@@ -226,7 +226,7 @@ local function finalize()
 end
 
 --- Implementation for the mapping policy.
--- @param map The mapping object that contains details about request tranformations
+-- @param map The mapping object that contains details about request transformations
 local function processMap(map)
   getRequestParams()
   for _, v in pairs(map) do

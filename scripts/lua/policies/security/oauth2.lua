@@ -27,7 +27,7 @@ local _M = {}
 -- @param dataStore the datastore object
 -- @param token the accessToken passed in the authorization header of the routing request
 -- @param provider the name of the provider we will load from a file. Currently supported google/github/facebook
--- @return the json object recieved from exchanging tokens with the provider
+-- @return the json object received from exchanging tokens with the provider
 local function exchange(dataStore, token, provider, securityObj)
   -- exchange tokens with the provider
   local loaded, impl = pcall(require, utils.concatStrings({'oauth/', provider}))

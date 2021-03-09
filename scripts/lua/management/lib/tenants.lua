@@ -124,7 +124,7 @@ local function applyPagingToAPIs(apiList, queryParams)
   return apis_obj
 end
 
---- Filter apis based on query paramters
+--- Filter apis based on query parameters
 -- @param queryParams query parameters to filter apis
 local function filterTenantAPIs(id, apis_obj, queryParams)
   local basePath = queryParams['filter[where][basePath]']
