@@ -19,7 +19,7 @@
 
 OpenWhisk API Gateway
 =============
-[![Build Status](https://travis-ci.com/apache/openwhisk-apigateway.svg?branch=master)](https://travis-ci.com/apache/openwhisk-apigateway)
+[![Build Status](https://travis-ci.com/apache/openwhisk-apigateway.svg?branch=master)](https://travis-ci.com/github/apache/openwhisk-apigateway)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0)
 
 A performant API Gateway based on Openresty and NGINX.
