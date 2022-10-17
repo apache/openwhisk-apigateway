@@ -32,7 +32,7 @@ RUN apk update && \
     apk add \
     gcc tar libtool zlib perl tzdata \
     ca-certificates wget make musl-dev openssl-dev openssl pcre-dev g++ zlib-dev curl python \
-    perl-test-longstring perl-list-moreutils perl-http-message geoip-dev dumb-init jq \
+    perl-test-longstring perl-list-moreutils perl-http-message geoip-dev dumb-init jq nginx \
     && update-ca-certificates \
     && rm -rf /var/cache/apk/*
 
@@ -41,6 +41,7 @@ ENV OPENRESTY_VERSION=1.17.8.2 \
     PCRE_VERSION=8.37 \
     TEST_NGINX_VERSION=0.24 \
     OPM_VERSION=0.0.5 \
+    LUA_RESTY_CORE_VERSION=0.1.12 \
     LUA_RESTY_HTTP_VERSION=0.10 \
     LUA_RESTY_IPUTILS_VERSION=0.2.1 \
     LUA_RESTY_STRING_VERSION=0.09 \
@@ -55,7 +56,7 @@ ENV OPENRESTY_VERSION=1.17.8.2 \
     _sysconfdir=/etc \
     _sbindir=/usr/local/sbin
 
-RUN  if [ x`uname -m` = xs390x ]; then \
+RUN  if [ x`uname -m` = s390x ]; then \
          echo "Building LuaJIT for s390x" \
 	 && mkdir -p /tmp/luajit \
 	 && cd /tmp/luajit \
@@ -67,7 +68,7 @@ RUN  if [ x`uname -m` = xs390x ]; then \
 	 && rm -rf /tmp/luajit \
      ; fi
 
-RUN  if [ x`uname -m` = xppc64le ]; then \
+RUN  if [ x`uname -m` = aarch64 ]; then \
          echo "Building LuaJIT for ppc64le" \
          && mkdir /tmp/luajit  \
          && cd /tmp/luajit \
@@ -83,7 +84,7 @@ RUN  echo " ... adding Openresty, NGINX and PCRE" \
      && readonly NPROC=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1) \
      && echo "using up to $NPROC threads" \
      && cd /tmp/api-gateway/ \
-     && curl -k -L https://ftp.pcre.org/pub/pcre/pcre-${PCRE_VERSION}.tar.gz -o /tmp/api-gateway/pcre-${PCRE_VERSION}.tar.gz \
+     && curl -k -L https://jztkft.dl.sourceforge.net/project/pcre/pcre/8.37/pcre-8.37.tar.gz -o /tmp/api-gateway/pcre-${PCRE_VERSION}.tar.gz \
      && curl -k -L https://openresty.org/download/openresty-${OPENRESTY_VERSION}.tar.gz -o /tmp/api-gateway/openresty-${OPENRESTY_VERSION}.tar.gz \
      && tar -zxf ./openresty-${OPENRESTY_VERSION}.tar.gz \
      && tar -zxf ./pcre-${PCRE_VERSION}.tar.gz \
@@ -92,15 +93,6 @@ RUN  echo " ... adding Openresty, NGINX and PCRE" \
         aarch64) \
           luajitdir="" \
           pcrejit="--with-pcre-jit" \
-          ; echo " ... Patching ngx_lua and LuaJIT modules for ARM64 ... " \
-          && rm -rf ./bundle/ngx_lua-* \
-          && curl -k -L https://github.com/openresty/lua-nginx-module/archive/v0.10.14rc3.tar.gz \
-            | tar -zxf - -C ./bundle \
-          && mv ./bundle/lua-nginx-module-0.10.14rc3 ./bundle/ngx_lua-0.10.14rc3 \
-          && rm -rf ./bundle/LuaJIT-* \
-          && curl -k -L https://github.com/openresty/luajit2/archive/v2.1-20181029.tar.gz \
-            | tar -zxf - -C ./bundle \
-          && mv ./bundle/luajit2-2.1-20181029 ./bundle/LuaJIT-2.2.1-20181029 \
           ;; \
         s390x) \
           luajitdir="=/usr/local/" \
@@ -206,7 +198,6 @@ RUN  echo " ... adding Openresty, NGINX and PCRE" \
     && apk del g++ gcc make \
     && rm -rf /var/cache/apk/* \
     && rm -rf /tmp/api-gateway
-
 RUN echo " ... installing opm..." \
     && mkdir -p /tmp/api-gateway \
     && curl -k -L https://github.com/openresty/opm/archive/v${OPM_VERSION}.tar.gz -o /tmp/api-gateway/opm-${OPM_VERSION}.tar.gz \
