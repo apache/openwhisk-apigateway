@@ -41,7 +41,6 @@ ENV OPENRESTY_VERSION=1.17.8.2 \
     PCRE_VERSION=8.37 \
     TEST_NGINX_VERSION=0.24 \
     OPM_VERSION=0.0.5 \
-    LUA_RESTY_CORE_VERSION=0.1.12 \
     LUA_RESTY_HTTP_VERSION=0.10 \
     LUA_RESTY_IPUTILS_VERSION=0.2.1 \
     LUA_RESTY_STRING_VERSION=0.09 \
@@ -56,7 +55,7 @@ ENV OPENRESTY_VERSION=1.17.8.2 \
     _sysconfdir=/etc \
     _sbindir=/usr/local/sbin
 
-RUN  if [ x`uname -m` = s390x ]; then \
+RUN  if [ x`uname -m` = xs390x ]; then \
          echo "Building LuaJIT for s390x" \
 	 && mkdir -p /tmp/luajit \
 	 && cd /tmp/luajit \
@@ -68,7 +67,7 @@ RUN  if [ x`uname -m` = s390x ]; then \
 	 && rm -rf /tmp/luajit \
      ; fi
 
-RUN  if [ x`uname -m` = aarch64 ]; then \
+RUN  if [ x`uname -m` = xppc64le ]; then \
          echo "Building LuaJIT for ppc64le" \
          && mkdir /tmp/luajit  \
          && cd /tmp/luajit \
