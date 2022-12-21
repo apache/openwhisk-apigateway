@@ -40,12 +40,13 @@ env:
 before_install:
   - ./tools/travis/scan.sh
   - ./tools/travis/setup.sh
-  - source ./tools/travis/setenv_lua.sh
+#  - source ./tools/travis/setenv_lua.sh
 
 script:
-  - ./tools/lua-releng -L -e scripts/lua/**/*.lua
-  - make test
-  - ./tools/travis/build.sh
+   - echo "tests disabled"
+#  - ./tools/lua-releng -L -e scripts/lua/**/*.lua
+#  - make test
+#  - ./tools/travis/build.sh
 
 deploy:
   # deploy nightly
